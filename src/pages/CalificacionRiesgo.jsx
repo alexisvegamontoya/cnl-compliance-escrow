@@ -5,6 +5,7 @@ import {
   CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
   calcularScoreFactor, calcularScoreTotal, clasificar,
+  ACTIVIDADES_PROFESIONES, CANTONES_CR, PROVINCIAS_CR,
 } from '../lib/metodologiaRiesgo'
 
 // ------------------------------------
@@ -43,6 +44,106 @@ function ScoreBar({ score, max = 3 }) {
 function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = false, esONG = false }) {
   function renderSelect(criterio) {
     let opciones = OPCIONES[criterio.key] || OPCIONES['pais_riesgo']
+
+    // ── Actividad económica / profesión: dropdown de 152 actividades agrupadas ──
+    if (['actividad_eco', 'profesion'].includes(criterio.key)) {
+      const selNombre = respuestas[criterio.key + '_nombre'] || ''
+      const selValor  = respuestas[criterio.key] || ''
+      return (
+        <div key={criterio.key} className="space-y-1">
+          <label className="text-sm text-gray-600">
+            {criterio.label} <span className="text-gray-400">({(criterio.peso * 100).toFixed(0)}%)</span>
+          </label>
+          <select
+            className="input-field text-sm"
+            value={selNombre}
+            onChange={e => {
+              const nombre = e.target.value
+              const act = ACTIVIDADES_PROFESIONES.find(a => a.label === nombre)
+              onChange(criterio.key + '_nombre', nombre)
+              onChange(criterio.key, act ? act.valor : '')
+            }}
+          >
+            <option value="">— Seleccione actividad —</option>
+            <optgroup label="🔴 Alto riesgo">
+              {ACTIVIDADES_PROFESIONES.filter(a => a.valor === 3).map(a => (
+                <option key={a.label} value={a.label}>{a.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="🟡 Riesgo medio">
+              {ACTIVIDADES_PROFESIONES.filter(a => a.valor === 2).map(a => (
+                <option key={a.label} value={a.label}>{a.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="🟢 Bajo riesgo">
+              {ACTIVIDADES_PROFESIONES.filter(a => a.valor === 1).map(a => (
+                <option key={a.label} value={a.label}>{a.label}</option>
+              ))}
+            </optgroup>
+          </select>
+          {selValor && (
+            <div className="flex items-center gap-2">
+              <div className="w-full bg-gray-100 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full ${selValor <= 1 ? 'bg-green-400' : selValor <= 2 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                  style={{ width: `${(selValor / 3) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs text-gray-400 w-8">{selValor}</span>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // ── Operación nacional: selector provincia + cantón ────────────────────────
+    if (criterio.key === 'op_nacional') {
+      const selProvincia = respuestas['op_nacional_provincia'] || ''
+      const selCanton    = respuestas['op_nacional_canton']    || ''
+      const cantonesProv = CANTONES_CR.filter(c => c.provincia === selProvincia)
+      const cantonObj    = CANTONES_CR.find(c => c.canton === selCanton)
+      return (
+        <div key={criterio.key} className="space-y-1">
+          <label className="text-sm text-gray-600">
+            {criterio.label} <span className="text-gray-400">({(criterio.peso * 100).toFixed(0)}%)</span>
+          </label>
+          <select
+            className="input-field text-sm"
+            value={selProvincia}
+            onChange={e => {
+              onChange('op_nacional_provincia', e.target.value)
+              onChange('op_nacional_canton', '')
+              onChange('op_nacional', '')
+            }}
+          >
+            <option value="">— Seleccione provincia —</option>
+            {PROVINCIAS_CR.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          {selProvincia && (
+            <select
+              className="input-field text-sm"
+              value={selCanton}
+              onChange={e => {
+                const canton = e.target.value
+                const obj = CANTONES_CR.find(c => c.canton === canton)
+                onChange('op_nacional_canton', canton)
+                onChange('op_nacional', obj ? obj.valor : '')
+              }}
+            >
+              <option value="">— Seleccione cantón —</option>
+              {cantonesProv.map(c => (
+                <option key={c.canton} value={c.canton}>{c.canton}</option>
+              ))}
+            </select>
+          )}
+          {cantonObj && (
+            <p className={`text-xs font-medium ${cantonObj.valor === 1 ? 'text-green-600' : cantonObj.valor === 2 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {cantonObj.valor === 1 ? '🟢 Bajo riesgo' : cantonObj.valor === 2 ? '🟡 Riesgo medio' : '🔴 Alto riesgo'} — {selCanton}
+            </p>
+          )}
+        </div>
+      )
+    }
 
     // Para criterios geográficos de país: mostrar lista de países
     if (esGeo && ['pais_origen', 'residencia', 'ubicacion_geo', 'casa_matriz'].includes(criterio.key)) {
@@ -240,6 +341,132 @@ function ListasSancionesPanel({ nivel, resultado, loading }) {
     <div className="p-2.5 bg-green-50 border border-green-200 rounded-lg">
       <p className="font-medium text-green-700 text-sm">✅ Sin coincidencias en listas ALA/CFT</p>
       <p className="text-green-600 text-xs mt-0.5">OFAC · ONU · UK OFSI · INTERPOL · ICD CR PEP · GAFI · GAFILAT</p>
+    </div>
+  )
+}
+
+// ------------------------------------
+// Reporte imprimible (solo visible en @media print)
+// ------------------------------------
+function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, fecha }) {
+  if (!clienteActual) return null
+  const nivelColor = calificacionFinal === 'alto' ? '#dc2626' : calificacionFinal === 'medio' ? '#d97706' : '#16a34a'
+  const nivelBg    = calificacionFinal === 'alto' ? '#fef2f2' : calificacionFinal === 'medio' ? '#fffbeb' : '#f0fdf4'
+
+  return (
+    <div id="reporte-cal" style={{ display: 'none', fontFamily: 'Arial, sans-serif', padding: '24px', color: '#111', maxWidth: '800px' }}>
+      {/* Encabezado */}
+      <div style={{ borderBottom: '3px solid #0e0e6e', paddingBottom: '10px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0e0e6e' }}>CNL CRANILEY COMPLIANCE</div>
+          <div style={{ fontSize: '13px', color: '#374151', marginTop: '2px' }}>Calificación de Riesgo de Cliente — ALA/CFT/FPADM</div>
+        </div>
+        <div style={{ fontSize: '10px', color: '#6b7280', textAlign: 'right' }}>
+          <div>Fecha: {fecha}</div>
+          <div>Metodología N06 · Acuerdo SUGEF 13-19</div>
+        </div>
+      </div>
+
+      {/* Datos del cliente */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px', fontSize: '11px' }}>
+        <tbody>
+          <tr>
+            <td style={{ color: '#6b7280', width: '110px', padding: '2px 0' }}>Cliente:</td>
+            <td style={{ fontWeight: 'bold', padding: '2px 8px 2px 0' }}>{nombreCliente}</td>
+            <td style={{ color: '#6b7280', width: '110px', padding: '2px 0' }}>Identificación:</td>
+            <td style={{ padding: '2px 0' }}>{clienteActual?.numero_identificacion || '—'}</td>
+          </tr>
+          <tr>
+            <td style={{ color: '#6b7280', padding: '2px 0' }}>Tipo persona:</td>
+            <td style={{ padding: '2px 8px 2px 0' }}>{tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'}</td>
+            <td style={{ color: '#6b7280', padding: '2px 0' }}>Score total:</td>
+            <td style={{ fontWeight: 'bold', fontFamily: 'monospace', padding: '2px 0' }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Resultado */}
+      <div style={{ border: `2px solid ${nivelColor}`, borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', backgroundColor: nivelBg }}>
+        <div style={{ fontWeight: 'bold', fontSize: '17px', color: nivelColor }}>
+          CALIFICACIÓN: {(calificacionFinal || '').toUpperCase()}
+        </div>
+        {calificacionManual && calificacionManual !== calificacionAuto && (
+          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '3px' }}>
+            Calificación automática: {(calificacionAuto || '').toUpperCase()} — Ajustada manualmente por el oficial de cumplimiento
+          </div>
+        )}
+        {listasNivel === 'COINCIDENCIA' && (
+          <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 'bold', marginTop: '4px' }}>
+            ⚠ ALERTA: Cliente identificado en listas internacionales de sanciones ALA/CFT — DDC reforzada requerida (Art. 24 SUGEF 13-19)
+          </div>
+        )}
+        {listasNivel === 'REVISAR' && (
+          <div style={{ fontSize: '10px', color: '#d97706', marginTop: '4px' }}>
+            ⚠ REVISAR: Posible coincidencia en listas internacionales — verificar manualmente
+          </div>
+        )}
+        {listasNivel === 'SIN_COINCIDENCIA' && (
+          <div style={{ fontSize: '10px', color: '#16a34a', marginTop: '4px' }}>
+            ✓ Sin coincidencias en listas ALA/CFT (OFAC · ONU · INTERPOL · ICD CR PEP · GAFI · GAFILAT)
+          </div>
+        )}
+      </div>
+
+      {/* Score por factor */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '11px' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#0e0e6e', color: 'white' }}>
+            <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>Factor de riesgo</th>
+            <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Score</th>
+            <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Peso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[
+            { label: 'Factor Cliente',           score: scoreCli,  peso: tipoPersona === 'fisica' ? '60%' : '50%' },
+            { label: 'Zona Geográfica',          score: scoreGeo,  peso: tipoPersona === 'fisica' ? '40%' : '15%' },
+            { label: 'Productos / Servicios',    score: scoreProd, peso: tipoPersona === 'fisica' ? 'N/A' : '20%' },
+            { label: 'Canales de Distribución',  score: scoreCan,  peso: tipoPersona === 'fisica' ? 'N/A' : '15%' },
+          ].map((f, i) => (
+            <tr key={f.label} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
+              <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb' }}>{f.label}</td>
+              <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace' }}>{f.score != null ? f.score.toFixed(3) : '—'}</td>
+              <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>{f.peso}</td>
+            </tr>
+          ))}
+          <tr style={{ backgroundColor: '#e0e7ff', fontWeight: 'bold' }}>
+            <td style={{ padding: '5px 8px' }}>Score Consolidado</td>
+            <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace' }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
+            <td style={{ padding: '5px 8px', textAlign: 'center' }}>—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Observaciones */}
+      {observaciones && (
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '5px', padding: '8px 12px', marginBottom: '14px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#374151', marginBottom: '3px' }}>Observaciones del oficial de cumplimiento:</div>
+          <div style={{ fontSize: '11px', color: '#4b5563' }}>{observaciones}</div>
+        </div>
+      )}
+
+      {/* Referencias */}
+      <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '8px', marginTop: '8px' }}>
+        <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>
+          Referencias y fuentes metodológicas
+        </div>
+        <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0, lineHeight: '1.7' }}>
+          <strong>Metodología:</strong> Metodología N06 — Evaluación de Riesgo ALA/CFT/FPADM. Acuerdo SUGEF 13-19, Art. 5–10. &nbsp;|&nbsp;
+          <strong>Riesgo por país:</strong> Basel AML Index 2023, Basel Institute on Governance. &nbsp;|&nbsp;
+          <strong>Riesgo cantonal:</strong> SUGEF — Informe de Riesgo por Provincia y Cantón de Costa Rica (RIESGO_PROVINCIA_CANTON_AL_2025). &nbsp;|&nbsp;
+          <strong>Actividades y profesiones:</strong> Clasificación de actividades económicas ALA/CFT — Metodología N06. &nbsp;|&nbsp;
+          <strong>Verificación de listas:</strong> OFAC SDN, ONU, UK OFSI, INTERPOL, GAFI/FATF, GAFILAT, Lista PEP UIF–ICD Costa Rica (corte 08/04/2026). &nbsp;|&nbsp;
+          <strong>Marco legal:</strong> Ley 7786 (CONASSEP), Acuerdo SUGEF 13-19, Recomendaciones GAFI 2012 (rev. 2023).
+        </p>
+        <p style={{ fontSize: '8.5px', color: '#d1d5db', margin: '5px 0 0', textAlign: 'right' }}>
+          Generado por CNL Craniley Compliance · www.cnl-cr.com · {fecha}
+        </p>
+      </div>
     </div>
   )
 }
@@ -672,6 +899,13 @@ export default function CalificacionRiesgo() {
                     className="btn-primary w-full">
                     {saving ? 'Guardando…' : '💾 Guardar calificación'}
                   </button>
+                  <button
+                    onClick={() => window.print()}
+                    disabled={!clienteId || !calificacionFinal}
+                    className="w-full text-sm py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
+                  >
+                    🖨 Imprimir calificación
+                  </button>
                 </div>
               </div>
             )}
@@ -740,6 +974,36 @@ export default function CalificacionRiesgo() {
           </div>
         </div>
       )}
+
+      {/* ── Print CSS + reporte imprimible ──────────────────────────────── */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #reporte-cal, #reporte-cal * { visibility: visible; }
+          #reporte-cal {
+            display: block !important;
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
+      <ReporteImprimible
+        clienteActual={clienteActual}
+        nombreCliente={nombreCliente}
+        tipoPersona={tipoPersona}
+        calificacionFinal={calificacionFinal}
+        calificacionAuto={calificacionAuto}
+        calificacionManual={calificacionManual}
+        scoreTotal={scoreTotal}
+        scoreCli={scoreCli}
+        scoreGeo={scoreGeo}
+        scoreProd={scoreProd}
+        scoreCan={scoreCan}
+        observaciones={observaciones}
+        listasNivel={listasNivel}
+        fecha={new Date().toLocaleDateString('es-CR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+      />
     </div>
   )
 }

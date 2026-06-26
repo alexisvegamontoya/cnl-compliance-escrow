@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 
@@ -117,15 +116,9 @@ export default function Dashboard() {
   const [filtro,       setFiltro]       = useState('todos')
   const [busqueda,     setBusqueda]     = useState('')
   const [syncError,    setSyncError]    = useState('')
-  const [stats, setStats] = useState({ total: 0, pendientes: 0, enviados: 0, clientes: 0 })
-
   useEffect(() => {
     cargarFeed()
   }, [])
-
-  useEffect(() => {
-    if (tenant) cargarStats()
-  }, [tenant])
 
   // ── Cargar feed desde Supabase ─────────────────────────────────────────────
   async function cargarFeed() {
@@ -145,37 +138,6 @@ export default function Dashboard() {
       if (data.length > 0) setUltimaSync(data[0].fecha_ingreso)
     }
     setLoadingFeed(false)
-  }
-
-  // ── Estadísticas SICVECA del mes ───────────────────────────────────────────
-  async function cargarStats() {
-    if (!tenant?.id) return
-    const hoy    = new Date()
-    const mes    = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`
-    const desde  = mes + '-01'
-    const hasta  = mes + '-31'
-
-    const [{ data: txns }, { count: totalClientes }] = await Promise.all([
-      supabase
-        .from('transacciones')
-        .select('enviado_sugef')
-        .eq('tenant_id', tenant.id)
-        .gte('periodo', desde)
-        .lte('periodo', hasta),
-      supabase
-        .from('clientes')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenant.id),
-    ])
-
-    if (txns) {
-      setStats({
-        total:      txns.length,
-        pendientes: txns.filter(r => !r.enviado_sugef).length,
-        enviados:   txns.filter(r =>  r.enviado_sugef).length,
-        clientes:   totalClientes || 0,
-      })
-    }
   }
 
   // ── Sincronizar manualmente ────────────────────────────────────────────────
@@ -299,40 +261,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── SICVECA QUICK STATS ────────────────────────────────────────────── */}
-      {tenant && (
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
-            SICVECA — mes actual
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { icon: '💰', label: 'Transacciones', value: stats.total,      sub: 'en el período', to: '/transacciones', warn: false },
-              { icon: '⏳', label: 'Pendientes',    value: stats.pendientes,  sub: 'por enviar a SUGEF', to: '/xml', warn: stats.pendientes > 0 },
-              { icon: '✅', label: 'Enviadas',       value: stats.enviados,   sub: 'confirmadas a SUGEF', to: '/xml', warn: false },
-              { icon: '👤', label: 'Clientes',       value: stats.clientes,   sub: 'en la base',  to: '/clientes', warn: false },
-            ].map(c => (
-              <Link
-                key={c.to + c.label}
-                to={c.to}
-                className={`rounded-xl border p-3 flex items-center gap-3 hover:shadow-sm transition-shadow ${
-                  c.warn
-                    ? 'bg-amber-50 border-amber-200 hover:border-amber-300'
-                    : 'bg-white border-gray-200'
-                }`}
-              >
-                <span className="text-2xl flex-shrink-0">{c.icon}</span>
-                <div className="min-w-0">
-                  <p className={`text-xl font-bold ${c.warn ? 'text-amber-700' : 'text-gray-900'}`}>
-                    {c.value}
-                  </p>
-                  <p className="text-xs text-gray-500 leading-tight truncate">{c.label}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── FEED ──────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
