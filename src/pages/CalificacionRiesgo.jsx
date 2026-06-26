@@ -174,6 +174,77 @@ function HistorialCalificaciones({ clienteId }) {
 }
 
 // ------------------------------------
+// Helpers listas ALA/CFT
+// ------------------------------------
+function calcNivelListas(data) {
+  if (!data?.length) return 'SIN_COINCIDENCIA'
+  const max = Math.max(...data.map(r => r.similitud || 0))
+  if (max >= 0.85) return 'COINCIDENCIA'
+  if (max >= 0.65) return 'REVISAR'
+  return 'SIN_COINCIDENCIA'
+}
+
+const FUENTES_LABEL = {
+  OFAC_SDN:   'OFAC SDN',
+  OFAC_CONS:  'OFAC Consolidated',
+  ONU:        'ONU',
+  UK_OFSI:    'UK OFSI',
+  INTERPOL:   'INTERPOL',
+  GAFI_NEGRO: 'GAFI Lista Negra',
+  GAFI_GRIS:  'GAFI Lista Gris',
+  GAFILAT:    'GAFILAT',
+  ICD_CR_PEP: 'ICD CR PEP',
+}
+
+function ListasSancionesPanel({ nivel, resultado, loading }) {
+  if (loading) return (
+    <div className="flex items-center gap-2 p-2 text-sm text-gray-400">
+      <span className="animate-spin inline-block">⏳</span> Consultando listas ALA/CFT…
+    </div>
+  )
+  if (!nivel) return null
+
+  const fuentesMatch = [...new Set((resultado || []).map(r => r.fuente))]
+  const maxSim = resultado?.length ? Math.max(...resultado.map(r => r.similitud || 0)) : 0
+
+  if (nivel === 'COINCIDENCIA') return (
+    <div className="p-3 bg-red-50 border border-red-300 rounded-lg space-y-1.5">
+      <p className="font-semibold text-red-700 text-sm">🚨 ALERTA: Figura en listas de sanciones</p>
+      <p className="text-red-600 text-xs">Similitud máx: {(maxSim * 100).toFixed(0)}% — Calificación elevada a ALTO</p>
+      <div className="flex flex-wrap gap-1">
+        {fuentesMatch.map(f => (
+          <span key={f} className="px-1.5 py-0.5 bg-red-100 text-red-800 text-xs rounded border border-red-200 font-medium">
+            {FUENTES_LABEL[f] || f}
+          </span>
+        ))}
+      </div>
+      <p className="text-xs text-red-500">Requiere DDC reforzada — Art. 24 Acuerdo SUGEF 13-19. Verifique en módulo PEP/Listas.</p>
+    </div>
+  )
+
+  if (nivel === 'REVISAR') return (
+    <div className="p-3 bg-orange-50 border border-orange-300 rounded-lg space-y-1.5">
+      <p className="font-semibold text-orange-700 text-sm">⚠️ REVISAR: Posible coincidencia en listas</p>
+      <p className="text-orange-600 text-xs">Similitud máx: {(maxSim * 100).toFixed(0)}% — Verifique manualmente</p>
+      <div className="flex flex-wrap gap-1">
+        {fuentesMatch.map(f => (
+          <span key={f} className="px-1.5 py-0.5 bg-orange-100 text-orange-800 text-xs rounded border border-orange-200 font-medium">
+            {FUENTES_LABEL[f] || f}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="p-2.5 bg-green-50 border border-green-200 rounded-lg">
+      <p className="font-medium text-green-700 text-sm">✅ Sin coincidencias en listas ALA/CFT</p>
+      <p className="text-green-600 text-xs mt-0.5">OFAC · ONU · UK OFSI · INTERPOL · ICD CR PEP · GAFI · GAFILAT</p>
+    </div>
+  )
+}
+
+// ------------------------------------
 // PÁGINA PRINCIPAL
 // ------------------------------------
 export default function CalificacionRiesgo() {
@@ -201,6 +272,11 @@ export default function CalificacionRiesgo() {
   // Override y notas
   const [calificacionManual, setCalificacionManual] = useState('')
   const [observaciones, setObservaciones] = useState('')
+
+  // Listas ALA/CFT
+  const [listasResult, setListasResult] = useState(null)
+  const [listasLoading, setListasLoading] = useState(false)
+  const [listasNivel, setListasNivel] = useState(null)
 
   // Dashboard stats
   const [stats, setStats] = useState(null)
@@ -288,6 +364,32 @@ export default function CalificacionRiesgo() {
     setRespCanales({})
     setCalificacionManual('')
     setObservaciones('')
+
+    // Consultar listas ALA/CFT automáticamente
+    setListasResult(null)
+    setListasNivel(null)
+    const nomBuscar = c?.nombre_empresa || `${c?.nombre_cliente || ''} ${c?.primer_apellido || ''}`.trim()
+    if (nomBuscar) {
+      setListasLoading(true)
+      supabase.rpc('buscar_en_listas', {
+        p_nombre:         nomBuscar,
+        p_identificacion: c?.numero_identificacion || null,
+        p_pais:           null,
+        p_limite:         50,
+      }).then(({ data, error }) => {
+        if (!error && data) {
+          setListasResult(data)
+          const nivel = calcNivelListas(data)
+          setListasNivel(nivel)
+          // Si hay coincidencia real, elevar calificación a ALTO automáticamente
+          if (nivel === 'COINCIDENCIA') {
+            setCalificacionManual('alto')
+            setObservaciones('⚠️ Cliente figura en listas internacionales de sanciones. Requiere DDC reforzada — Art. 24 Acuerdo SUGEF 13-19.')
+          }
+        }
+        setListasLoading(false)
+      })
+    }
   }
 
   function setRespF(setFn, key, val) { setFn(prev => ({ ...prev, [key]: val })) }
@@ -494,6 +596,17 @@ export default function CalificacionRiesgo() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Panel listas ALA/CFT */}
+              {clienteActual && (
+                <div className="mt-3">
+                  <ListasSancionesPanel
+                    nivel={listasNivel}
+                    resultado={listasResult}
+                    loading={listasLoading}
+                  />
                 </div>
               )}
             </div>

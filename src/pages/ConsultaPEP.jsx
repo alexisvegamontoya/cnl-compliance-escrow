@@ -43,7 +43,7 @@ function calcularNivelRiesgo(resultados) {
 }
 
 // ── Componente Reporte Imprimible ─────────────────────────────────────────────
-function Reporte({ consulta, resultados, nivelRiesgo, metadata, onClose, resultadosCR, pepDeclaracion }) {
+function Reporte({ consulta, resultados, allResultados, nivelRiesgo, metadata, onClose, pepDeclaracion }) {
   const { tenant, profile } = useAuth()
 
   const fuentesConsultadas = TODAS_LAS_FUENTES
@@ -233,68 +233,72 @@ function Reporte({ consulta, resultados, nivelRiesgo, metadata, onClose, resulta
           </div>
         )}
 
-        {/* Verificación fuentes públicas CR */}
-        <div className="border border-blue-200 rounded-xl overflow-hidden">
-          <div className="bg-blue-700 text-white px-5 py-3 flex items-center gap-2">
-            <span>🇨🇷</span>
-            <p className="font-bold text-sm">Verificación en Fuentes Públicas — Costa Rica</p>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {[
-              { id: 'cgr',      label: 'CGR — Registro de Sanciones', icon: '⚖️' },
-              { id: 'judicial', label: 'Poder Judicial',               icon: '🏛️' },
-              { id: 'asamblea', label: 'Asamblea Legislativa',         icon: '🏢' },
-              { id: 'noticias', label: 'Noticias CR (Google News)',    icon: '📰' },
-            ].map(f => {
-              const res = resultadosCR?.[f.id]
-              return (
-                <div key={f.id} className="flex items-center justify-between px-5 py-3">
-                  <span className="text-sm text-gray-700">{f.icon} {f.label}</span>
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                    res === 'limpio'     ? 'bg-green-100 text-green-700' :
-                    res === 'encontrado' ? 'bg-red-100 text-red-700' :
-                                          'bg-gray-100 text-gray-500'
-                  }`}>
-                    {res === 'limpio' ? '✓ Sin hallazgos' : res === 'encontrado' ? '⚠ Hallazgo registrado' : '— No verificado'}
-                  </span>
+        {/* Declaración PEP + resultado Lista UIF/ICD */}
+        {(() => {
+          const uifMatches = (allResultados || []).filter(r => r.fuente === 'ICD_CR_PEP' && r.similitud >= 0.50)
+          const enListaUIF = uifMatches.length > 0
+          const mejorMatch = uifMatches.sort((a, b) => b.similitud - a.similitud)[0]
+          return (
+            <div className="border border-amber-200 rounded-xl overflow-hidden">
+              <div className="bg-amber-600 text-white px-5 py-3">
+                <p className="font-bold text-sm">🏛️ Personas Expuestas Políticamente (PEP)</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {/* Resultado Lista UIF/ICD */}
+                <div className="px-5 py-4 space-y-2">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Verificación en Lista Oficial UIF — ICD</p>
+                  <div className={`flex items-center justify-between rounded-lg px-4 py-3 ${enListaUIF ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                    <div className="flex-1">
+                      <p className={`font-bold text-sm ${enListaUIF ? 'text-red-700' : 'text-green-700'}`}>
+                        {enListaUIF ? '🚨 FIGURA EN LISTA PEP OFICIAL' : '✅ NO figura en Lista PEP oficial'}
+                      </p>
+                      {enListaUIF && mejorMatch && (
+                        <div className="text-xs text-red-600 mt-1 space-y-0.5">
+                          <p><strong>Nombre en lista:</strong> {mejorMatch.nombre_completo}</p>
+                          {mejorMatch.programa && <p><strong>Cargo/Institución:</strong> {mejorMatch.programa}</p>}
+                          <p><strong>Similitud:</strong> {(mejorMatch.similitud * 100).toFixed(0)}%</p>
+                        </div>
+                      )}
+                    </div>
+                    <span className={`ml-3 text-xs font-bold px-3 py-1 rounded-full ${enListaUIF ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                      {enListaUIF ? 'PEP DETECTADO' : 'Sin coincidencia'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Fuente: Unidad de Información Financiera (UIF) — Instituto Costarricense sobre Drogas (ICD).
+                    Lista PEP Costa Rica, corte al 8 de abril de 2026. Ley 7786, Art. 2 inc. 29 — Acuerdo SUGEF 13-19, Art. 36-40.
+                  </p>
                 </div>
-              )
-            })}
-          </div>
-        </div>
 
-        {/* Declaración PEP */}
-        <div className="border border-amber-200 rounded-xl overflow-hidden">
-          <div className="bg-amber-600 text-white px-5 py-3">
-            <p className="font-bold text-sm">🏛️ Declaración PEP — Persona Expuesta Políticamente</p>
-          </div>
-          <div className="px-5 py-4 grid grid-cols-3 gap-4 text-sm">
-            {[
-              { label: 'Funcionario público prominente', val: pepDeclaracion?.esPep },
-              { label: 'Familiar directo de PEP',        val: pepDeclaracion?.esFamiliarPep },
-              { label: 'Asociado cercano de PEP',        val: pepDeclaracion?.esAsociadoPep },
-            ].map(item => (
-              <div key={item.label} className="space-y-1">
-                <p className="text-xs text-gray-500">{item.label}</p>
-                <p className={`font-bold ${item.val === true ? 'text-red-600' : item.val === false ? 'text-green-600' : 'text-gray-400'}`}>
-                  {item.val === true ? '⚠ SÍ' : item.val === false ? '✓ NO' : '— No declarado'}
-                </p>
+                {/* Declaración del cliente */}
+                <div className="px-5 py-4 space-y-2">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Declaración del Cliente</p>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    {[
+                      { label: 'Funcionario público prominente', val: pepDeclaracion?.esPep },
+                      { label: 'Familiar directo de PEP',        val: pepDeclaracion?.esFamiliarPep },
+                      { label: 'Asociado cercano de PEP',        val: pepDeclaracion?.esAsociadoPep },
+                    ].map(item => (
+                      <div key={item.label} className="space-y-1">
+                        <p className="text-xs text-gray-500">{item.label}</p>
+                        <p className={`font-bold ${item.val === true ? 'text-red-600' : item.val === false ? 'text-green-600' : 'text-gray-400'}`}>
+                          {item.val === true ? '⚠ SÍ' : item.val === false ? '✓ NO' : '— No declarado'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {pepDeclaracion?.cargoPep && (
+                    <div className="text-sm">
+                      <span className="text-gray-500">Cargo declarado: </span>
+                      <span className="font-semibold text-gray-800">{pepDeclaracion.cargoPep}</span>
+                      {pepDeclaracion.vigenciaCargo && <span className="text-gray-500"> ({pepDeclaracion.vigenciaCargo})</span>}
+                    </div>
+                  )}
+                </div>
               </div>
-            ))}
-            {pepDeclaracion?.cargoPep && (
-              <div className="col-span-2 space-y-1">
-                <p className="text-xs text-gray-500">Cargo / función</p>
-                <p className="font-semibold text-gray-800">{pepDeclaracion.cargoPep}</p>
-              </div>
-            )}
-            {pepDeclaracion?.vigenciaCargo && (
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Período</p>
-                <p className="font-semibold text-gray-800">{pepDeclaracion.vigenciaCargo}</p>
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )
+        })()}
 
         {/* Pie del reporte */}
         <div className="border-t-2 border-brand-900 pt-5 space-y-3">
@@ -386,20 +390,6 @@ export default function ConsultaPEP() {
 
   const coincidencias = resultados?.filter(r => r.similitud >= 0.65) || []
   const revisiones    = resultados?.filter(r => r.similitud >= 0.40 && r.similitud < 0.65) || []
-
-  // ── Estado fuentes CR ─────────────────────────────────────────────────────────
-  const FUENTES_CR = [
-    { id: 'cgr',       label: 'CGR — Sanciones',      icon: '⚖️', url: `https://cgrfiles.cgr.go.cr/publico/dds/sanciones/` },
-    { id: 'judicial',  label: 'Poder Judicial',        icon: '🏛️', url: `https://pjenlinea3.poder-judicial.go.cr/SistemaDePresentacionDeDemandas/` },
-    { id: 'asamblea',  label: 'Asamblea Legislativa',  icon: '🏢', url: `` },
-    { id: 'noticias',  label: 'Noticias CR',           icon: '📰', url: `` },
-  ]
-  const [resultadosCR, setResultadosCR] = useState({
-    cgr:      null,  // 'limpio' | 'encontrado' | null
-    judicial: null,
-    asamblea: null,
-    noticias: null,
-  })
 
   // ── Estado sección PEP ────────────────────────────────────────────────────────
   const [pepDeclaracion, setPepDeclaracion] = useState({
@@ -564,60 +554,6 @@ export default function ConsultaPEP() {
         )}
       </div>
 
-      {/* ── Verificación en Fuentes Públicas de Costa Rica ── */}
-      {nombre.trim().length > 3 && (
-        <div className="card border-l-4 border-blue-500 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🇨🇷</span>
-            <div>
-              <p className="font-semibold text-gray-900">Verificación en Fuentes Públicas — Costa Rica</p>
-              <p className="text-xs text-gray-500">Abra cada fuente, verifique y registre el resultado. Quedará incluido en el reporte del expediente.</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {[
-              { id: 'cgr',      label: 'CGR — Registro de Sanciones',  desc: 'Funcionarios públicos sancionados',     icon: '⚖️', url: `https://cgrfiles.cgr.go.cr/publico/dds/sanciones/` },
-              { id: 'judicial', label: 'Poder Judicial',                desc: 'Antecedentes penales / expedientes',    icon: '🏛️', url: `https://pjenlinea3.poder-judicial.go.cr/SistemaDePresentacionDeDemandas/` },
-              { id: 'asamblea', label: 'Asamblea Legislativa',          desc: 'Diputados y exdiputados (PEPs)',        icon: '🏢', url: `https://www.asamblea.go.cr/busqueda/Paginas/Personas.aspx?k=${encodeURIComponent(nombre.trim())}` },
-              { id: 'noticias', label: 'Noticias CR (Google News)',     desc: 'Prensa nacional — vínculos públicos',  icon: '📰', url: `https://www.google.com/search?q=${encodeURIComponent('"' + nombre.trim() + '" Costa Rica funcionario OR sanción OR ICD OR SUGEF OR investigado')}&tbm=nws` },
-            ].map(f => (
-              <div key={f.id} className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-2.5 bg-white">
-                <span className="text-lg w-6 text-center">{f.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{f.label}</p>
-                  <p className="text-xs text-gray-400">{f.desc}</p>
-                </div>
-                {/* Botón abrir */}
-                <a href={f.url} target="_blank" rel="noopener noreferrer"
-                  className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 transition-colors">
-                  Abrir ↗
-                </a>
-                {/* Registro de resultado */}
-                <div className="flex gap-1 flex-shrink-0">
-                  {[
-                    { val: 'limpio',     label: 'Limpio',    cls: resultadosCR[f.id] === 'limpio'     ? 'bg-green-600 text-white border-green-600' : 'border-gray-300 text-gray-500 hover:bg-green-50' },
-                    { val: 'encontrado', label: 'Encontrado', cls: resultadosCR[f.id] === 'encontrado' ? 'bg-red-600 text-white border-red-600'   : 'border-gray-300 text-gray-500 hover:bg-red-50' },
-                  ].map(btn => (
-                    <button key={btn.val} type="button"
-                      onClick={() => setResultadosCR(p => ({ ...p, [f.id]: p[f.id] === btn.val ? null : btn.val }))}
-                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${btn.cls}`}>
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          {Object.values(resultadosCR).some(v => v !== null) && (
-            <p className="text-xs text-green-700 font-medium">
-              ✅ Resultados registrados — se incluirán en el reporte del expediente
-            </p>
-          )}
-          <p className="text-xs text-gray-400">
-            💡 Acuerdo SUGEF 13-19, Art. 21-28: debe documentar la verificación en fuentes públicas en el expediente del cliente.
-          </p>
-        </div>
-      )}
 
       {/* Indicadores de fuentes consultadas */}
       <div className="grid grid-cols-4 gap-2">
@@ -724,10 +660,10 @@ export default function ConsultaPEP() {
         <Reporte
           consulta={{ nombre, identificacion, pais }}
           resultados={coincidencias}
+          allResultados={resultados}
           nivelRiesgo={nivelRiesgo}
           metadata={metadata}
           onClose={() => setShowReporte(false)}
-          resultadosCR={resultadosCR}
           pepDeclaracion={pepDeclaracion}
         />
       )}
