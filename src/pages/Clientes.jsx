@@ -56,6 +56,7 @@ export default function Clientes() {
   const [detalleId, setDetalleId] = useState(null)
   const [txnsCliente, setTxnsCliente] = useState([])
   const [tenantId, setTenantId]   = useState(null) // para superadmin: tenant seleccionado en el form
+  const [tenantVista, setTenantVista] = useState(null) // para superadmin: tenant seleccionado para VER clientes
   const [padronInfo, setPadronInfo]     = useState(null)   // resultado del padrón SUGEF
   const [padronLoading, setPadronLoading] = useState(false)
 
@@ -102,17 +103,20 @@ export default function Clientes() {
     }
   }, [isSuperAdmin])
 
+  // tenant efectivo para la VISTA: superadmin puede seleccionar cualquier sujeto obligado
+  const tenantVistaId = isSuperAdmin ? (tenantVista?.id || null) : tenant?.id
+
   const load = useCallback(async () => {
-    if (!tenant) return
+    if (!tenantVistaId) { setClientes([]); setLoading(false); return }
     setLoading(true)
     const { data } = await supabase
       .from('clientes')
       .select('*')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenantVistaId)
       .order('nombre_empresa', { ascending: true, nullsLast: true })
     setClientes(data || [])
     setLoading(false)
-  }, [tenant])
+  }, [tenantVistaId])
 
   useEffect(() => { load() }, [load])
 
@@ -226,11 +230,41 @@ export default function Clientes() {
 
   return (
     <div className="p-6 max-w-6xl space-y-6">
+      {/* Selector de sujeto obligado (solo superadmin) */}
+      {isSuperAdmin && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-amber-700 text-sm font-medium whitespace-nowrap">👁 Viendo clientes de:</span>
+          <select
+            className="input-field text-sm flex-1 max-w-sm"
+            value={tenantVista?.id || ''}
+            onChange={e => {
+              const t = tenants.find(t => t.id === e.target.value) || null
+              setTenantVista(t)
+              setClientes([])
+              setBusqueda('')
+            }}
+          >
+            <option value="">— Seleccione un sujeto obligado —</option>
+            {tenants.map(t => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
+            ))}
+          </select>
+          {tenantVista && (
+            <span className="text-xs text-amber-600 font-medium">{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</span>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 capitalize">{etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1)}</h1>
-          <p className="text-gray-500 text-sm mt-1">Base de datos de {etiqueta} — {tenant?.nombre}</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {isSuperAdmin
+              ? tenantVista ? `Sujeto obligado: ${tenantVista.nombre}` : 'Seleccione un sujeto obligado para ver sus clientes'
+              : `Base de datos de ${etiqueta} — ${tenant?.nombre}`
+            }
+          </p>
         </div>
         <div className="flex gap-2">
           <button
