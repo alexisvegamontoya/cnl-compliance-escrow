@@ -203,7 +203,12 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
 
     if (!sbRes.ok) {
       const sbErr = await sbRes.text()
-      return res.status(502).json({ error: 'Error al insertar en Supabase: ' + sbErr.slice(0, 400) })
+      // 23505 = duplicate key — los artículos ya existen, no es un error real
+      if (sbErr.includes('23505') || sbErr.includes('already exists')) {
+        console.log('[feed-sync] Algunos artículos ya existían, ignorando duplicados.')
+      } else {
+        return res.status(502).json({ error: 'Error al insertar en Supabase: ' + sbErr.slice(0, 400) })
+      }
     }
 
     console.log(`[feed-sync] OK — ${feedRecords.length} registros procesados`)
