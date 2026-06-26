@@ -1,0 +1,548 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+} from 'recharts'
+
+// ─── Pesos de cada ítem ───────────────────────────────────────────────────────
+const PESOS = { i1: 30, i2: 8, i3: 25, i4: 20, i5: 7, i6: 10 }
+
+// ─── Colores por score ────────────────────────────────────────────────────────
+function colorPct(p) {
+  if (p >= 80) return '#16a34a'
+  if (p >= 60) return '#65a30d'
+  if (p >= 40) return '#ca8a04'
+  if (p >= 20) return '#ea580c'
+  return '#dc2626'
+}
+
+// ─── Meses transcurridos desde una fecha ──────────────────────────────────────
+function mesesDesde(fecha) {
+  if (!fecha) return 999
+  const desde = new Date(fecha)
+  const ahora = new Date()
+  return (ahora.getFullYear() - desde.getFullYear()) * 12 + (ahora.getMonth() - desde.getMonth())
+}
+
+// ─── Velocímetro SVG ──────────────────────────────────────────────────────────
+function Velocimetro({ pct }) {
+  const cx = 160, cy = 145, r = 110
+  const segmentos = [
+    { desde: 0,  hasta: 20,  color: '#dc2626' },
+    { desde: 20, hasta: 40,  color: '#ea580c' },
+    { desde: 40, hasta: 60,  color: '#ca8a04' },
+    { desde: 60, hasta: 80,  color: '#65a30d' },
+    { desde: 80, hasta: 100, color: '#16a34a' },
+  ]
+
+  function polarToXY(deg, radius) {
+    const rad = (deg * Math.PI) / 180
+    return [cx + radius * Math.cos(rad), cy - radius * Math.sin(rad)]
+  }
+
+  function arcPath(desde, hasta, ri, ro) {
+    const a1 = 180 - (desde / 100) * 180
+    const a2 = 180 - (hasta / 100) * 180
+    const [x1o, y1o] = polarToXY(a1, ro)
+    const [x2o, y2o] = polarToXY(a2, ro)
+    const [x1i, y1i] = polarToXY(a1, ri)
+    const [x2i, y2i] = polarToXY(a2, ri)
+    return `M ${x1o} ${y1o} A ${ro} ${ro} 0 0 1 ${x2o} ${y2o} L ${x2i} ${y2i} A ${ri} ${ri} 0 0 0 ${x1i} ${y1i} Z`
+  }
+
+  const needleDeg = 180 - (pct / 100) * 180
+  const needleRad = (needleDeg * Math.PI) / 180
+  const nx = cx + 90 * Math.cos(needleRad)
+  const ny = cy - 90 * Math.sin(needleRad)
+
+  return (
+    <svg viewBox="0 0 320 170" className="w-full max-w-xs mx-auto">
+      {segmentos.map(s => (
+        <path key={s.desde} d={arcPath(s.desde, s.hasta, 75, 110)} fill={s.color} />
+      ))}
+      {[0, 20, 40, 60, 80, 100].map(v => {
+        const deg = 180 - (v / 100) * 180
+        const [lx, ly] = polarToXY(deg, 122)
+        return <text key={v} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+          fontSize="9" fill="#6b7280" fontWeight="600">{v}</text>
+      })}
+      <circle cx={cx} cy={cy} r={14} fill="#f9fafb" stroke="#e5e7eb" strokeWidth="1.5" />
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+      <text x={cx} y={cy + 28} textAnchor="middle" fontSize="22" fontWeight="700"
+        fill={colorPct(pct)}>{Math.round(pct)}%</text>
+      <text x={cx} y={cy + 44} textAnchor="middle" fontSize="9" fill="#6b7280">CUMPLIMIENTO GLOBAL</text>
+    </svg>
+  )
+}
+
+// ─── Barra de progreso ─────────────────────────────────────────────────────────
+function ProgressBar({ value }) {
+  return (
+    <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
+      <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(100, value)}%`, background: colorPct(value) }} />
+    </div>
+  )
+}
+
+// ─── Ítem card expandible ──────────────────────────────────────────────────────
+function ItemCard({ num, label, score, peso, pendientes = [], children }) {
+  const [open, setOpen] = useState(false)
+  const completo = score >= 100
+  return (
+    <div className={`rounded-xl border-2 overflow-hidden transition-all ${completo ? 'border-green-200' : score >= 60 ? 'border-yellow-200' : 'border-red-200'}`}>
+      <button className="w-full text-left p-4" onClick={() => setOpen(o => !o)}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${completo ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}>
+              {completo ? '✓' : num}
+            </div>
+            <div>
+              <p className="font-semibold text-gray-800 text-sm">{label}</p>
+              <p className="text-xs text-gray-400">Peso: {peso}% del total</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <span className="text-xl font-bold" style={{ color: colorPct(score) }}>{Math.round(score)}%</span>
+            <span className="text-gray-400 text-sm">{open ? '▲' : '▼'}</span>
+          </div>
+        </div>
+        <ProgressBar value={score} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+          {pendientes.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-red-600 mb-1">⚠ Pendientes ({pendientes.length}):</p>
+              <ul className="space-y-1">
+                {pendientes.map((p, i) => (
+                  <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                    <span className="text-red-400 flex-shrink-0 mt-0.5">•</span>{p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {completo && !children && (
+            <p className="text-xs text-green-600 font-medium">✓ Todo en orden</p>
+          )}
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Componente principal ──────────────────────────────────────────────────────
+export default function ComplianceDashboard() {
+  const { tenant: tenantCtx, isSuperAdmin } = useAuth()
+
+  // Superadmin: lista de tenants y selector
+  const [allTenants, setAllTenants]   = useState([])
+  const [tenantIdSel, setTenantIdSel] = useState('')
+  const [tenantSel, setTenantSel]     = useState(null)
+
+  const tenant = isSuperAdmin ? tenantSel : tenantCtx
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      supabase.from('tenants').select('*').order('nombre').then(({ data }) => setAllTenants(data || []))
+    }
+  }, [isSuperAdmin])
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      setTenantSel(allTenants.find(t => t.id === tenantIdSel) || null)
+    }
+  }, [tenantIdSel, allTenants, isSuperAdmin])
+
+  // Datos
+  const [clientes, setClientes]         = useState([])
+  const [normativa, setNormativa]       = useState([])
+  const [transacciones, setTransacciones] = useState([])
+  const [informes, setInformes]         = useState([])
+  const [loading, setLoading]           = useState(false)
+  const [saving, setSaving]             = useState(false)
+
+  // Items manuales
+  const [fCapacitacion, setFCapacitacion] = useState({ completa: false, fecha: '' })
+  const [fSistemas, setFSistemas]         = useState({ actualizado: false, fecha: '' })
+
+  const load = useCallback(async () => {
+    if (!tenant) return
+    setLoading(true)
+    const tid = tenant.id
+
+    const [
+      { data: cls },
+      { data: norm },
+      { data: txns },
+      { data: inf },
+      { data: seg },
+    ] = await Promise.all([
+      supabase.from('clientes')
+        .select('id,pep,calificacion_riesgo,kyc_actualizado,legal_actualizado,ingresos_actualizados,fecha_ultima_calificacion,aparece_en_listas,fecha_termino_relacion,nombre_cliente,primer_apellido,nombre_empresa,numero_identificacion')
+        .eq('tenant_id', tid),
+      supabase.from('normativa')
+        .select('id,fecha_aprobacion_jd,fecha_vigencia,tipo,nombre')
+        .eq('tenant_id', tid).eq('activo', true),
+      supabase.from('transacciones')
+        .select('periodo').eq('tenant_id', tid)
+        .order('periodo', { ascending: false }).limit(1),
+      supabase.from('informes')
+        .select('created_at').eq('tenant_id', tid)
+        .order('created_at', { ascending: false }).limit(1),
+      supabase.from('compliance_seguimiento')
+        .select('*').eq('tenant_id', tid).maybeSingle(),
+    ])
+
+    setClientes(cls || [])
+    setNormativa(norm || [])
+    setTransacciones(txns || [])
+    setInformes(inf || [])
+
+    if (seg) {
+      setFCapacitacion({ completa: seg.capacitacion_completa || false, fecha: seg.fecha_capacitacion || '' })
+      setFSistemas({ actualizado: seg.sistemas_actualizados || false, fecha: seg.fecha_sistemas || '' })
+    } else {
+      setFCapacitacion({ completa: false, fecha: '' })
+      setFSistemas({ actualizado: false, fecha: '' })
+    }
+    setLoading(false)
+  }, [tenant])
+
+  useEffect(() => { load() }, [load])
+
+  async function guardarSeguimiento() {
+    if (!tenant) return
+    setSaving(true)
+    await supabase.from('compliance_seguimiento').upsert({
+      tenant_id: tenant.id,
+      capacitacion_completa: fCapacitacion.completa,
+      fecha_capacitacion: fCapacitacion.fecha || null,
+      sistemas_actualizados: fSistemas.actualizado,
+      fecha_sistemas: fSistemas.fecha || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id' })
+    await load()
+    setSaving(false)
+  }
+
+  // ── Cálculos ───────────────────────────────────────────────────────────────
+  const tipoSujeto = Number(tenant?.tipo_sujeto) || 1
+
+  // Ítem 1: clientes activos con información completa
+  const clientesActivos = clientes.filter(c => !c.fecha_termino_relacion)
+  function clienteCompleto(c) {
+    return !!(c.calificacion_riesgo && c.kyc_actualizado && c.legal_actualizado && c.ingresos_actualizados && c.fecha_ultima_calificacion)
+  }
+  const clientesCompletos = clientesActivos.filter(clienteCompleto)
+  const scoreI1 = clientesActivos.length === 0 ? 100 : (clientesCompletos.length / clientesActivos.length) * 100
+  const pendientesI1 = clientesActivos.filter(c => !clienteCompleto(c)).slice(0, 10).map(c => {
+    const nombre = c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`.trim() || c.numero_identificacion
+    const faltan = []
+    if (!c.calificacion_riesgo) faltan.push('calificación de riesgo')
+    if (!c.kyc_actualizado) faltan.push('KYC')
+    if (!c.legal_actualizado) faltan.push('info legal')
+    if (!c.ingresos_actualizados) faltan.push('info ingresos')
+    if (!c.fecha_ultima_calificacion) faltan.push('fecha calificación')
+    return `${nombre}: falta ${faltan.join(', ')}`
+  })
+
+  // Ítem 2: capacitación manual
+  const scoreI2 = fCapacitacion.completa ? 100 : 0
+
+  // Ítem 3: normativa vigente
+  const mesesValidezNorm = tipoSujeto === 1 ? 12 : tipoSujeto === 2 ? 24 : 36
+  const pendientesI3 = []
+  let normVigentes = 0
+  for (const doc of normativa) {
+    const fechaBase = doc.fecha_aprobacion_jd || doc.fecha_vigencia
+    if (!fechaBase) {
+      pendientesI3.push(`"${doc.nombre || doc.tipo}" sin fecha de aprobación JD`)
+      continue
+    }
+    const meses = mesesDesde(fechaBase)
+    if (meses > mesesValidezNorm) {
+      pendientesI3.push(`"${doc.nombre || doc.tipo}" desactualizado (aprobado hace ${meses} meses, máx ${mesesValidezNorm})`)
+    } else {
+      normVigentes++
+    }
+  }
+  const scoreI3 = normativa.length === 0 ? 0 : (normVigentes / normativa.length) * 100
+
+  // Ítem 4: SICVECA
+  const mesesFrecSicveca = tipoSujeto === 1 ? 2 : tipoSujeto === 2 ? 3 : 4
+  const pendientesI4 = []
+  let scoreI4 = 0
+  if (transacciones.length > 0 && transacciones[0].periodo) {
+    const meses = mesesDesde(transacciones[0].periodo)
+    if (meses <= mesesFrecSicveca) {
+      scoreI4 = 100
+    } else {
+      scoreI4 = Math.max(0, 100 - ((meses - mesesFrecSicveca) / mesesFrecSicveca) * 100)
+      pendientesI4.push(`Último período: ${transacciones[0].periodo} (hace ${meses} meses; tipo ${tipoSujeto} debe reportar cada ${mesesFrecSicveca} meses)`)
+    }
+  } else {
+    pendientesI4.push('No hay transacciones SICVECA registradas.')
+  }
+
+  // Ítem 5: sistemas manuales
+  const scoreI5 = fSistemas.actualizado ? 100 : 0
+
+  // Ítem 6: informes de monitoreo
+  const pendientesI6 = []
+  let scoreI6 = 0
+  if (informes.length > 0) {
+    const meses = mesesDesde(informes[0].created_at)
+    if (meses <= 6) scoreI6 = 100
+    else if (meses <= 12) { scoreI6 = 50; pendientesI6.push(`Informe generado hace ${meses} meses (recomendado: máx 6)`) }
+    else { scoreI6 = 0; pendientesI6.push(`Informe de monitoreo desactualizado (${meses} meses) — generar nuevo informe`) }
+  } else {
+    pendientesI6.push('No se ha generado ningún informe de monitoreo.')
+  }
+
+  // Score global
+  const scoreGlobal = (scoreI1*PESOS.i1 + scoreI2*PESOS.i2 + scoreI3*PESOS.i3 + scoreI4*PESOS.i4 + scoreI5*PESOS.i5 + scoreI6*PESOS.i6) / 100
+
+  const items = [
+    { num: 1, label: 'Actualización información de clientes', score: scoreI1, peso: PESOS.i1, pendientes: pendientesI1 },
+    { num: 2, label: 'Capacitación anual del personal',        score: scoreI2, peso: PESOS.i2, pendientes: fCapacitacion.completa ? [] : ['Registrar capacitación anual completada'] },
+    { num: 3, label: 'Normativa interna vigente',              score: scoreI3, peso: PESOS.i3, pendientes: pendientesI3 },
+    { num: 4, label: 'Reporte SICVECA actualizado',            score: scoreI4, peso: PESOS.i4, pendientes: pendientesI4 },
+    { num: 5, label: 'Sistemas SUGEF/UIF actualizados',        score: scoreI5, peso: PESOS.i5, pendientes: fSistemas.actualizado ? [] : ['Confirmar actualización en sistemas SUGEF/UIF'] },
+    { num: 6, label: 'Informe de monitoreo actualizado',       score: scoreI6, peso: PESOS.i6, pendientes: pendientesI6 },
+  ]
+
+  const radarData = items.map(i => ({ subject: `Ítem ${i.num}`, value: Math.round(i.score), fullMark: 100 }))
+  const barData   = items.map(i => ({ name: `Ítem ${i.num}`, score: Math.round(i.score) }))
+
+  const etiquetaGlobal = scoreGlobal >= 80 ? 'Cumplimiento alto' : scoreGlobal >= 60 ? 'Cumplimiento moderado' : scoreGlobal >= 40 ? 'Cumplimiento bajo' : 'Cumplimiento crítico'
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-6 max-w-6xl space-y-6">
+
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard de Cumplimiento</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {tenant
+              ? `${tenant.nombre} — Tipo ${tenant.tipo_sujeto}`
+              : isSuperAdmin ? 'Seleccione un sujeto obligado' : 'Cargando…'}
+          </p>
+        </div>
+
+        {/* Selector superadmin */}
+        {isSuperAdmin && (
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+            <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">🏢 Sujeto Obligado:</span>
+            <select
+              className="input-field w-72"
+              value={tenantIdSel}
+              onChange={e => setTenantIdSel(e.target.value)}
+            >
+              <option value="">— Seleccione —</option>
+              {allTenants.map(t => (
+                <option key={t.id} value={t.id}>{t.nombre} (Tipo {t.tipo_sujeto})</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Sin tenant */}
+      {!tenant && (
+        <div className="card py-16 text-center text-gray-400">
+          <p className="text-5xl mb-4">📊</p>
+          <p className="text-lg font-medium text-gray-500">
+            {isSuperAdmin ? 'Seleccione un sujeto obligado para ver su nivel de cumplimiento.' : 'Cargando información…'}
+          </p>
+        </div>
+      )}
+
+      {tenant && loading && (
+        <div className="card py-12 text-center text-gray-400">Calculando cumplimiento…</div>
+      )}
+
+      {tenant && !loading && (
+        <>
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* Velocímetro */}
+            <div className="card flex flex-col items-center py-4">
+              <p className="text-sm font-semibold text-gray-600 mb-2">Cumplimiento Global</p>
+              <Velocimetro pct={scoreGlobal} />
+              <div className="mt-2 text-center">
+                <span className="text-sm font-semibold px-3 py-1 rounded-full"
+                  style={{ background: colorPct(scoreGlobal) + '20', color: colorPct(scoreGlobal) }}>
+                  {etiquetaGlobal}
+                </span>
+              </div>
+            </div>
+
+            {/* Radar */}
+            <div className="card">
+              <p className="text-sm font-semibold text-gray-600 mb-2">Radar por ítem</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <RadarChart data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                  <Radar name="Cumplimiento" dataKey="value" stroke="#0e0e6e" fill="#0e0e6e" fillOpacity={0.25} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Barras */}
+            <div className="card">
+              <p className="text-sm font-semibold text-gray-600 mb-2">Score por ítem</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={barData} layout="vertical" margin={{ left: 5, right: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={44} />
+                  <Tooltip formatter={v => [`${v}%`, 'Score']} />
+                  <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                    {barData.map((entry, i) => (
+                      <Cell key={i} fill={colorPct(entry.score)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Ítems detallados */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-800">Detalle por ítem</h2>
+              <p className="text-xs text-gray-400">Haga clic en cada ítem para ver pendientes</p>
+            </div>
+
+            {/* Ítem 1 */}
+            <ItemCard {...items[0]}>
+              <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
+                <p>Clientes activos: <strong>{clientesActivos.length}</strong> · Con información completa: <strong className="text-green-600">{clientesCompletos.length}</strong></p>
+                <p className="text-gray-400">Campos: calificación de riesgo, KYC actualizado, info legal, info ingresos, fecha de última calificación.</p>
+                {pendientesI1.length > 10 && (
+                  <p className="text-orange-500">Mostrando 10 de {clientesActivos.filter(c => !clienteCompleto(c)).length} clientes incompletos.</p>
+                )}
+              </div>
+            </ItemCard>
+
+            {/* Ítem 2 — form manual */}
+            <ItemCard {...items[1]}>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-600">Registrar capacitación anual del personal:</p>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded text-brand-600"
+                    checked={fCapacitacion.completa}
+                    onChange={e => setFCapacitacion(p => ({ ...p, completa: e.target.checked }))} />
+                  <span className="text-sm text-gray-700">Capacitación anual ALA/CFT completada</span>
+                </label>
+                {fCapacitacion.completa && (
+                  <div>
+                    <label className="text-xs text-gray-500">Fecha de realización</label>
+                    <input type="date" className="input-field mt-1"
+                      value={fCapacitacion.fecha}
+                      onChange={e => setFCapacitacion(p => ({ ...p, fecha: e.target.value }))} />
+                  </div>
+                )}
+                <button onClick={guardarSeguimiento} disabled={saving}
+                  className="btn-primary text-xs py-1.5 px-4">{saving ? 'Guardando…' : 'Guardar'}</button>
+              </div>
+            </ItemCard>
+
+            {/* Ítem 3 */}
+            <ItemCard {...items[2]}>
+              <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
+                <p>Tipo {tipoSujeto} · Vigencia máxima: <strong>{mesesValidezNorm} meses</strong></p>
+                <p>Documentos vigentes: <strong className="text-green-600">{normVigentes}</strong> / {normativa.length}</p>
+                <p className="text-gray-400">Se evalúa fecha de aprobación por Junta Directiva. Si no hay fecha JD se usa fecha de vigencia.</p>
+              </div>
+            </ItemCard>
+
+            {/* Ítem 4 */}
+            <ItemCard {...items[3]}>
+              <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
+                <p>Tipo {tipoSujeto} · Frecuencia SICVECA: <strong>cada {mesesFrecSicveca} meses</strong></p>
+                {transacciones[0]?.periodo && <p>Último período: <strong>{transacciones[0].periodo}</strong></p>}
+              </div>
+            </ItemCard>
+
+            {/* Ítem 5 — form manual */}
+            <ItemCard {...items[4]}>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-600">Estado sistemas SUGEF / UIF:</p>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded text-brand-600"
+                    checked={fSistemas.actualizado}
+                    onChange={e => setFSistemas(p => ({ ...p, actualizado: e.target.checked }))} />
+                  <span className="text-sm text-gray-700">Información en SUGEF y UIF está actualizada</span>
+                </label>
+                {fSistemas.actualizado && (
+                  <div>
+                    <label className="text-xs text-gray-500">Fecha de última actualización</label>
+                    <input type="date" className="input-field mt-1"
+                      value={fSistemas.fecha}
+                      onChange={e => setFSistemas(p => ({ ...p, fecha: e.target.value }))} />
+                  </div>
+                )}
+                <button onClick={guardarSeguimiento} disabled={saving}
+                  className="btn-primary text-xs py-1.5 px-4">{saving ? 'Guardando…' : 'Guardar'}</button>
+              </div>
+            </ItemCard>
+
+            {/* Ítem 6 */}
+            <ItemCard {...items[5]}>
+              <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
+                {informes[0]?.created_at
+                  ? <p>Último informe: <strong>{new Date(informes[0].created_at).toLocaleDateString('es-CR')}</strong> ({mesesDesde(informes[0].created_at)} meses atrás)</p>
+                  : <p>No hay informes generados.</p>}
+                <p className="text-gray-400">≤6 meses = 100% · 6–12 meses = 50% · más de 12 meses = 0%</p>
+                <p className="text-gray-400">Para generar un informe, vaya a <strong>Módulo 1 → Informes</strong>.</p>
+              </div>
+            </ItemCard>
+          </div>
+
+          {/* Tabla de pesos */}
+          <div className="card">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">📋 Fórmula de cumplimiento global</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-400 uppercase">Ítem</th>
+                    <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-400 uppercase">Descripción</th>
+                    <th className="text-right py-2 pr-4 text-xs font-semibold text-gray-400 uppercase">Peso</th>
+                    <th className="text-right py-2 pr-4 text-xs font-semibold text-gray-400 uppercase">Score</th>
+                    <th className="text-right py-2 text-xs font-semibold text-gray-400 uppercase">Aporte</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {items.map(it => (
+                    <tr key={it.num}>
+                      <td className="py-2 pr-4 font-bold text-gray-700">#{it.num}</td>
+                      <td className="py-2 pr-4 text-gray-600">{it.label}</td>
+                      <td className="py-2 pr-4 text-right text-gray-500">{it.peso}%</td>
+                      <td className="py-2 pr-4 text-right font-semibold" style={{ color: colorPct(it.score) }}>{Math.round(it.score)}%</td>
+                      <td className="py-2 text-right font-bold text-gray-700">{((it.score * it.peso) / 100).toFixed(1)} pts</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-gray-200 bg-gray-50">
+                    <td colSpan={4} className="py-2 font-bold text-gray-800">Total cumplimiento global</td>
+                    <td className="py-2 text-right font-bold text-lg" style={{ color: colorPct(scoreGlobal) }}>{scoreGlobal.toFixed(1)}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}

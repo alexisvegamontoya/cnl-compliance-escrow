@@ -1,0 +1,590 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
+import { TIPO_IDENTIFICACION, getEtiquetaCliente } from '../lib/catalogos'
+import CargaMasivaClientes from '../components/carga/CargaMasivaClientes'
+import { exportarExcel } from '../lib/exportExcel'
+import { logAudit } from '../lib/auditLog'
+import { alertaListasCliente } from '../lib/emailAlertas'
+
+const TIPO_ID_LABEL = Object.fromEntries(TIPO_IDENTIFICACION.map(t => [t.codigo, t.descripcion]))
+
+const RIESGO_CONFIG = {
+  alto:  { label: 'Alto',  color: 'bg-red-100 text-red-700 border-red-200' },
+  medio: { label: 'Medio', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  bajo:  { label: 'Bajo',  color: 'bg-green-100 text-green-700 border-green-200' },
+}
+
+const EMPTY = {
+  numero_identificacion: '',
+  tipo_identificacion: 2,
+  nombre_cliente: '',
+  primer_apellido: '',
+  segundo_apellido: '',
+  nombre_empresa: '',
+  nacionalidad: '',
+  pais_ubicacion: '',
+  actividad_economica: '',
+  telefono: '',
+  correo_electronico: '',
+  fecha_vinculacion: '',
+  fecha_termino_relacion: '',
+  pep: false,
+  calificacion_riesgo: '',
+  nivel_transaccional_max_mes: '',
+  kyc_actualizado: false,
+  legal_actualizado: false,
+  ingresos_actualizados: false,
+  aparece_en_listas: false,
+  notas: '',
+}
+
+export default function Clientes() {
+  const { tenant, isSuperAdmin } = useAuth()
+  const etiqueta = getEtiquetaCliente(tenant)
+  const etiquetaSingular = getEtiquetaCliente(tenant, false)
+  const [tenants, setTenants] = useState([])
+  const [clientes, setClientes]   = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [form, setForm]           = useState(EMPTY)
+  const [editId, setEditId]       = useState(null)
+  const [showForm, setShowForm]   = useState(false)
+  const [busqueda, setBusqueda]   = useState('')
+  const [filtroRiesgo, setFiltroRiesgo] = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
+  const [detalleId, setDetalleId] = useState(null)
+  const [txnsCliente, setTxnsCliente] = useState([])
+  const [tenantId, setTenantId]   = useState(null) // para superadmin: tenant seleccionado en el form
+
+  const esFisica = [1, 3, 5].includes(Number(form.tipo_identificacion))
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      supabase.from('tenants').select('id, nombre, actividad_apnfd, clase_dato').order('nombre').then(({ data }) => setTenants(data || []))
+    }
+  }, [isSuperAdmin])
+
+  const load = useCallback(async () => {
+    if (!tenant) return
+    setLoading(true)
+    const { data } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .order('nombre_empresa', { ascending: true, nullsLast: true })
+    setClientes(data || [])
+    setLoading(false)
+  }, [tenant])
+
+  useEffect(() => { load() }, [load])
+
+  function set(f, v) { setForm(p => ({ ...p, [f]: v })) }
+
+  function startEdit(c) {
+    setForm({ ...EMPTY, ...c, pep: c.pep || false })
+    setEditId(c.id)
+    setTenantId(c.tenant_id)   // superadmin: cargar el tenant del cliente
+    setShowForm(true)
+    setDetalleId(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cancelar() { setForm(EMPTY); setEditId(null); setShowForm(false); setError(''); setTenantId(null) }
+
+  async function verDetalle(c) {
+    if (detalleId === c.id) { setDetalleId(null); return }
+    setDetalleId(c.id)
+    const { data } = await supabase
+      .from('transacciones')
+      .select('monto_movimiento, tipo_movimiento, fecha_transaccion, periodo')
+      .eq('tenant_id', tenant.id)
+      .eq('numero_identificacion', c.numero_identificacion)
+      .order('periodo', { ascending: false })
+      .limit(10)
+    setTxnsCliente(data || [])
+  }
+
+  async function guardar(e) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    const efectivoTenantId = (isSuperAdmin && tenantId) ? tenantId : tenant.id
+    if (isSuperAdmin && !tenantId) {
+      setError('Debe seleccionar un sujeto obligado para asignar el cliente.')
+      setSaving(false)
+      return
+    }
+    const payload = {
+      tenant_id: efectivoTenantId,
+      numero_identificacion: form.numero_identificacion,
+      tipo_identificacion: Number(form.tipo_identificacion),
+      nombre_cliente: esFisica ? form.nombre_cliente : null,
+      primer_apellido: esFisica ? form.primer_apellido : null,
+      segundo_apellido: esFisica ? form.segundo_apellido : null,
+      nombre_empresa: !esFisica ? form.nombre_empresa : null,
+      nacionalidad: form.nacionalidad || null,
+      pais_ubicacion: form.pais_ubicacion || null,
+      actividad_economica: form.actividad_economica || null,
+      telefono: form.telefono || null,
+      correo_electronico: form.correo_electronico || null,
+      fecha_vinculacion: form.fecha_vinculacion || null,
+      fecha_termino_relacion: form.fecha_termino_relacion || null,
+      pep: form.pep,
+      calificacion_riesgo: form.calificacion_riesgo || null,
+      nivel_transaccional_max_mes: form.nivel_transaccional_max_mes ? Number(form.nivel_transaccional_max_mes) : null,
+      kyc_actualizado: form.kyc_actualizado,
+      legal_actualizado: form.legal_actualizado,
+      ingresos_actualizados: form.ingresos_actualizados,
+      aparece_en_listas: form.aparece_en_listas,
+      notas: form.notas || null,
+    }
+    const isNew = !editId
+    const { error: err } = editId
+      ? await supabase.from('clientes').update(payload).eq('id', editId)
+      : await supabase.from('clientes').insert(payload)
+    if (err) { setError(err.message); setSaving(false); return }
+
+    // Alerta si aparece en listas internacionales
+    if (form.aparece_en_listas) {
+      const nombreCliente = esFisica
+        ? `${form.nombre_cliente} ${form.primer_apellido}`.trim()
+        : form.nombre_empresa
+      alertaListasCliente({
+        nombreCliente,
+        identificacion: form.numero_identificacion,
+      })
+    }
+    logAudit({
+      accion: isNew ? 'crear' : 'editar',
+      tabla: 'clientes',
+      descripcion: `${isNew ? 'Nuevo' : 'Edición'} cliente: ${form.nombre_empresa || form.nombre_cliente}`,
+    })
+
+    cancelar()
+    load()
+    setSaving(false)
+  }
+
+  async function eliminar(id) {
+    if (!confirm('¿Eliminar este cliente?')) return
+    await supabase.from('clientes').delete().eq('id', id)
+    load()
+  }
+
+  const filtrados = clientes.filter(c => {
+    const nombre = (c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`).toLowerCase()
+    const matchTexto = nombre.includes(busqueda.toLowerCase()) || c.numero_identificacion.includes(busqueda)
+    const matchRiesgo = !filtroRiesgo || c.calificacion_riesgo === filtroRiesgo
+    return matchTexto && matchRiesgo
+  })
+
+  const resumen = {
+    total: clientes.length,
+    alto: clientes.filter(c => c.calificacion_riesgo === 'alto').length,
+    medio: clientes.filter(c => c.calificacion_riesgo === 'medio').length,
+    bajo: clientes.filter(c => c.calificacion_riesgo === 'bajo').length,
+    pep: clientes.filter(c => c.pep).length,
+  }
+
+  return (
+    <div className="p-6 max-w-6xl space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 capitalize">{etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1)}</h1>
+          <p className="text-gray-500 text-sm mt-1">Base de datos de {etiqueta} — {tenant?.nombre}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              exportarExcel({
+                data: clientes,
+                columnas: ['numero_identificacion','nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa','tipo_identificacion','nacionalidad','actividad_economica','telefono','correo_electronico','calificacion_riesgo','pep','kyc_actualizado','aparece_en_listas','fecha_vinculacion'],
+                headers: {
+                  numero_identificacion: 'N° Identificación', nombre_cliente: 'Nombre', primer_apellido: 'Primer Apellido',
+                  segundo_apellido: 'Segundo Apellido', nombre_empresa: 'Empresa', tipo_identificacion: 'Tipo ID',
+                  nacionalidad: 'Nacionalidad', actividad_economica: 'Actividad Económica', telefono: 'Teléfono',
+                  correo_electronico: 'Correo', calificacion_riesgo: 'Riesgo', pep: 'PEP',
+                  kyc_actualizado: 'KYC OK', aparece_en_listas: 'En Listas', fecha_vinculacion: 'Vinculación',
+                },
+                nombreArchivo: `clientes_${tenant?.nombre?.replace(/\s/g,'_') || 'cnl'}`,
+                nombreHoja: 'Clientes',
+              })
+              logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportación Excel de ${clientes.length} clientes` })
+            }}
+            className="btn-secondary flex items-center gap-1.5 text-sm"
+          >
+            📥 Exportar Excel
+          </button>
+          <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
+            {showForm && !editId ? '✕ Cancelar' : `+ Nuevo ${etiquetaSingular}`}
+          </button>
+        </div>
+      </div>
+
+      {/* Resumen de riesgo */}
+      {!showForm && clientes.length > 0 && (
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            { label: 'Total', val: resumen.total, color: 'text-brand-600', bg: 'bg-brand-50', filter: '' },
+            { label: 'Riesgo alto', val: resumen.alto, color: 'text-red-600', bg: 'bg-red-50', filter: 'alto' },
+            { label: 'Riesgo medio', val: resumen.medio, color: 'text-yellow-600', bg: 'bg-yellow-50', filter: 'medio' },
+            { label: 'Riesgo bajo', val: resumen.bajo, color: 'text-green-600', bg: 'bg-green-50', filter: 'bajo' },
+            { label: 'PEPs', val: resumen.pep, color: 'text-purple-600', bg: 'bg-purple-50', filter: null },
+          ].map(r => (
+            <button key={r.label}
+              onClick={() => r.filter !== null ? setFiltroRiesgo(r.filter === filtroRiesgo ? '' : r.filter) : null}
+              className={`card text-center transition-all ${r.bg} ${r.filter !== null ? 'cursor-pointer hover:shadow-md' : 'cursor-default'} ${filtroRiesgo === r.filter && r.filter ? 'ring-2 ring-brand-500' : ''}`}
+            >
+              <p className={`text-2xl font-bold ${r.color}`}>{r.val}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{r.label}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Formulario */}
+      {showForm && (
+        <form onSubmit={guardar} className="card space-y-6">
+          <h3 className="font-semibold text-gray-900 text-lg">{editId ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`}</h3>
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
+
+          {/* Selector de sujeto obligado — solo superadmin */}
+          {isSuperAdmin && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <label className="block text-sm font-semibold text-amber-800 mb-2">
+                🏢 Asignar a Sujeto Obligado *
+              </label>
+              <select
+                className="input"
+                value={tenantId || ''}
+                onChange={e => setTenantId(e.target.value)}
+                required
+              >
+                <option value="">Seleccione el sujeto obligado…</option>
+                {tenants.map(t => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+              <p className="text-xs text-amber-600 mt-1.5">
+                Como superadministrador, debe asignar este cliente a un sujeto obligado específico.
+              </p>
+            </div>
+          )}
+
+          {/* Identificación */}
+          <div>
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Identificación</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Número de identificación *</label>
+                <input className="input-field" required placeholder="Sin guiones"
+                  value={form.numero_identificacion} onChange={e => set('numero_identificacion', e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Tipo de identificación *</label>
+                <select className="input-field" value={form.tipo_identificacion}
+                  onChange={e => set('tipo_identificacion', Number(e.target.value))}>
+                  {TIPO_IDENTIFICACION.map(t => (
+                    <option key={t.codigo} value={t.codigo}>{t.codigo} — {t.descripcion}</option>
+                  ))}
+                </select>
+              </div>
+              {esFisica ? (
+                <>
+                  <div><label className="label">Nombre *</label>
+                    <input className="input-field" required value={form.nombre_cliente}
+                      onChange={e => set('nombre_cliente', e.target.value)} /></div>
+                  <div><label className="label">Primer apellido *</label>
+                    <input className="input-field" required value={form.primer_apellido}
+                      onChange={e => set('primer_apellido', e.target.value)} /></div>
+                  <div><label className="label">Segundo apellido</label>
+                    <input className="input-field" value={form.segundo_apellido}
+                      onChange={e => set('segundo_apellido', e.target.value)} /></div>
+                </>
+              ) : (
+                <div className="col-span-2"><label className="label">Nombre de la empresa *</label>
+                  <input className="input-field" required value={form.nombre_empresa}
+                    onChange={e => set('nombre_empresa', e.target.value)} /></div>
+              )}
+            </div>
+          </div>
+
+          {/* Contacto */}
+          <div>
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Contacto y actividad</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="label">Actividad económica</label>
+                <input className="input-field" placeholder="Ej: Comercio, Servicios, Manufactura"
+                  value={form.actividad_economica} onChange={e => set('actividad_economica', e.target.value)} /></div>
+              <div><label className="label">Fecha de vinculación</label>
+                <input type="date" className="input-field"
+                  value={form.fecha_vinculacion} onChange={e => set('fecha_vinculacion', e.target.value)} /></div>
+              <div><label className="label">Nacionalidad</label>
+                <input className="input-field" placeholder="Ej: Costarricense, Estadounidense"
+                  value={form.nacionalidad} onChange={e => set('nacionalidad', e.target.value)} /></div>
+              <div><label className="label">País de ubicación</label>
+                <input className="input-field" placeholder="Ej: Costa Rica, Panamá"
+                  value={form.pais_ubicacion} onChange={e => set('pais_ubicacion', e.target.value)} /></div>
+              <div><label className="label">Teléfono</label>
+                <input className="input-field" placeholder="Ej: 8888-8888"
+                  value={form.telefono} onChange={e => set('telefono', e.target.value)} /></div>
+              <div><label className="label">Correo electrónico</label>
+                <input type="email" className="input-field"
+                  value={form.correo_electronico} onChange={e => set('correo_electronico', e.target.value)} /></div>
+            </div>
+          </div>
+
+          {/* Riesgo */}
+          <div>
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Perfil de riesgo</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Calificación de riesgo</label>
+                <select className="input-field" value={form.calificacion_riesgo}
+                  onChange={e => set('calificacion_riesgo', e.target.value)}>
+                  <option value="">— Sin calificar —</option>
+                  <option value="bajo">Bajo</option>
+                  <option value="medio">Medio</option>
+                  <option value="alto">Alto</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Nivel transaccional máximo mensual (USD)</label>
+                <input type="number" className="input-field" min="0" step="0.01"
+                  placeholder="Para monitoreo de anomalías"
+                  value={form.nivel_transaccional_max_mes}
+                  onChange={e => set('nivel_transaccional_max_mes', e.target.value)} />
+              </div>
+              <div className="col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded text-brand-600"
+                    checked={form.pep} onChange={e => set('pep', e.target.checked)} />
+                  <span className="text-sm font-medium text-gray-700">
+                    Persona Expuesta Políticamente (PEP)
+                  </span>
+                </label>
+                <p className="text-xs text-gray-400 mt-1 ml-7">
+                  Marque si el cliente es un funcionario público, familiar de este, o colaborador cercano.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Seguimiento y cumplimiento */}
+          <div>
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Seguimiento y cumplimiento</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Fecha de término de relación</label>
+                <input type="date" className="input-field"
+                  value={form.fecha_termino_relacion}
+                  onChange={e => set('fecha_termino_relacion', e.target.value)} />
+                <p className="text-xs text-gray-400 mt-1">Dejar en blanco si la relación está activa.</p>
+              </div>
+              <div />
+              {/* Checkboxes de documentación actualizada */}
+              {[
+                { key: 'kyc_actualizado',      label: 'Formulario KYC actualizado',              desc: 'El formulario de Conozca a su Cliente está vigente y firmado.' },
+                { key: 'legal_actualizado',    label: 'Información legal del cliente actualizada', desc: 'Documentos legales (cédula, constitución, poderes) están al día.' },
+                { key: 'ingresos_actualizados',label: 'Información de ingresos actualizada',      desc: 'Declaración de ingresos o estados financieros están vigentes.' },
+                { key: 'aparece_en_listas',    label: 'Aparece en listas internacionales de investigación', desc: 'El cliente figura en listas de control internacionales (OFAC, ONU, GAFI, etc.).' },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="col-span-2">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 rounded text-brand-600 mt-0.5 flex-shrink-0"
+                      checked={form[key]} onChange={e => set(key, e.target.checked)} />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">{label}</span>
+                      <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                    </div>
+                  </label>
+                </div>
+              ))}
+              <div className="col-span-2">
+                <label className="label">Notas / observaciones</label>
+                <textarea className="input-field" rows={2}
+                  value={form.notas} onChange={e => set('notas', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button type="button" className="btn-secondary" onClick={cancelar}>Cancelar</button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Guardando…' : editId ? 'Actualizar' : 'Guardar cliente'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Carga masiva */}
+      <CargaMasivaClientes
+        tenants={tenants}
+        etiquetaCliente={etiqueta}
+        onImportado={load}
+      />
+
+      {/* Lista */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-500">{filtrados.length} de {clientes.length} clientes</p>
+          <div className="flex gap-2">
+            {filtroRiesgo && (
+              <button onClick={() => setFiltroRiesgo('')}
+                className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded-full">
+                ✕ Filtro: {filtroRiesgo}
+              </button>
+            )}
+            <input className="input-field w-64" placeholder="Buscar por nombre o identificación…"
+              value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-10 text-center text-gray-400">Cargando…</div>
+        ) : filtrados.length === 0 ? (
+          <div className="py-10 text-center text-gray-400">No hay clientes que coincidan.</div>
+        ) : (
+          <div className="space-y-2">
+            {filtrados.map(c => {
+              const nombre = c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`.trim()
+              const riesgo = c.calificacion_riesgo ? RIESGO_CONFIG[c.calificacion_riesgo] : null
+              const esDetalle = detalleId === c.id
+              return (
+                <div key={c.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="p-4 flex items-center gap-4 hover:bg-gray-50">
+                    {/* Avatar */}
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ${
+                      c.calificacion_riesgo === 'alto' ? 'bg-red-500' :
+                      c.calificacion_riesgo === 'medio' ? 'bg-yellow-500' :
+                      c.calificacion_riesgo === 'bajo' ? 'bg-green-500' : 'bg-brand-600'
+                    }`}>
+                      {nombre[0]?.toUpperCase()}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-gray-900 truncate">{nombre}</p>
+                        {c.pep && (
+                          <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded">PEP</span>
+                        )}
+                        {riesgo && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${riesgo.color}`}>
+                            Riesgo {riesgo.label}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400 font-mono">{c.numero_identificacion} · {TIPO_ID_LABEL[c.tipo_identificacion]}</p>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="hidden md:flex items-center gap-6 text-sm text-gray-500 flex-shrink-0">
+                      {c.actividad_economica && (
+                        <span className="text-xs">{c.actividad_economica}</span>
+                      )}
+                      {c.nivel_transaccional_max_mes && (
+                        <div className="text-center">
+                          <p className="font-medium text-gray-900 text-xs">USD {Number(c.nivel_transaccional_max_mes).toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">Límite/mes</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => verDetalle(c)}
+                        className="text-brand-600 hover:text-brand-800 text-xs font-medium">
+                        {esDetalle ? 'Ocultar' : 'Ver detalle'}
+                      </button>
+                      <button onClick={() => startEdit(c)}
+                        className="btn-secondary text-xs py-1.5 px-3">Editar</button>
+                      <button onClick={() => eliminar(c.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                    </div>
+                  </div>
+
+                  {/* Detalle expandible */}
+                  {esDetalle && (
+                    <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-4 text-sm">
+                      <div className="grid grid-cols-2 gap-6">
+                        {/* Info general */}
+                        <div>
+                          <p className="font-semibold text-gray-700 mb-2">Información del cliente</p>
+                          <dl className="space-y-1.5">
+                            {c.actividad_economica && <div className="flex justify-between"><dt className="text-gray-400">Actividad</dt><dd className="font-medium">{c.actividad_economica}</dd></div>}
+                            {c.nacionalidad && <div className="flex justify-between"><dt className="text-gray-400">Nacionalidad</dt><dd className="font-medium">{c.nacionalidad}</dd></div>}
+                            {c.pais_ubicacion && <div className="flex justify-between"><dt className="text-gray-400">País</dt><dd className="font-medium">{c.pais_ubicacion}</dd></div>}
+                            {c.telefono && <div className="flex justify-between"><dt className="text-gray-400">Teléfono</dt><dd className="font-medium">{c.telefono}</dd></div>}
+                            {c.correo_electronico && <div className="flex justify-between"><dt className="text-gray-400">Correo</dt><dd className="font-medium">{c.correo_electronico}</dd></div>}
+                            {c.fecha_vinculacion && <div className="flex justify-between"><dt className="text-gray-400">Vinculado desde</dt><dd className="font-medium">{c.fecha_vinculacion}</dd></div>}
+                            {c.fecha_termino_relacion && (
+                              <div className="flex justify-between">
+                                <dt className="text-gray-400">Término relación</dt>
+                                <dd className="font-medium text-red-600">{c.fecha_termino_relacion}</dd>
+                              </div>
+                            )}
+                            {c.notas && <div className="mt-2"><p className="text-gray-400 text-xs mb-1">Notas:</p><p className="text-gray-700 text-xs bg-white p-2 rounded border">{c.notas}</p></div>}
+                          </dl>
+                        </div>
+                        {/* Últimas transacciones */}
+                        <div>
+                          <p className="font-semibold text-gray-700 mb-2">Últimas transacciones</p>
+                          {txnsCliente.length === 0 ? (
+                            <p className="text-gray-400 text-xs">Sin transacciones registradas para este {etiquetaSingular}.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {txnsCliente.map((t, i) => (
+                                <div key={i} className="flex items-center justify-between bg-white rounded p-2 border text-xs">
+                                  <span className="text-gray-500">{t.periodo?.substring(0, 7)}</span>
+                                  <span className={t.tipo_movimiento === 1 ? 'text-green-600' : 'text-orange-600'}>
+                                    {t.tipo_movimiento === 1 ? '⬆' : '⬇'} USD {Number(t.monto_movimiento).toLocaleString('es-CR')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Estado de cumplimiento documental */}
+                      <div className="border-t border-gray-200 pt-4">
+                        <p className="font-semibold text-gray-700 mb-3">Estado de cumplimiento documental</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { key: 'kyc_actualizado',      label: 'KYC actualizado',       icon: '📋', invertir: false },
+                            { key: 'legal_actualizado',    label: 'Info legal actualizada', icon: '⚖️', invertir: false },
+                            { key: 'ingresos_actualizados',label: 'Info ingresos actual.',  icon: '💰', invertir: false },
+                            { key: 'aparece_en_listas',    label: 'Listas internacionales', icon: '🔍', invertir: true },
+                          ].map(({ key, label, icon, invertir }) => {
+                            const ok = invertir ? !c[key] : c[key]
+                            return (
+                              <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                                <span>{icon}</span>
+                                <span className="flex-1">{label}</span>
+                                <span>{ok ? '✓' : '✗'}</span>
+                              </div>
+                            )
+                          })}
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${c.fecha_ultima_calificacion ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                            <span>🎯</span>
+                            <div className="flex-1">
+                              <p>Última calificación</p>
+                              <p className="font-bold">{c.fecha_ultima_calificacion ? new Date(c.fecha_ultima_calificacion).toLocaleDateString('es-CR') : 'Sin calificar'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
