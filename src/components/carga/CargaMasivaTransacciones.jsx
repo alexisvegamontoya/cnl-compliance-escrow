@@ -23,7 +23,7 @@ function normalizarFecha(val) {
 export default function CargaMasivaTransacciones({ tenants, onImportado }) {
   const { tenant, isSuperAdmin } = useAuth()
   const [abierto, setAbierto]       = useState(false)
-  const [periodo, setPeriodo]       = useState(new Date().toISOString().substring(0, 7))
+  const [periodoFallback, setPeriodoFallback] = useState(new Date().toISOString().substring(0, 7))
   const [tenantId, setTenantId]     = useState(tenant?.id || '')
   const [filas, setFilas]           = useState([])
   const [erroresPorFila, setErroresPorFila] = useState({})
@@ -58,14 +58,20 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
     }
   }
 
+  // Deriva el período YYYY-MM-01 desde la fecha de la transacción,
+  // con fallback al mes seleccionado manualmente.
+  function derivarPeriodo(fechaTxn) {
+    const f = normalizarFecha(fechaTxn)
+    if (f && f.length >= 7) return f.substring(0, 7) + '-01'
+    return periodoFallback + '-01'
+  }
+
   async function importar() {
     if (!tenantSeleccionado) { alert('Seleccione el sujeto obligado.'); return }
-    if (!periodo) { alert('Seleccione el período.'); return }
     const filasValidas = filas.filter((_, i) => !erroresPorFila[i])
     if (!filasValidas.length) { alert('No hay filas válidas para importar.'); return }
 
     setLoading(true)
-    const periodoISO = periodo + '-01'
 
     const payload = filasValidas.map(r => {
       const tipoId = Number(r.tipo_identificacion)
@@ -90,7 +96,7 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
         ubicacion_cliente: String(r.ubicacion_cliente || '').trim() || null,
         pais_origen_recursos: String(r.pais_origen_recursos || '').toUpperCase().trim() || null,
         pais_destino_recursos: String(r.pais_destino_recursos || '').toUpperCase().trim() || null,
-        periodo: periodoISO,
+        periodo: derivarPeriodo(r.fecha_transaccion),
         accion: 'insertar',
       }
     })
@@ -162,11 +168,14 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
                 </div>
               )}
 
-              {/* Período */}
+              {/* Período fallback */}
               <div>
-                <label className="label">Período de las transacciones *</label>
+                <label className="label">Período de respaldo</label>
                 <input type="month" className="input-field"
-                  value={periodo} onChange={e => setPeriodo(e.target.value)} />
+                  value={periodoFallback} onChange={e => setPeriodoFallback(e.target.value)} />
+                <p className="text-xs text-gray-400 mt-1">
+                  Se usa solo si una fila no tiene <code>fecha_transaccion</code>. Con fecha, el período se toma automáticamente.
+                </p>
               </div>
             </div>
 
@@ -174,7 +183,6 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
               <div className="mt-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm">
                 <span className="text-green-700">✓ Sujeto obligado: <strong>{tenantSeleccionado.nombre}</strong></span>
                 <span className="text-green-600 ml-3">· {tenantSeleccionado.actividad_apnfd}</span>
-                <span className="text-green-600 ml-3">· Período: <strong>{periodo}</strong></span>
               </div>
             )}
           </div>
@@ -217,6 +225,7 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
                       <th className="py-2 px-3 text-left font-medium text-gray-500">Movimiento</th>
                       <th className="py-2 px-3 text-right font-medium text-gray-500">Monto</th>
                       <th className="py-2 px-3 text-left font-medium text-gray-500">Fecha</th>
+                      <th className="py-2 px-3 text-left font-medium text-gray-500">Período</th>
                       <th className="py-2 px-3 text-left font-medium text-gray-500">Estado</th>
                     </tr>
                   </thead>
@@ -235,6 +244,9 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
                             {r.monto_movimiento ? Number(r.monto_movimiento).toLocaleString('es-CR') : '—'}
                           </td>
                           <td className="py-2 px-3">{normalizarFecha(r.fecha_transaccion) || '—'}</td>
+                          <td className="py-2 px-3 font-mono text-xs text-gray-500">
+                            {derivarPeriodo(r.fecha_transaccion).substring(0, 7)}
+                          </td>
                           <td className="py-2 px-3">
                             {errs
                               ? <span className="text-red-600" title={errs.join(', ')}>⚠ {errs[0]}</span>

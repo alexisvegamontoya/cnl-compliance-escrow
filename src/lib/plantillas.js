@@ -153,6 +153,8 @@ export function descargarPlantillaClientes() {
 }
 
 // ─── Parser de Excel ──────────────────────────────────────────────────────────
+// Busca automáticamente la fila de encabezados (la que contiene
+// 'numero_identificacion'), ignorando títulos e instrucciones previas.
 export function parsearExcel(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -160,7 +162,34 @@ export function parsearExcel(file) {
       try {
         const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true })
         const ws = wb.Sheets[wb.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+        // Leer todas las filas como arrays para localizar la fila de headers
+        const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+
+        const headerRowIdx = allRows.findIndex(row =>
+          row.some(cell => String(cell).trim().toLowerCase() === 'numero_identificacion')
+        )
+
+        if (headerRowIdx === -1) {
+          // Fallback: comportamiento original (primera fila como headers)
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+          resolve(rows)
+          return
+        }
+
+        const headers = allRows[headerRowIdx]
+        const dataRows = allRows.slice(headerRowIdx + 1)
+
+        const rows = dataRows
+          .filter(row => row.some(cell => cell !== '' && cell !== null))
+          .map(row => {
+            const obj = {}
+            headers.forEach((h, i) => {
+              if (h) obj[String(h).trim()] = row[i] ?? ''
+            })
+            return obj
+          })
+
         resolve(rows)
       } catch (err) {
         reject(new Error('No se pudo leer el archivo Excel: ' + err.message))

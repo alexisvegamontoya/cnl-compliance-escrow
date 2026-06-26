@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+import ErrorBanner from '../components/ui/ErrorBanner'
+import { clasificarError } from '../lib/errorHandler'
 
 const PAISES_RIESGO = ['KP','IR','MM','SY','RU','BY','SD','SS','YE','SO','LY','HT','PA','PH','NG','VN']
 
@@ -15,21 +17,30 @@ export default function Informes() {
   const [clientes, setClientes] = useState([])
   const [loading, setLoading]   = useState(false)
   const [generado, setGenerado] = useState(false)
+  const [error, setError]       = useState(null)
   const informeRef = useRef(null)
 
   const cargar = useCallback(async () => {
     if (!tenant) return
     setLoading(true)
-    const desde = periodo + '-01'
-    const hasta = periodo + '-31'
-    const [{ data: t }, { data: c }] = await Promise.all([
-      supabase.from('transacciones').select('*').eq('tenant_id', tenant.id).gte('periodo', desde).lte('periodo', hasta),
-      supabase.from('clientes').select('*').eq('tenant_id', tenant.id),
-    ])
-    setTxns(t || [])
-    setClientes(c || [])
-    setGenerado(true)
-    setLoading(false)
+    setError(null)
+    try {
+      const desde = periodo + '-01'
+      const hasta = periodo + '-31'
+      const [{ data: t, error: e1 }, { data: c, error: e2 }] = await Promise.all([
+        supabase.from('transacciones').select('*').eq('tenant_id', tenant.id).gte('periodo', desde).lte('periodo', hasta),
+        supabase.from('clientes').select('*').eq('tenant_id', tenant.id),
+      ])
+      if (e1) throw e1
+      if (e2) throw e2
+      setTxns(t || [])
+      setClientes(c || [])
+      setGenerado(true)
+    } catch (err) {
+      setError(clasificarError(err))
+    } finally {
+      setLoading(false)
+    }
   }, [tenant, periodo])
 
   // ─── Análisis ────────────────────────────────────────────────────────────
@@ -95,7 +106,8 @@ export default function Informes() {
       `Alertas detectadas: ${alertas.length} (${alertasAlto.length} alta, ${alertasMedio.length} media, ${alertasBajo.length} baja)\n\n` +
       `Elaborado por: ${profile?.nombre}\nCNL Compliance App`
     )
-    return `mailto:cumplimiento@cnl.cr?cc=${profile?.email || ''}&subject=${asunto}&body=${resumen}`
+    const destino = tenant?.email_oficial_cumplimiento || profile?.email || ''
+    return `mailto:${destino}?cc=${profile?.email || ''}&subject=${asunto}&body=${resumen}`
   }
 
   const fmtUSD = n => Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })
@@ -116,6 +128,8 @@ export default function Informes() {
           </div>
         )}
       </div>
+
+      <ErrorBanner error={error} onClose={() => setError(null)} />
 
       {/* Selector de período */}
       <div className="card flex items-center gap-4">

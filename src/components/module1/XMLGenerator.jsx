@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import { generarXMLSICVECA, descargarXML } from '../../lib/xmlGenerator'
 import { TIPO_CARGA } from '../../lib/catalogos'
+import ErrorBanner from '../ui/ErrorBanner'
+import { clasificarError } from '../../lib/errorHandler'
 
 export default function XMLGenerator() {
   const { tenant } = useAuth()
@@ -12,7 +14,8 @@ export default function XMLGenerator() {
   const [loading, setLoading]       = useState(false)
   const [preview, setPreview]       = useState('')
   const [stats, setStats]           = useState(null)
-  const [error, setError]           = useState('')
+  const [error, setError]           = useState(null)
+  const [marcado, setMarcado]       = useState(false)
 
   async function generarXML() {
     if (!tenant) { setError('No se encontró el sujeto obligado.'); return }
@@ -53,7 +56,7 @@ export default function XMLGenerator() {
         xml,
       })
     } catch (err) {
-      setError(err.message || 'Error al generar el XML.')
+      setError(clasificarError(err))
     } finally {
       setLoading(false)
     }
@@ -68,13 +71,14 @@ export default function XMLGenerator() {
     if (!tenant || !stats) return
     const desde = periodo + '-01'
     const hasta = periodo + '-31'
-    await supabase
+    const { error: err } = await supabase
       .from('transacciones')
       .update({ enviado_sugef: true, fecha_envio_sugef: new Date().toISOString() })
       .eq('tenant_id', tenant.id)
       .gte('periodo', desde)
       .lte('periodo', hasta)
-    alert('Transacciones marcadas como enviadas a SUGEF.')
+    if (err) { setError(clasificarError(err)); return }
+    setMarcado(true)
   }
 
   return (
@@ -116,9 +120,7 @@ export default function XMLGenerator() {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 mb-4">{error}</div>
-        )}
+        <ErrorBanner error={error} onClose={() => setError(null)} />
 
         <button className="btn-primary" onClick={generarXML} disabled={loading}>
           {loading ? 'Generando…' : '⚙️ Generar XML'}
@@ -138,9 +140,15 @@ export default function XMLGenerator() {
               <button onClick={descargar} className="btn-primary text-sm">
                 ⬇ Descargar XML
               </button>
-              <button onClick={marcarEnviado} className="btn-secondary text-sm">
-                ✓ Marcar como enviado
-              </button>
+              {marcado ? (
+                <span className="text-sm font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg">
+                  ✅ Marcado como enviado
+                </span>
+              ) : (
+                <button onClick={marcarEnviado} className="btn-secondary text-sm">
+                  ✓ Marcar como enviado
+                </button>
+              )}
             </div>
           </div>
 
