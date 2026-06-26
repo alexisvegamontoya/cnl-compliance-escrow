@@ -13,23 +13,29 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
   const [rows, setRows]         = useState([])
   const [loading, setLoading]   = useState(true)
   const [periodo, setPeriodo]   = useState(new Date().toISOString().substring(0, 7))
+  const [verTodos, setVerTodos] = useState(false)
   const [deleting, setDeleting] = useState(null)
 
   const load = useCallback(async () => {
     if (!tenant) return
     setLoading(true)
-    const desde = periodo + '-01'
-    const hasta = periodo + '-31'
-    const { data, error } = await supabase
+    let query = supabase
       .from('transacciones')
       .select('*')
       .eq('tenant_id', tenant.id)
-      .gte('periodo', desde)
-      .lte('periodo', hasta)
-      .order('created_at', { ascending: false })
+      .order('periodo', { ascending: false })
+      .order('fecha_transaccion', { ascending: false })
+
+    if (!verTodos) {
+      const desde = periodo + '-01'
+      const hasta = periodo + '-31'
+      query = query.gte('periodo', desde).lte('periodo', hasta)
+    }
+
+    const { data, error } = await query
     if (!error) setRows(data || [])
     setLoading(false)
-  }, [tenant, periodo])
+  }, [tenant, periodo, verTodos])
 
   useEffect(() => { load() }, [load, refreshTrigger])
 
@@ -50,11 +56,25 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
           <h3 className="font-semibold text-gray-900">Transacciones registradas</h3>
           <p className="text-sm text-gray-500">{rows.length} registro{rows.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-600">Período:</label>
-          <input type="month" className="input-field w-40"
-            value={periodo}
-            onChange={e => setPeriodo(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setVerTodos(v => !v)}
+            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+              verTodos
+                ? 'bg-brand-600 text-white border-brand-600'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            {verTodos ? '✓ Todos los períodos' : 'Todos los períodos'}
+          </button>
+          {!verTodos && (
+            <>
+              <label className="text-sm text-gray-600">Período:</label>
+              <input type="month" className="input-field w-40"
+                value={periodo}
+                onChange={e => setPeriodo(e.target.value)} />
+            </>
+          )}
           <button onClick={load} className="btn-secondary text-sm py-1.5">
             Actualizar
           </button>
@@ -80,6 +100,7 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
                   <th className="text-left py-3 px-2 text-gray-500 font-medium">Movimiento</th>
                   <th className="text-right py-3 px-2 text-gray-500 font-medium">Monto</th>
                   <th className="text-left py-3 px-2 text-gray-500 font-medium">Fecha</th>
+                  {verTodos && <th className="text-left py-3 px-2 text-gray-500 font-medium">Período</th>}
                   <th className="text-left py-3 px-2 text-gray-500 font-medium">Estado</th>
                   <th className="py-3 px-2"></th>
                 </tr>
@@ -104,6 +125,11 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
                       <td className="py-3 px-2 text-gray-600">
                         {row.fecha_transaccion || '—'}
                       </td>
+                      {verTodos && (
+                        <td className="py-3 px-2 text-gray-400 font-mono text-xs">
+                          {row.periodo ? row.periodo.substring(0, 7) : '—'}
+                        </td>
+                      )}
                       <td className="py-3 px-2">
                         {row.enviado_sugef
                           ? <span className="badge-success">Enviado</span>
