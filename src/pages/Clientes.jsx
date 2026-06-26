@@ -56,8 +56,45 @@ export default function Clientes() {
   const [detalleId, setDetalleId] = useState(null)
   const [txnsCliente, setTxnsCliente] = useState([])
   const [tenantId, setTenantId]   = useState(null) // para superadmin: tenant seleccionado en el form
+  const [padronInfo, setPadronInfo]     = useState(null)   // resultado del padrón SUGEF
+  const [padronLoading, setPadronLoading] = useState(false)
 
   const esFisica = [1, 3, 5].includes(Number(form.tipo_identificacion))
+
+  // ── Autocomplete desde padrón SUGEF ─────────────────────────────────────────
+  useEffect(() => {
+    const cedula = form.numero_identificacion.trim().replace(/[-\s]/g, '')
+    if (cedula.length < 9) { setPadronInfo(null); return }
+
+    setPadronLoading(true)
+    const timer = setTimeout(async () => {
+      const { data } = await supabase.rpc('buscar_padron', { p_identificacion: cedula })
+      if (data && data.length > 0) {
+        const reg = data[0]
+        setPadronInfo(reg)
+        // Auto-completar campos vacíos
+        if (reg.tipo === 'J' && !form.nombre_empresa) {
+          setForm(p => ({ ...p, nombre_empresa: reg.nombre_completo }))
+        } else if (reg.tipo === 'F') {
+          const parts = reg.nombre_completo.trim().split(/\s+/)
+          // Formato SUGEF: NOMBRE AP1 AP2
+          const ap2   = parts.length >= 3 ? parts[parts.length - 1] : ''
+          const ap1   = parts.length >= 2 ? parts[parts.length - 2] : ''
+          const nomb  = parts.length >= 3 ? parts.slice(0, parts.length - 2).join(' ') : parts[0] || ''
+          setForm(p => ({
+            ...p,
+            nombre_cliente:   p.nombre_cliente   || nomb,
+            primer_apellido:  p.primer_apellido  || ap1,
+            segundo_apellido: p.segundo_apellido || ap2,
+          }))
+        }
+      } else {
+        setPadronInfo(null)
+      }
+      setPadronLoading(false)
+    }, 600)
+    return () => { clearTimeout(timer); setPadronLoading(false) }
+  }, [form.numero_identificacion])
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -90,7 +127,7 @@ export default function Clientes() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function cancelar() { setForm(EMPTY); setEditId(null); setShowForm(false); setError(''); setTenantId(null) }
+  function cancelar() { setForm(EMPTY); setEditId(null); setShowForm(false); setError(''); setTenantId(null); setPadronInfo(null) }
 
   async function verDetalle(c) {
     if (detalleId === c.id) { setDetalleId(null); return }
@@ -280,7 +317,22 @@ export default function Clientes() {
               <div>
                 <label className="label">Número de identificación *</label>
                 <input className="input-field" required placeholder="Sin guiones"
-                  value={form.numero_identificacion} onChange={e => set('numero_identificacion', e.target.value)} />
+                  value={form.numero_identificacion} onChange={e => { set('numero_identificacion', e.target.value); setPadronInfo(null) }} />
+                {padronLoading && (
+                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                    <span className="animate-spin inline-block">⏳</span> Consultando padrón SUGEF…
+                  </p>
+                )}
+                {!padronLoading && padronInfo && (
+                  <p className="text-xs text-green-600 font-medium mt-1">
+                    ✅ Encontrado en padrón SUGEF — datos autocompletados
+                  </p>
+                )}
+                {!padronLoading && !padronInfo && form.numero_identificacion.replace(/[-\s]/g,'').length >= 9 && (
+                  <p className="text-xs text-amber-500 mt-1">
+                    ⚠ No encontrado en padrón SUGEF — complete el nombre manualmente
+                  </p>
+                )}
               </div>
               <div>
                 <label className="label">Tipo de identificación *</label>
