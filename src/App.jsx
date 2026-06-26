@@ -18,6 +18,7 @@ import Perfil from './pages/Perfil'
 import AuditLog from './pages/admin/AuditLog'
 import ConsultaPEP from './pages/ConsultaPEP'
 import DebilidaDiligencia from './pages/DebilidaDiligencia'
+import ModuloIA from './pages/ModuloIA'
 
 function Layout({ children }) {
   return (
@@ -125,6 +126,11 @@ function AppRoutes() {
       <Route path="/admin/auditoria" element={
         <PrivateRoute>
           <Layout><AuditLog /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/asistente-ia" element={
+        <PrivateRoute>
+          <Layout><ModuloIA /></Layout>
         </PrivateRoute>
       } />
       <Route path="/perfil" element={

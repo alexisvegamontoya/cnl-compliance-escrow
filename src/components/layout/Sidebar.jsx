@@ -19,7 +19,8 @@ const operaciones = [
 ]
 
 const documentos = [
-  { to: '/normativa', icon: '📚', label: 'Normativa' },
+  { to: '/normativa',    icon: '📚', label: 'Normativa' },
+  { to: '/asistente-ia', icon: '🤖', label: 'Asistente IA' },
 ]
 
 const adminItems = [
