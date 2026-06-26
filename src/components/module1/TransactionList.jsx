@@ -8,21 +8,24 @@ const MONEDA_LABEL = { 1: 'CRC', 2: 'USD', 3: 'EUR', 4: 'Otra' }
 const MOV_LABEL    = { 1: '⬆ Ingreso', 2: '⬇ Salida', 3: '↕ Ambos' }
 const MOV_COLOR    = { 1: 'badge-success', 2: 'badge-warning', 3: 'text-blue-700 bg-blue-100' }
 
-export default function TransactionList({ refreshTrigger, onEdit }) {
-  const { tenant } = useAuth()
-  const [rows, setRows]         = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [periodo, setPeriodo]   = useState(new Date().toISOString().substring(0, 7))
-  const [verTodos, setVerTodos] = useState(false)
-  const [deleting, setDeleting] = useState(null)
+export default function TransactionList({ refreshTrigger, onEdit, tenants = [] }) {
+  const { tenant, isSuperAdmin } = useAuth()
+  const [rows, setRows]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [periodo, setPeriodo]     = useState(new Date().toISOString().substring(0, 7))
+  const [verTodos, setVerTodos]   = useState(false)
+  const [tenantVista, setTenantVista] = useState('')
+  const [deleting, setDeleting]   = useState(null)
+
+  const tenantId = isSuperAdmin ? tenantVista : tenant?.id
 
   const load = useCallback(async () => {
-    if (!tenant) return
+    if (!tenantId) return
     setLoading(true)
     let query = supabase
       .from('transacciones')
       .select('*')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenantId)
       .order('periodo', { ascending: false })
       .order('fecha_transaccion', { ascending: false })
 
@@ -35,7 +38,7 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
     const { data, error } = await query
     if (!error) setRows(data || [])
     setLoading(false)
-  }, [tenant, periodo, verTodos])
+  }, [tenantId, periodo, verTodos])
 
   useEffect(() => { load() }, [load, refreshTrigger])
 
@@ -51,6 +54,17 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
 
   return (
     <div className="card">
+      {isSuperAdmin && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+          <span className="text-amber-700 text-sm font-medium flex-shrink-0">🏢 Sujeto obligado:</span>
+          <select className="input-field text-sm"
+            value={tenantVista}
+            onChange={e => setTenantVista(e.target.value)}>
+            <option value="">— Seleccione para ver transacciones —</option>
+            {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="font-semibold text-gray-900">Transacciones registradas</h3>

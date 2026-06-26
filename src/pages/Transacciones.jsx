@@ -89,7 +89,7 @@ export default function Transacciones() {
         onImportado={() => setRefresh(r => r + 1)}
       />
 
-      <TransactionList refreshTrigger={refresh} onEdit={handleEdit} />
+      <TransactionList refreshTrigger={refresh} onEdit={handleEdit} tenants={tenants} />
     </div>
   )
 }
