@@ -5,6 +5,8 @@ import { TIPO_IDENTIFICACION, TIPO_MONEDA } from '../lib/catalogos'
 import { exportarExcel } from '../lib/exportExcel'
 import { logAudit } from '../lib/auditLog'
 import { alertaROS } from '../lib/emailAlertas'
+import ErrorBanner from '../components/ui/ErrorBanner'
+import { clasificarError } from '../lib/errorHandler'
 
 const EMPTY = {
   fecha_elaboracion: new Date().toISOString().split('T')[0],
@@ -87,7 +89,7 @@ export default function Ros() {
     const { error: err } = editId
       ? await supabase.from('reportes_ros').update(payload).eq('id', editId)
       : await supabase.from('reportes_ros').insert(payload)
-    if (err) { setError(err.message); setSaving(false); return }
+    if (err) { setError(clasificarError(err)); setSaving(false); return }
 
     // Alerta automática por correo solo en creación
     if (isNew) {
@@ -225,7 +227,7 @@ export default function Ros() {
       {/* Formulario */}
       {showForm && (
         <form onSubmit={guardar} className="space-y-5">
-          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
+          <ErrorBanner error={error} onClose={() => setError(null)} />
 
           {/* A) Info general */}
           <div className="card space-y-4">

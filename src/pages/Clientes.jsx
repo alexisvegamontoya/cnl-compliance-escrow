@@ -6,6 +6,8 @@ import CargaMasivaClientes from '../components/carga/CargaMasivaClientes'
 import { exportarExcel } from '../lib/exportExcel'
 import { logAudit } from '../lib/auditLog'
 import { alertaListasCliente } from '../lib/emailAlertas'
+import ErrorBanner from '../components/ui/ErrorBanner'
+import { clasificarError } from '../lib/errorHandler'
 
 const TIPO_ID_LABEL = Object.fromEntries(TIPO_IDENTIFICACION.map(t => [t.codigo, t.descripcion]))
 
@@ -152,7 +154,7 @@ export default function Clientes() {
     setError('')
     const efectivoTenantId = (isSuperAdmin && tenantId) ? tenantId : tenant.id
     if (isSuperAdmin && !tenantId) {
-      setError('Debe seleccionar un sujeto obligado para asignar el cliente.')
+      setError({ tipo: 'operativo', mensaje: 'Debe seleccionar un sujeto obligado para asignar el cliente.' })
       setSaving(false)
       return
     }
@@ -184,7 +186,7 @@ export default function Clientes() {
     const { error: err } = editId
       ? await supabase.from('clientes').update(payload).eq('id', editId)
       : await supabase.from('clientes').insert(payload)
-    if (err) { setError(err.message); setSaving(false); return }
+    if (err) { setError(clasificarError(err)); setSaving(false); return }
 
     // Alerta si aparece en listas internacionales
     if (form.aparece_en_listas) {
@@ -319,7 +321,7 @@ export default function Clientes() {
       {showForm && (
         <form onSubmit={guardar} className="card space-y-6">
           <h3 className="font-semibold text-gray-900 text-lg">{editId ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`}</h3>
-          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
+          <ErrorBanner error={error} onClose={() => setError(null)} />
 
           {/* Selector de sujeto obligado — solo superadmin */}
           {isSuperAdmin && (

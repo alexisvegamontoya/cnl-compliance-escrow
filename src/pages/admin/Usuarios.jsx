@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
+import ErrorBanner from '../../components/ui/ErrorBanner'
+import { clasificarError } from '../../lib/errorHandler'
 
 const ROL_LABEL = {
   superadmin: { label: 'Super Admin', color: 'bg-purple-100 text-purple-700' },
@@ -46,7 +48,7 @@ export default function Usuarios() {
       .update({ rol: nuevoRol })
       .eq('id', userId)
     if (err) {
-      setError('Error al actualizar el rol: ' + err.message)
+      setError(clasificarError(err))
     } else {
       setSuccess('Rol actualizado correctamente.')
       cargar()
@@ -115,9 +117,7 @@ VALUES (
       )}
 
       {/* Mensajes */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>
-      )}
+      <ErrorBanner error={error} onClose={() => setError(null)} />
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700">{success}</div>
       )}

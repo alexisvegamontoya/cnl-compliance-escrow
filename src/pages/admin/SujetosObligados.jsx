@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ACTIVIDADES_APNFD, TIPO_SUJETO } from '../../lib/catalogos'
+import ErrorBanner from '../../components/ui/ErrorBanner'
+import { clasificarError } from '../../lib/errorHandler'
 
 const EMPTY = {
   nombre: '',
@@ -99,7 +101,7 @@ export default function SujetosObligados() {
       cancelar()
       load()
     } catch (err) {
-      setError(err.message || 'Error al guardar.')
+      setError(clasificarError(err))
     } finally {
       setSaving(false)
     }
@@ -136,9 +138,7 @@ export default function SujetosObligados() {
             {editId ? 'Editar sujeto obligado' : 'Nuevo sujeto obligado'}
           </h3>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>
-          )}
+          <ErrorBanner error={error} onClose={() => setError(null)} />
 
           {/* Datos generales */}
           <div>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+import ErrorBanner from '../components/ui/ErrorBanner'
+import { clasificarError } from '../lib/errorHandler'
 
 const TIPOS = ['reglamento', 'politica', 'procedimiento', 'guia', 'circular', 'documento']
 const TIPO_ICON = {
@@ -105,7 +107,7 @@ export default function Normativa() {
       cancelar()
       load()
     } catch (err) {
-      setError(err.message || 'Error al subir el documento.')
+      setError(clasificarError(err))
     } finally {
       setSaving(false)
     }
@@ -151,7 +153,7 @@ export default function Normativa() {
       {showForm && puedeSubir && (
         <form onSubmit={guardar} className="card space-y-4">
           <h3 className="font-semibold text-gray-900">Nuevo documento normativo</h3>
-          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
+          <ErrorBanner error={error} onClose={() => setError(null)} />
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">

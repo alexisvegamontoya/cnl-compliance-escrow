@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+import ErrorBanner from '../components/ui/ErrorBanner'
+import { clasificarError } from '../lib/errorHandler'
 
 const EMAILJS_SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID  || ''
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || ''
@@ -76,7 +78,7 @@ function FormularioDenuncia({ tenant, profile, onEnviado }) {
     }
 
     const { error: err } = await supabase.from('denuncias').insert(payload)
-    if (err) { setError(err.message); setSaving(false); return }
+    if (err) { setError(clasificarError(err)); setSaving(false); return }
 
     // Enviar email
     await enviarEmail(payload, tenant?.nombre)
@@ -110,7 +112,7 @@ function FormularioDenuncia({ tenant, profile, onEnviado }) {
         </p>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
+      <ErrorBanner error={error} onClose={() => setError(null)} />
 
       {/* Tipo */}
       <div>
