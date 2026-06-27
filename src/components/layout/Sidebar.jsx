@@ -49,7 +49,7 @@ function NavItem({ to, icon, label, end }) {
 }
 
 export default function Sidebar() {
-  const { tenant, profile, signOut, isAdmin, isSuperAdmin } = useAuth()
+  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isAdmin, isSuperAdmin } = useAuth()
 
   return (
     <aside className="w-64 bg-brand-900 text-white flex flex-col min-h-screen">
@@ -63,7 +63,20 @@ export default function Sidebar() {
       {tenant && (
         <div className="px-4 py-3 bg-brand-800 mx-3 my-3 rounded-lg">
           <p className="text-xs text-brand-300 uppercase tracking-wider mb-1">Sujeto Obligado</p>
-          <p className="text-sm font-medium text-white leading-tight truncate">{tenant.nombre}</p>
+          {/* Selector si tiene varios tenants */}
+          {tenantsDisponibles.length > 1 ? (
+            <select
+              value={tenant.id}
+              onChange={e => cambiarTenant(e.target.value)}
+              className="w-full text-sm font-medium text-white bg-brand-700 border border-brand-600 rounded-lg px-2 py-1.5 mb-1"
+            >
+              {tenantsDisponibles.map(t => (
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm font-medium text-white leading-tight truncate">{tenant.nombre}</p>
+          )}
           <p className="text-xs text-brand-300 mt-0.5 truncate">{tenant.actividad_apnfd}</p>
           <span className="inline-block mt-1 text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full">
             Tipo {tenant.tipo_sujeto}

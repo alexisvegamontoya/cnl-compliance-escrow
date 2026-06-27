@@ -1,13 +1,14 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession]   = useState(null)
-  const [profile, setProfile]   = useState(null)
-  const [tenant, setTenant]     = useState(null)
-  const [loading, setLoading]   = useState(true)
+  const [session, setSession]               = useState(null)
+  const [profile, setProfile]               = useState(null)
+  const [tenant, setTenant]                 = useState(null)          // tenant activo
+  const [tenantsDisponibles, setTenants]    = useState([])            // todos los tenants del usuario
+  const [loading, setLoading]               = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -19,7 +20,12 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) loadProfile(session.user.id)
-      else { setProfile(null); setTenant(null); setLoading(false) }
+      else {
+        setProfile(null)
+        setTenant(null)
+        setTenants([])
+        setLoading(false)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -27,17 +33,61 @@ export function AuthProvider({ children }) {
 
   async function loadProfile(userId) {
     try {
-      const { data: prof } = await supabase
-        .from('user_profiles')
-        .select('*, tenants(*)')
-        .eq('id', userId)
-        .single()
+      // Cargar perfil y membresías en paralelo
+      const [{ data: prof }, { data: memberships }] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', userId)
+          .single(),
+        supabase
+          .from('user_tenant_memberships')
+          .select('*, tenants(*)')
+          .eq('user_id', userId)
+          .eq('activo', true),
+      ])
+
       setProfile(prof)
-      setTenant(prof?.tenants || null)
+
+      if (memberships && memberships.length > 0) {
+        // Construir lista de tenants disponibles, inyectando el rol de membresía
+        const lista = memberships
+          .filter(m => m.tenants)
+          .map(m => ({ ...m.tenants, rol_tenant: m.rol }))
+
+        setTenants(lista)
+
+        // Seleccionar tenant activo: preferir el guardado en localStorage
+        const saved = localStorage.getItem('cnl_tenant_activo')
+        const encontrado = lista.find(t => t.id === saved)
+        setTenant(encontrado || lista[0])
+
+      } else if (prof?.tenant_id) {
+        // Fallback legacy: usuario sin membresías usa tenant_id de su perfil
+        const { data: t } = await supabase
+          .from('tenants')
+          .select('*')
+          .eq('id', prof.tenant_id)
+          .single()
+        if (t) {
+          setTenant(t)
+          setTenants([t])
+        }
+      }
+      // Superadmin: no tiene tenant propio, todo se maneja con tenantVista en cada módulo
     } finally {
       setLoading(false)
     }
   }
+
+  // Cambiar de tenant activo (para usuarios con múltiples membresías)
+  const cambiarTenant = useCallback((tenantId) => {
+    const t = tenantsDisponibles.find(t => t.id === tenantId)
+    if (t) {
+      setTenant(t)
+      localStorage.setItem('cnl_tenant_activo', tenantId)
+    }
+  }, [tenantsDisponibles])
 
   async function signIn(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -45,14 +95,27 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    localStorage.removeItem('cnl_tenant_activo')
     await supabase.auth.signOut()
   }
 
   const isSuperAdmin = profile?.rol === 'superadmin'
-  const isAdmin      = ['superadmin', 'admin_tenant'].includes(profile?.rol)
+  const isAdmin      = isSuperAdmin || profile?.rol === 'admin_tenant' ||
+                       tenantsDisponibles.some(t => t.id === tenant?.id && t.rol_tenant === 'admin_tenant')
 
   return (
-    <AuthContext.Provider value={{ session, profile, tenant, loading, signIn, signOut, isSuperAdmin, isAdmin }}>
+    <AuthContext.Provider value={{
+      session,
+      profile,
+      tenant,
+      tenantsDisponibles,
+      cambiarTenant,
+      loading,
+      signIn,
+      signOut,
+      isSuperAdmin,
+      isAdmin,
+    }}>
       {children}
     </AuthContext.Provider>
   )
