@@ -17,8 +17,10 @@
 
 import { createClient } from '@supabase/supabase-js'
 
+const SUPABASE_URL = 'https://akczzwsfggzcfqyytyho.supabase.co'
+
 const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL,
+  SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
