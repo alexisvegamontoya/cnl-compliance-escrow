@@ -66,7 +66,10 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
       })
       const json = await res.json()
 
-      if (!res.ok) throw new Error(json.error || 'Error al crear el usuario')
+      if (!res.ok) {
+        setError({ tipo: 'operativo', mensaje: json.error || 'Error al crear el usuario' })
+        return
+      }
 
       setOk(json.message)
       setEmail('')
