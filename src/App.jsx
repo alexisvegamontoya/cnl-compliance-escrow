@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import Login from './components/auth/Login'
 import SetPassword from './pages/SetPassword'
@@ -43,12 +43,7 @@ function PrivateRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { session, loading } = useAuth()
-  const location = useLocation()
-
-  // Detectar link de invitación en el hash
-  const hash = location.hash || window.location.hash
-  const isInvite = hash.includes('type=invite') || hash.includes('type=recovery')
+  const { session, loading, needsPasswordSetup } = useAuth()
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -57,7 +52,7 @@ function AppRoutes() {
   )
 
   // Si viene de un link de invitación, mostrar página de configurar contraseña
-  if (isInvite && session) {
+  if (needsPasswordSetup && session) {
     return <SetPassword />
   }
 

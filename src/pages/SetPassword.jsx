@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
 
 export default function SetPassword() {
   const navigate = useNavigate()
+  const { setNeedsPasswordSetup } = useAuth()
   const [password, setPassword] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,6 +44,7 @@ export default function SetPassword() {
     }
 
     setListo(true)
+    setNeedsPasswordSetup(false)
     setTimeout(() => navigate('/', { replace: true }), 2000)
   }
 

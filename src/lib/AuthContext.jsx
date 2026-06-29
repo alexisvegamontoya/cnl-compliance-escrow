@@ -9,6 +9,14 @@ export function AuthProvider({ children }) {
   const [tenant, setTenant]                 = useState(null)          // tenant activo
   const [tenantsDisponibles, setTenants]    = useState([])            // todos los tenants del usuario
   const [loading, setLoading]               = useState(true)
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
+
+  // Detectar si el link actual es de invitación (hash o query param)
+  function isInviteUrl() {
+    const hash = window.location.hash
+    const search = window.location.search
+    return hash.includes('type=invite') || search.includes('type=invite')
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -17,8 +25,12 @@ export function AuthProvider({ children }) {
       else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
+      // Detectar invitación: evento SIGNED_IN con URL de invite
+      if (event === 'SIGNED_IN' && isInviteUrl()) {
+        setNeedsPasswordSetup(true)
+      }
       if (session) loadProfile(session.user.id)
       else {
         setProfile(null)
@@ -115,6 +127,8 @@ export function AuthProvider({ children }) {
       signOut,
       isSuperAdmin,
       isAdmin,
+      needsPasswordSetup,
+      setNeedsPasswordSetup,
     }}>
       {children}
     </AuthContext.Provider>
