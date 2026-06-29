@@ -54,7 +54,7 @@ export default async function handler(req, res) {
     const inviteRes = await sbFetch('/auth/v1/invite', serviceKey, 'POST', {
       email:       email.trim(),
       data:        { nombre: nombre.trim() },
-      redirect_to: 'https://aplicacion-de-cumplimiento-de-cnl.vercel.app',
+      redirect_to: 'https://cnl-compliance-app.vercel.app',
     })
 
     if (!inviteRes.ok) {
