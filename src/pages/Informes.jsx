@@ -12,7 +12,10 @@ function getNombre(t) {
 
 export default function Informes() {
   const { tenant, profile } = useAuth()
-  const [periodo, setPeriodo]   = useState(new Date().toISOString().substring(0, 7))
+  const hoy = new Date().toISOString().substring(0, 10)
+  const primerDiaMes = new Date().toISOString().substring(0, 7) + '-01'
+  const [fechaDesde, setFechaDesde] = useState(primerDiaMes)
+  const [fechaHasta, setFechaHasta] = useState(hoy)
   const [txns, setTxns]         = useState([])
   const [clientes, setClientes] = useState([])
   const [loading, setLoading]   = useState(false)
@@ -20,15 +23,22 @@ export default function Informes() {
   const [error, setError]       = useState(null)
   const informeRef = useRef(null)
 
+  const labelPeriodo = fechaDesde && fechaHasta
+    ? `${new Date(fechaDesde + 'T12:00:00').toLocaleDateString('es-CR')} al ${new Date(fechaHasta + 'T12:00:00').toLocaleDateString('es-CR')}`
+    : ''
+
   const cargar = useCallback(async () => {
-    if (!tenant) return
+    if (!tenant || !fechaDesde || !fechaHasta) return
+    if (fechaDesde > fechaHasta) {
+      setError({ tipo: 'validacion', mensaje: 'La fecha de inicio debe ser anterior a la fecha final.' })
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const desde = periodo + '-01'
-      const hasta = periodo + '-31'
       const [{ data: t, error: e1 }, { data: c, error: e2 }] = await Promise.all([
-        supabase.from('transacciones').select('*').eq('tenant_id', tenant.id).gte('periodo', desde).lte('periodo', hasta),
+        supabase.from('transacciones').select('*').eq('tenant_id', tenant.id)
+          .gte('periodo', fechaDesde).lte('periodo', fechaHasta),
         supabase.from('clientes').select('*').eq('tenant_id', tenant.id),
       ])
       if (e1) throw e1
@@ -41,7 +51,7 @@ export default function Informes() {
     } finally {
       setLoading(false)
     }
-  }, [tenant, periodo])
+  }, [tenant, fechaDesde, fechaHasta])
 
   // ─── Análisis ────────────────────────────────────────────────────────────
   const umbral = Number(tenant?.monto_minimo_usd) || 10000
@@ -98,10 +108,10 @@ export default function Informes() {
   }
 
   function generarMailto() {
-    const asunto = encodeURIComponent(`Informe Análisis Transaccional — ${tenant?.nombre} — Período ${periodo}`)
+    const asunto = encodeURIComponent(`Informe Análisis Transaccional — ${tenant?.nombre} — ${labelPeriodo}`)
     const resumen = encodeURIComponent(
       `Estimados,\n\nAdjunto informe de análisis transaccional.\n\n` +
-      `Período: ${periodo}\nEntidad: ${tenant?.nombre}\n` +
+      `Período: ${labelPeriodo}\nEntidad: ${tenant?.nombre}\n` +
       `Total transacciones: ${txns.length}\nMonto total: USD ${totalMonto.toLocaleString()}\n` +
       `Alertas detectadas: ${alertas.length} (${alertasAlto.length} alta, ${alertasMedio.length} media, ${alertasBajo.length} baja)\n\n` +
       `Elaborado por: ${profile?.nombre}\nCNL Compliance App`
@@ -132,14 +142,22 @@ export default function Informes() {
       <ErrorBanner error={error} onClose={() => setError(null)} />
 
       {/* Selector de período */}
-      <div className="card flex items-center gap-4">
+      <div className="card flex flex-wrap items-end gap-4">
         <div>
-          <label className="label">Período a analizar</label>
-          <input type="month" className="input-field w-48"
-            value={periodo} onChange={e => { setPeriodo(e.target.value); setGenerado(false) }} />
+          <label className="label">Fecha de inicio</label>
+          <input type="date" className="input-field w-44"
+            value={fechaDesde}
+            onChange={e => { setFechaDesde(e.target.value); setGenerado(false) }} />
         </div>
-        <div className="pt-5">
-          <button onClick={cargar} disabled={loading} className="btn-primary">
+        <div>
+          <label className="label">Fecha final</label>
+          <input type="date" className="input-field w-44"
+            value={fechaHasta}
+            min={fechaDesde}
+            onChange={e => { setFechaHasta(e.target.value); setGenerado(false) }} />
+        </div>
+        <div>
+          <button onClick={cargar} disabled={loading || !fechaDesde || !fechaHasta} className="btn-primary">
             {loading ? 'Generando…' : '▶ Generar informe'}
           </button>
         </div>
@@ -164,7 +182,7 @@ export default function Informes() {
               <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
                 <div><p className="text-brand-400">Dirigido a</p><p className="font-semibold text-brand-800">Junta Directiva</p></div>
                 <div><p className="text-brand-400">Entidad</p><p className="font-semibold text-brand-800">{tenant?.nombre}</p></div>
-                <div><p className="text-brand-400">Período</p><p className="font-semibold text-brand-800">{periodo}</p></div>
+                <div><p className="text-brand-400">Período</p><p className="font-semibold text-brand-800">{labelPeriodo}</p></div>
                 <div><p className="text-brand-400">Elaborado por</p><p className="font-semibold text-brand-800">{profile?.nombre}</p></div>
                 <div><p className="text-brand-400">Actividad APNFD</p><p className="font-semibold text-brand-800">{tenant?.actividad_apnfd}</p></div>
                 <div><p className="text-brand-400">Fecha</p><p className="font-semibold text-brand-800">{new Date().toLocaleDateString('es-CR')}</p></div>
@@ -301,7 +319,7 @@ export default function Informes() {
           {txns.length === 0 && (
             <div className="card py-12 text-center text-gray-400">
               <p className="text-4xl mb-2">📭</p>
-              <p>No hay transacciones registradas en el período {periodo}.</p>
+              <p>No hay transacciones registradas en el período {labelPeriodo}.</p>
             </div>
           )}
 
