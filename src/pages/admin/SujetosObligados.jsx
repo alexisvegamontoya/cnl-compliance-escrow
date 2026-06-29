@@ -112,6 +112,57 @@ export default function SujetosObligados() {
     load()
   }
 
+  async function eliminarConRespaldo(t) {
+    if (!confirm(`¿Eliminar "${t.nombre}" y TODA su información?\n\nSe generará un respaldo en Excel antes de eliminar. Esta acción no se puede deshacer.`)) return
+
+    setError('')
+    setSaving(true)
+    try {
+      // 1. Exportar toda la data del tenant
+      const [{ data: txns }, { data: clientes }, { data: periodos }, { data: mems }] = await Promise.all([
+        supabase.from('transacciones').select('*').eq('tenant_id', t.id),
+        supabase.from('clientes').select('*').eq('tenant_id', t.id),
+        supabase.from('periodos_declarados').select('*').eq('tenant_id', t.id),
+        supabase.from('user_tenant_memberships').select('*, user_profiles(nombre, email)').eq('tenant_id', t.id),
+      ])
+
+      // 2. Construir y descargar el Excel de respaldo
+      const { utils, writeFile } = await import('xlsx')
+      const wb = utils.book_new()
+
+      const infoSheet = utils.json_to_sheet([{
+        nombre: t.nombre, cedula_juridica: t.cedula_juridica,
+        actividad_apnfd: t.actividad_apnfd, tipo_sujeto: t.tipo_sujeto,
+        clase_dato: t.clase_dato, archivo: t.archivo,
+        email_oficial_cumplimiento: t.email_oficial_cumplimiento,
+        fecha_respaldo: new Date().toISOString(),
+      }])
+      utils.book_append_sheet(wb, infoSheet, 'Info')
+
+      if (txns?.length)     utils.book_append_sheet(wb, utils.json_to_sheet(txns),    'Transacciones')
+      if (clientes?.length) utils.book_append_sheet(wb, utils.json_to_sheet(clientes), 'Clientes')
+      if (periodos?.length) utils.book_append_sheet(wb, utils.json_to_sheet(periodos), 'Periodos')
+      if (mems?.length)     utils.book_append_sheet(wb, utils.json_to_sheet(
+        mems.map(m => ({ usuario: m.user_profiles?.nombre, email: m.user_profiles?.email, rol: m.rol }))
+      ), 'Usuarios')
+
+      const nombre = t.nombre.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40)
+      const fecha  = new Date().toISOString().substring(0, 10)
+      writeFile(wb, `RESPALDO_${nombre}_${fecha}.xlsx`)
+
+      // 3. Eliminar (el CASCADE de la BD borra transacciones, clientes, etc.)
+      await supabase.from('user_tenant_memberships').delete().eq('tenant_id', t.id)
+      const { error: delErr } = await supabase.from('tenants').delete().eq('id', t.id)
+      if (delErr) throw delErr
+
+      load()
+    } catch (err) {
+      setError(clasificarError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const filtrados = tenants.filter(t =>
     t.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
     t.cedula_juridica.includes(busqueda)
@@ -305,10 +356,18 @@ export default function SujetosObligados() {
                   <button onClick={() => toggleActivo(t.id, t.activo)}
                     className={`text-xs py-1.5 px-3 rounded-lg font-medium transition-colors ${
                       t.activo
-                        ? 'text-red-600 hover:bg-red-50 border border-red-200'
+                        ? 'text-amber-600 hover:bg-amber-50 border border-amber-200'
                         : 'text-green-600 hover:bg-green-50 border border-green-200'
                     }`}>
                     {t.activo ? 'Desactivar' : 'Activar'}
+                  </button>
+                  <button
+                    onClick={() => eliminarConRespaldo(t)}
+                    disabled={saving}
+                    title="Genera respaldo Excel y elimina permanentemente"
+                    className="text-xs py-1.5 px-3 rounded-lg font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+                  >
+                    🗑 Eliminar
                   </button>
                 </div>
               </div>

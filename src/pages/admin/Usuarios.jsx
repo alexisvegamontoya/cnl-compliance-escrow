@@ -398,6 +398,31 @@ export default function Usuarios() {
     setSaving(null)
   }
 
+  async function eliminarUsuario(u) {
+    if (!confirm(`¿Eliminar permanentemente a ${u.nombre || u.email}?\n\nEsta acción no se puede deshacer. Se eliminarán sus accesos y datos de perfil.`)) return
+    setSaving(u.id)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin-delete-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: u.id }),
+      })
+      const text = await res.text()
+      let json = {}
+      try { json = JSON.parse(text) } catch (_) {}
+      if (!res.ok) {
+        setError({ tipo: 'operativo', mensaje: json.error || `Error ${res.status} al eliminar usuario` })
+      } else {
+        await cargar()
+      }
+    } catch (err) {
+      setError({ tipo: 'operativo', mensaje: 'Error de conexión: ' + err.message })
+    } finally {
+      setSaving(null)
+    }
+  }
+
   return (
     <div className="p-6 max-w-4xl space-y-6">
       {/* Header */}
@@ -513,24 +538,39 @@ export default function Usuarios() {
                   </div>
                 </div>
 
-                {/* Panel de membresías (expandible) */}
-                {expandido === u.id && u.rol !== 'superadmin' && (
+                {/* Panel expandible */}
+                {expandido === u.id && (
                   <div className="border-t border-gray-100 bg-gray-50">
-                    <p className="text-xs font-medium text-gray-500 px-4 pt-2 pb-1">
-                      Sujetos obligados asignados:
-                    </p>
-                    <MembresiasUsuario
-                      userId={u.id}
-                      tenantsDisponibles={tenants}
-                      onCambio={cargar}
-                    />
-                  </div>
-                )}
-                {expandido === u.id && u.rol === 'superadmin' && (
-                  <div className="border-t border-gray-100 bg-gray-50 px-14 py-3">
-                    <p className="text-xs text-gray-400">
-                      El Super Admin tiene acceso global a todos los sujetos obligados.
-                    </p>
+                    {u.rol !== 'superadmin' ? (
+                      <>
+                        <p className="text-xs font-medium text-gray-500 px-4 pt-2 pb-1">
+                          Sujetos obligados asignados:
+                        </p>
+                        <MembresiasUsuario
+                          userId={u.id}
+                          tenantsDisponibles={tenants}
+                          onCambio={cargar}
+                        />
+                      </>
+                    ) : (
+                      <p className="text-xs text-gray-400 px-14 py-3">
+                        El Super Admin tiene acceso global a todos los sujetos obligados.
+                      </p>
+                    )}
+
+                    {/* Zona peligrosa — solo superadmin, nunca sobre sí mismo */}
+                    {isSuperAdmin && !esYo && u.rol !== 'superadmin' && (
+                      <div className="mx-4 mb-3 mt-1 pt-3 border-t border-red-100 flex items-center justify-between">
+                        <p className="text-xs text-red-400">Zona peligrosa — acción irreversible</p>
+                        <button
+                          disabled={saving === u.id}
+                          onClick={() => eliminarUsuario(u)}
+                          className="text-xs text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                        >
+                          {saving === u.id ? '…' : '🗑 Eliminar usuario'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
