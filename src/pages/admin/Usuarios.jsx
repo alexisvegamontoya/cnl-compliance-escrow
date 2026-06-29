@@ -64,10 +64,18 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       })
-      const json = await res.json()
+
+      // Leer respuesta de forma segura
+      const text = await res.text()
+      let json = {}
+      try { json = JSON.parse(text) } catch (_) {
+        // Respuesta no es JSON (posiblemente HTML de error 500)
+        setError({ tipo: 'operativo', mensaje: `Error HTTP ${res.status}: ${text.substring(0, 200)}` })
+        return
+      }
 
       if (!res.ok) {
-        setError({ tipo: 'operativo', mensaje: json.error || 'Error al crear el usuario' })
+        setError({ tipo: 'operativo', mensaje: json.error || `Error ${res.status} al crear el usuario` })
         return
       }
 
@@ -77,7 +85,7 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
       setSel({})
       onCreado?.()
     } catch (err) {
-      setError(clasificarError(err))
+      setError({ tipo: 'operativo', mensaje: 'Error de conexión: ' + err.message })
     } finally {
       setSaving(false)
     }
