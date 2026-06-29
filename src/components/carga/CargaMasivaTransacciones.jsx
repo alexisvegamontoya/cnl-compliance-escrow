@@ -107,6 +107,20 @@ export default function CargaMasivaTransacciones({ tenants, onImportado }) {
     if (error) {
       setResultado({ ok: false, msg: error.message })
     } else {
+      // Marcar períodos como con_movimiento en periodos_declarados
+      const periodosUnicos = [...new Set(payload.map(p => p.periodo?.substring(0, 7) + '-01').filter(Boolean))]
+      if (periodosUnicos.length > 0) {
+        await supabase.from('periodos_declarados').upsert(
+          periodosUnicos.map(p => ({
+            tenant_id:     tenantId,
+            periodo:       p,
+            tipo:          'con_movimiento',
+            declarado_por: null,
+          })),
+          { onConflict: 'tenant_id,periodo', ignoreDuplicates: true }
+        )
+      }
+
       setResultado({ ok: true, msg: `${payload.length} transacciones importadas correctamente.` })
       setFilas([])
       setErroresPorFila({})

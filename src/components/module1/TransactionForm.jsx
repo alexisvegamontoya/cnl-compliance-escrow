@@ -151,6 +151,18 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
       }
 
       if (result.error) throw result.error
+
+      // Marcar el período como con_movimiento en periodos_declarados
+      if (tenant?.id && form.periodo) {
+        const periodoISO = form.periodo.substring(0, 7) + '-01'
+        await supabase.from('periodos_declarados').upsert({
+          tenant_id:     tenant.id,
+          periodo:       periodoISO,
+          tipo:          'con_movimiento',
+          declarado_por: null,
+        }, { onConflict: 'tenant_id,periodo', ignoreDuplicates: true })
+      }
+
       setForm(EMPTY_FORM)
       setClienteEncontrado(null)
       onSaved?.()
