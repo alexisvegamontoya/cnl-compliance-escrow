@@ -116,9 +116,35 @@ export default function Dashboard() {
   const [filtro,       setFiltro]       = useState('todos')
   const [busqueda,     setBusqueda]     = useState('')
   const [syncError,    setSyncError]    = useState('')
+  const [alertasClientes, setAlertasClientes] = useState([])
+
   useEffect(() => {
     cargarFeed()
+    cargarAlertasClientes()
   }, [])
+
+  // ── Cargar alertas de clientes mencionados en noticias ────────────────────
+  async function cargarAlertasClientes() {
+    const { data } = await supabase
+      .from('alertas_noticias')
+      .select('*')
+      .eq('visto', false)
+      .order('creado_en', { ascending: false })
+      .limit(20)
+    if (data) setAlertasClientes(data)
+  }
+
+  async function marcarAlertaVista(id) {
+    await supabase.from('alertas_noticias').update({ visto: true, visto_en: new Date().toISOString() }).eq('id', id)
+    setAlertasClientes(prev => prev.filter(a => a.id !== id))
+  }
+
+  async function marcarTodasVistas() {
+    await Promise.all(alertasClientes.map(a =>
+      supabase.from('alertas_noticias').update({ visto: true, visto_en: new Date().toISOString() }).eq('id', a.id)
+    ))
+    setAlertasClientes([])
+  }
 
   // ── Cargar feed desde Supabase ─────────────────────────────────────────────
   async function cargarFeed() {
@@ -225,6 +251,66 @@ export default function Dashboard() {
           <span>⚠️</span>
           <span>{syncError}</span>
           <button onClick={() => setSyncError('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+        </div>
+      )}
+
+      {/* ── ALERTAS CLIENTES EN NOTICIAS ─────────────────────────────────── */}
+      {alertasClientes.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-bold text-amber-900 text-sm">
+                  Clientes mencionados en noticias ALA/CFT ({alertasClientes.length})
+                </p>
+                <p className="text-xs text-amber-700">
+                  Se detectó posible mención de clientes registrados en noticias de lavado de dinero o delitos financieros. Revise y tome acción.
+                </p>
+              </div>
+            </div>
+            <button onClick={marcarTodasVistas}
+              className="text-xs text-amber-700 border border-amber-400 px-3 py-1 rounded-lg hover:bg-amber-100 whitespace-nowrap">
+              Marcar todas como vistas
+            </button>
+          </div>
+          <div className="space-y-2">
+            {alertasClientes.map(alerta => (
+              <div key={alerta.id}
+                className={`bg-white border rounded-xl px-4 py-3 flex items-start justify-between gap-3 ${
+                  alerta.urgencia_noticia === 'urgente' ? 'border-red-300' : 'border-amber-200'
+                }`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      alerta.urgencia_noticia === 'urgente'    ? 'bg-red-100 text-red-700' :
+                      alerta.urgencia_noticia === 'importante' ? 'bg-orange-100 text-orange-700' :
+                                                                  'bg-blue-100 text-blue-700'
+                    }`}>
+                      {alerta.urgencia_noticia === 'urgente' ? '🔴 URGENTE' : alerta.urgencia_noticia === 'importante' ? '🟡 IMPORTANTE' : '🔵 INFO'}
+                    </span>
+                    <span className="text-xs font-semibold text-amber-800">
+                      Cliente: <span className="text-gray-900">{alerta.nombre_cliente}</span>
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      mencionado como "{alerta.nombre_mencionado}" · similitud {Math.round(alerta.similitud * 100)}%
+                    </span>
+                  </div>
+                  <a href={alerta.url_noticia} target="_blank" rel="noopener noreferrer"
+                    className="text-sm font-medium text-gray-800 hover:text-amber-700 line-clamp-1 transition-colors">
+                    {alerta.titulo_noticia}
+                  </a>
+                  {alerta.resumen_noticia && (
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{alerta.resumen_noticia}</p>
+                  )}
+                </div>
+                <button onClick={() => marcarAlertaVista(alerta.id)}
+                  className="text-gray-400 hover:text-gray-600 text-lg flex-shrink-0 leading-none" title="Marcar como vista">
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

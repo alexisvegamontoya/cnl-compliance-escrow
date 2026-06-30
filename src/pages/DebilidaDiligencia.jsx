@@ -912,44 +912,12 @@ export default function DebilidaDiligencia() {
             ))}
           </div>
 
-          {/* Nivel de riesgo final */}
-          <div className="card space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <p className="font-semibold text-gray-900">🎯 Nivel de Riesgo Final</p>
-              {nivelIA && (
-                <span className="text-xs text-gray-500 flex items-center gap-1">
-                  IA sugiere: <NivelBadge nivel={nivelIA} />
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {Object.entries(NIVELES).map(([k, v]) => (
-                <button key={k} type="button" onClick={() => setNivelFinal(k)}
-                  className={`p-3 rounded-xl border-2 text-center transition-all ${
-                    nivelFinal === k
-                      ? k === 'bajo'     ? 'border-green-500 bg-green-50' :
-                        k === 'medio'    ? 'border-yellow-400 bg-yellow-50' :
-                        k === 'alto'     ? 'border-orange-500 bg-orange-50' :
-                                          'border-red-500 bg-red-50'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}>
-                  <p className={`text-sm font-bold ${
-                    nivelFinal === k
-                      ? k === 'bajo'     ? 'text-green-700' :
-                        k === 'medio'    ? 'text-yellow-700' :
-                        k === 'alto'     ? 'text-orange-700' : 'text-red-700'
-                      : 'text-gray-400'
-                  }`}>{v.label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">{v.desc}</p>
-                </button>
-              ))}
-            </div>
-            <div>
-              <label className="label text-xs">Justificación del nivel asignado (opcional — quedará en el expediente)</label>
-              <textarea className="input text-sm" rows={2}
-                placeholder="Describa los factores que determinaron este nivel de riesgo…"
-                value={justificacion} onChange={e => setJustificacion(e.target.value)} />
-            </div>
+          {/* Notas al checklist */}
+          <div className="card space-y-2">
+            <label className="label text-xs">Observaciones adicionales (opcional — quedará en el expediente)</label>
+            <textarea className="input text-sm" rows={3}
+              placeholder="Anote cualquier observación relevante sobre los documentos o el expediente…"
+              value={justificacion} onChange={e => setJustificacion(e.target.value)} />
           </div>
         </div>
       )}

@@ -3,6 +3,16 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { clasificarError } from '../lib/errorHandler'
+import InformeLaborales from '../components/informes/InformeLaborales'
+import InformePlanTrabajo from '../components/informes/InformePlanTrabajo'
+import InformePlanCapacitacion from '../components/informes/InformePlanCapacitacion'
+
+const TABS = [
+  { id: 'transaccional', label: '📊 Análisis Transaccional' },
+  { id: 'labores',       label: '📋 Informe de Labores' },
+  { id: 'plan_trabajo',  label: '📅 Plan de Trabajo' },
+  { id: 'capacitacion',  label: '🎓 Plan de Capacitación' },
+]
 
 const PAISES_RIESGO = ['KP','IR','MM','SY','RU','BY','SD','SS','YE','SO','LY','HT','PA','PH','NG','VN']
 
@@ -12,6 +22,7 @@ function getNombre(t) {
 
 export default function Informes() {
   const { tenant, profile } = useAuth()
+  const [tabActiva, setTabActiva] = useState('transaccional')
   const hoy = new Date().toISOString().substring(0, 10)
   const primerDiaMes = new Date().toISOString().substring(0, 7) + '-01'
   const [fechaDesde, setFechaDesde] = useState(primerDiaMes)
@@ -122,13 +133,17 @@ export default function Informes() {
 
   const fmtUSD = n => Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })
 
+  if (tabActiva === 'labores')      return <InformeLaborales />
+  if (tabActiva === 'plan_trabajo') return <InformePlanTrabajo />
+  if (tabActiva === 'capacitacion') return <InformePlanCapacitacion />
+
   return (
     <div className="p-6 max-w-5xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Informe de Análisis Transaccional</h1>
-          <p className="text-gray-500 text-sm mt-1">Módulo 1 Parte 2 — Reporte de cumplimiento ALA/CFT</p>
+          <h1 className="text-2xl font-bold text-gray-900">Informes de Cumplimiento</h1>
+          <p className="text-gray-500 text-sm mt-1">Módulo 1 — Reportes ALA/CFT</p>
         </div>
         {generado && (
           <div className="flex gap-2">
@@ -137,6 +152,19 @@ export default function Informes() {
             <button onClick={imprimir} className="btn-primary text-sm">🖨️ Descargar PDF</button>
           </div>
         )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTabActiva(t.id)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors
+              ${tabActiva === t.id
+                ? 'bg-white border border-b-white border-gray-200 text-brand-700 -mb-px'
+                : 'text-gray-500 hover:text-gray-700'}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <ErrorBanner error={error} onClose={() => setError(null)} />

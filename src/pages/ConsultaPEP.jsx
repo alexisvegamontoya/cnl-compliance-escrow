@@ -400,6 +400,10 @@ export default function ConsultaPEP() {
     vigenciaCargo:   '',
   })
 
+  // ── Estado CCSS y SUGEF ───────────────────────────────────────────────────────
+  const [ccssAlDia, setCcssAlDia]           = useState(null)  // true / false / null
+  const [sujetoObligado, setSujetoObligado] = useState(null)  // null / 'no' / '15' / '15bis' / '15ter'
+
   return (
     <div className="p-6 max-w-5xl space-y-6">
 
@@ -554,6 +558,109 @@ export default function ConsultaPEP() {
         )}
       </div>
 
+
+      {/* ── CCSS y SUGEF ── */}
+      <div className="card border-l-4 border-teal-400 space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🇨🇷</span>
+          <div>
+            <p className="font-semibold text-gray-900">Verificaciones Adicionales — Costa Rica</p>
+            <p className="text-xs text-gray-500">CCSS mora patronal · Sujeto obligado Ley 7786 Art. 15/15 bis/15 ter</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* ── CCSS ── */}
+          <div className="space-y-2 border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">🏥 Estado CCSS</p>
+                <p className="text-xs text-gray-500">Verificar morosidad patronal / obrero-patronal</p>
+              </div>
+              <a
+                href={`https://enlinea.ccss.sa.cr/verificacion/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-1"
+              >
+                🔗 Consultar CCSS
+              </a>
+            </div>
+            <p className="text-xs text-gray-400">Ingrese la cédula en la plataforma CCSS y registre el resultado:</p>
+            <div className="flex gap-2">
+              {[
+                { v: true,  label: '✅ Al día',           cls: 'bg-green-600 text-white border-green-600' },
+                { v: false, label: '❌ Con morosidad',    cls: 'bg-red-600 text-white border-red-600' },
+              ].map(opt => (
+                <button key={String(opt.v)} type="button"
+                  onClick={() => setCcssAlDia(opt.v)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
+                    ccssAlDia === opt.v ? opt.cls : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {ccssAlDia === false && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                ⚠️ El cliente presenta morosidad con la CCSS. Considere esto como factor de riesgo adicional en la evaluación.
+              </div>
+            )}
+            {ccssAlDia === true && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
+                ✅ Verificado al día con la CCSS — sin señales de alerta por este criterio.
+              </div>
+            )}
+          </div>
+
+          {/* ── SUGEF Sujeto Obligado ── */}
+          <div className="space-y-2 border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">🏛️ Sujeto Obligado Ley 7786</p>
+                <p className="text-xs text-gray-500">Art. 15, 15 bis o 15 ter — Obligados SUGEF</p>
+              </div>
+              <a
+                href="https://www.sugef.fi.cr/servicios/sujetos_obligados/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-blue-700 text-white px-3 py-1.5 rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-1"
+              >
+                🔗 Consultar SUGEF
+              </a>
+            </div>
+            <p className="text-xs text-gray-400">Verifique en el portal SUGEF si la persona/empresa es sujeto obligado:</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { v: 'no',     label: '✅ No es sujeto obligado', cls: 'border-green-500 bg-green-50 text-green-700' },
+                { v: '15',     label: '⚖️ Art. 15',              cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+                { v: '15bis',  label: '⚖️ Art. 15 bis',          cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+                { v: '15ter',  label: '⚖️ Art. 15 ter',          cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+              ].map(opt => (
+                <button key={opt.v} type="button"
+                  onClick={() => setSujetoObligado(opt.v)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
+                    sujetoObligado === opt.v ? opt.cls : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {sujetoObligado && sujetoObligado !== 'no' && (
+              <div className="bg-orange-50 border border-orange-300 rounded-lg px-3 py-2 text-xs text-orange-800 space-y-1">
+                <p className="font-bold">⚠️ Esta persona/entidad es sujeto obligado ({sujetoObligado === '15' ? 'Art. 15' : sujetoObligado === '15bis' ? 'Art. 15 bis' : 'Art. 15 ter'} — Ley 7786)</p>
+                <p>Debe verificar que cuente con un <strong>Programa de Cumplimiento ALA/CFT</strong> vigente, según lo exige el Acuerdo SUGEF 13-19. La ausencia de un programa de cumplimiento es una señal de alerta adicional. Se recomienda solicitar evidencia de su inscripción y cumplimiento ante SUGEF.</p>
+              </div>
+            )}
+            {sujetoObligado === 'no' && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
+                ✅ No figura como sujeto obligado — sin señales de alerta por este criterio.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Indicadores de fuentes consultadas */}
       <div className="grid grid-cols-4 gap-2">

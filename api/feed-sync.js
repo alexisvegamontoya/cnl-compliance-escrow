@@ -212,6 +212,27 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
     }
 
     console.log(`[feed-sync] OK — ${feedRecords.length} registros procesados`)
+
+    // ── 5. Extraer entidades de las noticias y comparar con clientes ───────────
+    // Solo ejecutar si hay artículos relevantes (tipo noticia/judicial)
+    const articulosParaEntidades = items.filter(i =>
+      ['noticia', 'judicial'].includes(i.fuente_tipo) && (i.titulo || i.resumen)
+    ).slice(0, 10) // máximo 10 para no exceder tokens
+
+    if (articulosParaEntidades.length > 0) {
+      try {
+        await buscarEntidadesEnNoticias({
+          articulos: articulosParaEntidades,
+          anthropicKey,
+          serviceKey,
+          feedRecordsInsertados: feedRecords,
+        })
+      } catch (e) {
+        console.warn('[feed-sync] Error en verificación de clientes:', e.message)
+        // No bloquear la respuesta principal
+      }
+    }
+
     return res.status(200).json({
       ok:         true,
       insertados: feedRecords.length,
@@ -222,4 +243,123 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
     console.error('[feed-sync] Error inesperado:', err)
     return res.status(500).json({ error: 'Error interno del servidor: ' + err.message })
   }
+}
+
+// ── Helper: extraer entidades y cruzar con clientes ──────────────────────────
+async function buscarEntidadesEnNoticias({ articulos, anthropicKey, serviceKey, feedRecordsInsertados }) {
+  // 1. Pedir a Claude que extraiga nombres de personas y empresas
+  const promptEntidades = `Analiza los siguientes artículos de noticias ALA/CFT y extrae TODOS los nombres de personas físicas y empresas/organizaciones mencionadas.
+
+ARTÍCULOS:
+${articulos.map((a, i) =>
+  `[${i+1}] ${a.titulo}\n${a.resumen || ''}`
+).join('\n\n---\n\n')}
+
+Responde SOLO con JSON sin markdown:
+{
+  "entidades": [
+    { "nombre": "...", "tipo": "persona|empresa", "articulo_idx": 0 }
+  ]
+}
+
+Solo incluye nombres propios claros (personas con nombre y apellido, o empresas con nombre completo). Excluye instituciones genéricas como "Fiscalía", "OIJ", "SUGEF". Máximo 20 entidades.`
+
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key':         anthropicKey,
+      'anthropic-version': '2023-06-01',
+      'content-type':      'application/json',
+    },
+    body: JSON.stringify({
+      model:      process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      messages:   [{ role: 'user', content: promptEntidades }],
+    }),
+  })
+
+  if (!claudeRes.ok) return
+  const claudeData = await claudeRes.json()
+  const rawText    = claudeData.content?.[0]?.text || '{}'
+  let entidades = []
+  try {
+    const clean = rawText.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim()
+    entidades = JSON.parse(clean).entidades || []
+  } catch { return }
+
+  if (entidades.length === 0) return
+
+  // 2. Obtener todos los clientes de todas las tenants
+  const clientesRes = await fetch(`${SUPABASE_URL}/rest/v1/clientes?select=id,nombre,tenant_id&activo=eq.true&limit=2000`, {
+    headers: {
+      'apikey':        serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+    },
+  })
+  if (!clientesRes.ok) return
+  const clientes = await clientesRes.json()
+  if (!clientes?.length) return
+
+  // 3. Cruzar entidades con clientes (similitud de cadena simple)
+  const alertas = []
+  for (const entidad of entidades) {
+    const nombreEnt = normalizar(entidad.nombre)
+    for (const cliente of clientes) {
+      const nombreCli = normalizar(cliente.nombre)
+      const sim = similitudNombres(nombreEnt, nombreCli)
+      if (sim >= 0.75) {
+        const art = articulos[entidad.articulo_idx] || articulos[0]
+        alertas.push({
+          tenant_id:         cliente.tenant_id,
+          cliente_id:        cliente.id,
+          nombre_mencionado: entidad.nombre,
+          nombre_cliente:    cliente.nombre,
+          similitud:         Math.round(sim * 1000) / 1000,
+          titulo_noticia:    art?.titulo?.slice(0, 500) || '',
+          url_noticia:       art?.url || '',
+          resumen_noticia:   art?.resumen?.slice(0, 500) || '',
+          urgencia_noticia:  art?.urgencia || 'informativo',
+          visto:             false,
+          creado_en:         new Date().toISOString(),
+        })
+      }
+    }
+  }
+
+  if (alertas.length === 0) return
+
+  // 4. Insertar alertas (ignorar duplicados no implementado aquí)
+  await fetch(`${SUPABASE_URL}/rest/v1/alertas_noticias`, {
+    method: 'POST',
+    headers: {
+      'apikey':        serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify(alertas),
+  })
+
+  console.log(`[feed-sync] Alertas de clientes: ${alertas.length} coincidencias encontradas`)
+}
+
+function normalizar(str) {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quitar tildes
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function similitudNombres(a, b) {
+  if (!a || !b) return 0
+  if (a === b) return 1
+  // Verificar si todos los tokens del nombre más corto están en el más largo
+  const tokensA = a.split(' ').filter(t => t.length > 2)
+  const tokensB = b.split(' ').filter(t => t.length > 2)
+  if (tokensA.length === 0 || tokensB.length === 0) return 0
+  const [corto, largo] = tokensA.length <= tokensB.length ? [tokensA, tokensB] : [tokensB, tokensA]
+  const matches = corto.filter(t => largo.some(l => l.includes(t) || t.includes(l)))
+  return matches.length / corto.length
 }
