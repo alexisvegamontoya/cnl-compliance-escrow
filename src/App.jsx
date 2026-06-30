@@ -20,8 +20,6 @@ import AuditLog from './pages/admin/AuditLog'
 import ConsultaPEP from './pages/ConsultaPEP'
 import DebilidaDiligencia from './pages/DebilidaDiligencia'
 import ModuloIA from './pages/ModuloIA'
-import EvaluacionRiesgos from './pages/EvaluacionRiesgos'
-import PlanAccion from './pages/PlanAccion'
 
 function Layout({ children }) {
   return (
@@ -145,16 +143,6 @@ function AppRoutes() {
       <Route path="/perfil" element={
         <PrivateRoute>
           <Layout><Perfil /></Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/evaluacion" element={
-        <PrivateRoute>
-          <Layout><EvaluacionRiesgos /></Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/plan-accion" element={
-        <PrivateRoute>
-          <Layout><PlanAccion /></Layout>
         </PrivateRoute>
       } />
       <Route path="*" element={<Navigate to="/" replace />} />

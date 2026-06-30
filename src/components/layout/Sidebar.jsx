@@ -18,11 +18,6 @@ const operaciones = [
   { to: '/debida-diligencia', icon: '🛡️', label: 'Debida Diligencia' },
 ]
 
-const evaluacionItems = [
-  { to: '/evaluacion',  icon: '📊', label: 'Evaluación de Riesgos' },
-  { to: '/plan-accion', icon: '✅', label: 'Plan de Acción' },
-]
-
 const documentos = [
   { to: '/normativa',    icon: '📚', label: 'Normativa' },
   { to: '/asistente-ia', icon: '🤖', label: 'Asistente IA' },
@@ -107,14 +102,6 @@ export default function Sidebar() {
           Operaciones
         </p>
         {operaciones.map(item => (
-          <NavItem key={item.to} {...item} />
-        ))}
-
-        <div className="border-t border-brand-700 my-3" />
-        <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
-          Evaluación de Riesgos
-        </p>
-        {evaluacionItems.map(item => (
           <NavItem key={item.to} {...item} />
         ))}
 
