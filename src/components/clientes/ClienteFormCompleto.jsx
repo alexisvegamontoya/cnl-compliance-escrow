@@ -89,7 +89,7 @@ const EMPTY_JURIDICA = {
 }
 
 export default function ClienteFormCompleto({ clienteInicial = null, onSave, onCancel }) {
-  const { tenant, session } = useAuth()
+  const { tenant, session, isSuperAdmin } = useAuth()
   const esEdicion = !!clienteInicial
 
   const [tipoPers, setTipoPers]       = useState(clienteInicial?.tipo_persona || 'fisica')
@@ -99,9 +99,24 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
   const [tab, setTab]                 = useState('datos') // datos | estructura | adicional
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState('')
-  const [padronInfo, setPadronInfo]       = useState(null)   // null | { nombre_completo, tipo }
-  const [padronStatus, setPadronStatus]   = useState('')     // '' | 'encontrado' | 'no_encontrado' | 'error'
+  const [padronInfo, setPadronInfo]       = useState(null)
+  const [padronStatus, setPadronStatus]   = useState('')
   const [padronLoading, setPadronLoading] = useState(false)
+
+  // Superadmin: selector de tenant destino
+  const [tenants, setTenants]           = useState([])
+  const [tenantDestino, setTenantDestino] = useState(clienteInicial?.tenant_id || tenant?.id || '')
+
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    supabase.from('tenants').select('id, nombre, actividad_apnfd').order('nombre')
+      .then(({ data }) => {
+        if (data) setTenants(data)
+        // Si no hay tenant destino aún, dejar vacío para forzar selección
+        if (!tenantDestino && data?.length > 0) setTenantDestino(data[0].id)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin])
 
   // Cargar personas relacionadas si es edición
   useEffect(() => {
@@ -179,6 +194,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       ? `${form.nombre_cliente || ''} ${form.primer_apellido || ''} ${form.segundo_apellido || ''}`.trim()
       : form.nombre_empresa?.trim()
 
+    if (isSuperAdmin && !tenantDestino) { setError('Debe seleccionar el sujeto obligado destino.'); return }
     if (!nombreFinal) { setError('El nombre es obligatorio.'); return }
     if (!form.numero_identificacion?.trim() && tipoPers === 'fisica') { setError('La identificación es obligatoria.'); return }
 
@@ -205,7 +221,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
         if (form[k] !== undefined) payload[k] = form[k]
       })
       payload.tipo_persona    = tipoPers
-      payload.tenant_id       = tenant?.id
+      payload.tenant_id       = isSuperAdmin ? (tenantDestino || tenant?.id) : tenant?.id
       payload.nombre_cliente  = tipoPers === 'fisica'   ? (form.nombre_cliente || '') : ''
       payload.nombre_empresa  = tipoPers === 'juridica' ? (form.nombre_empresa  || '') : ''
       payload.cedula_juridica = tipoPers === 'juridica' ? (form.cedula_juridica || form.numero_identificacion || '') : null
@@ -274,6 +290,35 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
 
   return (
     <div className="space-y-4">
+      {/* Selector de sujeto obligado (solo superadmin) */}
+      {isSuperAdmin && (
+        <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center gap-3">
+          <span className="text-purple-600 text-lg">🏢</span>
+          <div className="flex-1">
+            <label className="text-xs font-semibold text-purple-700 uppercase tracking-wide">
+              Sujeto Obligado destino
+            </label>
+            <select
+              className="mt-1 w-full text-sm border border-purple-300 rounded-lg px-2 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              value={tenantDestino}
+              onChange={e => setTenantDestino(e.target.value)}
+            >
+              <option value="">— Seleccione el sujeto obligado —</option>
+              {tenants.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre}{t.actividad_apnfd ? ` · ${t.actividad_apnfd}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          {tenantDestino && tenants.find(t => t.id === tenantDestino) && (
+            <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded-full whitespace-nowrap">
+              ✓ {tenants.find(t => t.id === tenantDestino)?.nombre}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Selector tipo persona */}
       {!esEdicion && (
         <div className="flex gap-3">
