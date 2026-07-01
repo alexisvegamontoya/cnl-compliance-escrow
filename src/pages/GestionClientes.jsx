@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
+import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const NIVEL_COLORS = {
@@ -51,7 +52,7 @@ function nombre_completo(c) {
 }
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
-function TablaClientes({ onSelect, onNuevo }) {
+function TablaClientes({ onSelect, onNuevo, onCargaMasiva }) {
   const { tenant } = useAuth()
   const [clientes, setClientes] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -95,9 +96,15 @@ function TablaClientes({ onSelect, onNuevo }) {
             {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} registrado{clientes.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={onNuevo} className="btn-primary flex items-center gap-2">
-          <span className="text-lg leading-none">+</span> Nuevo cliente
-        </button>
+        <div className="flex gap-2">
+          <button onClick={onCargaMasiva}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            📥 Carga masiva Excel
+          </button>
+          <button onClick={onNuevo} className="btn-primary flex items-center gap-2">
+            <span className="text-lg leading-none">+</span> Nuevo cliente
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -512,6 +519,7 @@ export default function GestionClientes() {
   const [vista, setVista]         = useState('lista') // lista | perfil | form
   const [clienteActual, setClienteActual] = useState(null)
   const [modoForm, setModoForm]   = useState('crear')  // crear | editar
+  const [mostrarCargaMasiva, setMostrarCargaMasiva] = useState(false)
   const location = useLocation()
 
   // Si llegamos desde otro módulo con clienteId para mostrar perfil
@@ -536,8 +544,18 @@ export default function GestionClientes() {
 
   return (
     <div className="min-h-full">
+      {mostrarCargaMasiva && (
+        <CargaMasivaClientes
+          onClose={() => setMostrarCargaMasiva(false)}
+          onCargaCompleta={() => { setMostrarCargaMasiva(false); setVista('lista') }}
+        />
+      )}
       {vista === 'lista' && (
-        <TablaClientes onSelect={handleSelect} onNuevo={handleNuevo} />
+        <TablaClientes
+          onSelect={handleSelect}
+          onNuevo={handleNuevo}
+          onCargaMasiva={() => setMostrarCargaMasiva(true)}
+        />
       )}
       {vista === 'perfil' && clienteActual && (
         <PerfilCliente
