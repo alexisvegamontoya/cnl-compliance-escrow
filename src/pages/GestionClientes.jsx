@@ -54,13 +54,13 @@ function nombre_completo(c) {
 }
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
-function TablaClientes({ onSelect, onNuevo, onCargaMasiva }) {
+function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
   const { tenant, user } = useAuth()
   const isSuperAdmin = user?.app_metadata?.role === 'superadmin'
 
   const [clientes, setClientes]       = useState([])
   const [loading, setLoading]         = useState(true)
-  const [buscar, setBuscar]           = useState('')
+  const [buscar, setBuscar]           = useState(buscarInicial)
   const [filtroTipo, setFiltroTipo]   = useState('')
   const [filtroRiesgo, setFiltroRiesgo] = useState('')
   const [filtroDd, setFiltroDd]       = useState('')
@@ -571,6 +571,7 @@ export default function GestionClientes() {
   const [clienteActual, setClienteActual] = useState(null)
   const [modoForm, setModoForm]   = useState('crear')  // crear | editar
   const [mostrarCargaMasiva, setMostrarCargaMasiva] = useState(false)
+  const [buscarInicial, setBuscarInicial] = useState('')
   const location = useLocation()
 
   // Si llegamos desde otro módulo con clienteId para mostrar perfil
@@ -586,6 +587,13 @@ export default function GestionClientes() {
   const handleNuevo  = ()         => { setClienteActual(null); setModoForm('crear'); setVista('form') }
   const handleEditar = ()         => { setModoForm('editar'); setVista('form') }
   const handleVolver = ()         => { setVista(clienteActual ? 'perfil' : 'lista') }
+
+  // Cuando hay un duplicado: vuelve a la lista con la cédula ya buscada
+  const handleBuscarDuplicado = (identificacion) => {
+    setBuscarInicial(identificacion)
+    setClienteActual(null)
+    setVista('lista')
+  }
 
   const handleSave = async (clienteId) => {
     const { data } = await supabase.from('clientes').select('*').eq('id', clienteId).single()
@@ -606,6 +614,7 @@ export default function GestionClientes() {
           onSelect={handleSelect}
           onNuevo={handleNuevo}
           onCargaMasiva={() => setMostrarCargaMasiva(true)}
+          buscarInicial={buscarInicial}
         />
       )}
       {vista === 'perfil' && clienteActual && (
@@ -628,6 +637,7 @@ export default function GestionClientes() {
               clienteInicial={modoForm === 'editar' ? clienteActual : null}
               onSave={handleSave}
               onCancel={handleVolver}
+              onBuscarDuplicado={handleBuscarDuplicado}
             />
           </div>
         </div>

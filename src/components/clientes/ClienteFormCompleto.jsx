@@ -88,7 +88,7 @@ const EMPTY_JURIDICA = {
   notas: '',
 }
 
-export default function ClienteFormCompleto({ clienteInicial = null, onSave, onCancel }) {
+export default function ClienteFormCompleto({ clienteInicial = null, onSave, onCancel, onBuscarDuplicado }) {
   const { tenant, session, isSuperAdmin } = useAuth()
   const esEdicion = !!clienteInicial
 
@@ -277,7 +277,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       onSave(clienteId)
     } catch (e) {
       if (e.message?.includes('duplicate key') && e.message?.includes('numero_identificacion')) {
-        setError(`Ya existe un cliente con la identificación "${form.numero_identificacion}" en este sujeto obligado. Búsquelo en la lista para editarlo.`)
+        setError(`__duplicado__${form.numero_identificacion}`)
       } else {
         setError('Error al guardar: ' + e.message)
       }
@@ -625,9 +625,18 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       )}
 
       {/* Error */}
-      {error && (
+      {error && error.startsWith('__duplicado__') ? (
+        <div className="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+          <span>⚠ Ya existe un cliente con la identificación <strong>"{error.replace('__duplicado__', '')}"</strong> en este sujeto obligado.</span>
+          <button
+            onClick={() => onBuscarDuplicado ? onBuscarDuplicado(error.replace('__duplicado__', '')) : onCancel()}
+            className="shrink-0 px-3 py-1.5 bg-amber-700 text-white text-xs rounded-lg hover:bg-amber-800 transition-colors">
+            🔍 Ir a buscar
+          </button>
+        </div>
+      ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">⚠ {error}</div>
-      )}
+      ) : null}
 
       {/* Botones */}
       <div className="flex gap-3 justify-end pt-2 border-t border-gray-200">
