@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
+import InformeClienteCompleto from '../components/clientes/InformeClienteCompleto'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const NIVEL_COLORS = {
@@ -212,6 +213,7 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
   const [histListas, setHistListas] = useState([])
   const [histCal, setHistCal]   = useState([])
   const [loading, setLoading]   = useState(false)
+  const [mostrarInforme, setMostrarInforme] = useState(false)
 
   const nombre = nombre_completo(cliente)
 
@@ -258,6 +260,13 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
 
   return (
     <div className="p-6 space-y-4 max-w-5xl mx-auto">
+      {mostrarInforme && (
+        <InformeClienteCompleto
+          cliente={cliente}
+          onClose={() => setMostrarInforme(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-4">
         <button onClick={onVolver} className="mt-1 text-gray-400 hover:text-gray-700 text-sm">← Volver</button>
@@ -273,6 +282,10 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <NivelBadge nivel={cliente.nivel_riesgo_actual} />
+              <button onClick={() => setMostrarInforme(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-700 text-white rounded-lg hover:bg-brand-800 transition-colors">
+                📄 Generar expediente
+              </button>
               <button onClick={onEditar} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">
                 ✏ Editar
               </button>
