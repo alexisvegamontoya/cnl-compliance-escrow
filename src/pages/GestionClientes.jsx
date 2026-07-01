@@ -55,25 +55,42 @@ function nombre_completo(c) {
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva }) {
-  const { tenant } = useAuth()
-  const [clientes, setClientes] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [buscar, setBuscar]     = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('')
+  const { tenant, user } = useAuth()
+  const isSuperAdmin = user?.app_metadata?.role === 'superadmin'
+
+  const [clientes, setClientes]       = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [buscar, setBuscar]           = useState('')
+  const [filtroTipo, setFiltroTipo]   = useState('')
   const [filtroRiesgo, setFiltroRiesgo] = useState('')
-  const [filtroDd, setFiltroDd] = useState('')
+  const [filtroDd, setFiltroDd]       = useState('')
+  const [filtroTenant, setFiltroTenant] = useState('')   // solo superadmin
+  const [tenants, setTenants]         = useState([])     // solo superadmin
+
+  // Cargar lista de tenants para superadmin
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+  }, [isSuperAdmin])
 
   const cargar = useCallback(async () => {
-    if (!tenant?.id) return
+    if (!tenant?.id && !isSuperAdmin) return
     setLoading(true)
-    let q = supabase.from('clientes').select('*').eq('tenant_id', tenant.id).order('id', { ascending: false })
+    let q = supabase.from('clientes').select('*').order('id', { ascending: false })
+    // Superadmin: filtra por tenant seleccionado o muestra todos
+    if (isSuperAdmin) {
+      if (filtroTenant) q = q.eq('tenant_id', filtroTenant)
+    } else {
+      q = q.eq('tenant_id', tenant.id)
+    }
     if (filtroTipo)   q = q.eq('tipo_persona', filtroTipo)
     if (filtroRiesgo) q = q.eq('nivel_riesgo_actual', filtroRiesgo)
     if (filtroDd)     q = q.eq('estado_dd', filtroDd)
-    const { data } = await q
+    const { data, error } = await q
+    if (error) console.error('Error cargando clientes:', error)
     setClientes(data || [])
     setLoading(false)
-  }, [tenant?.id, filtroTipo, filtroRiesgo, filtroDd])
+  }, [tenant?.id, isSuperAdmin, filtroTenant, filtroTipo, filtroRiesgo, filtroDd])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -111,6 +128,18 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva }) {
 
       {/* Filtros */}
       <div className="card flex flex-wrap gap-3 items-end">
+        {isSuperAdmin && (
+          <div className="w-full">
+            <label className="label text-xs text-purple-700">🔐 Sujeto Obligado (superadmin)</label>
+            <select className="input text-sm border-purple-300 focus:ring-purple-400"
+              value={filtroTenant} onChange={e => setFiltroTenant(e.target.value)}>
+              <option value="">— Todos los sujetos obligados —</option>
+              {tenants.map(t => (
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex-1 min-w-[200px]">
           <label className="label text-xs">Buscar</label>
           <input className="input text-sm" placeholder="Nombre, cédula, correo..."
