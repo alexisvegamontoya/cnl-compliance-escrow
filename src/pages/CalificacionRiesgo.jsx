@@ -564,15 +564,14 @@ export default function CalificacionRiesgo() {
   useEffect(() => { loadStats() }, [loadStats])
 
   // Cuando se selecciona un cliente
-  function handleSelectCliente(id) {
-    setClienteId(id)
-    const c = clientes.find(x => x.id === id)
-    setClienteActual(c)
-    // Detectar tipo de persona
+  // Pre-llenar todos los factores desde los datos del cliente en BD
+  function preLlenarDesdeDB(c) {
+    if (!c) return
     const tipoId = Number(c?.tipo_identificacion)
     const esFisica = [1, 3, 5].includes(tipoId)
     setTipoPersona(esFisica ? 'fisica' : 'juridica')
-    // Pre-llenar factor GEO desde datos del cliente
+
+    // Factor GEO
     const paisOrigen = c?.pais_nacimiento || c?.pais_constitucion || c?.nacionalidad || ''
     const paisRes    = c?.pais_ubicacion || ''
     const rOrig = PAISES_RIESGO.find(p => paisOrigen && p.pais?.toLowerCase().includes(paisOrigen.toLowerCase()))?.riesgo || 1
@@ -586,30 +585,37 @@ export default function CalificacionRiesgo() {
       op_internacional: 0.5,
     })
 
-    // Pre-llenar factor CLIENTE desde datos del cliente
+    // Factor CLIENTE
     const actVal = esFisica
-      ? (Number(c?.profesion_valor)   || (c?.profesion_nombre   ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.profesion_nombre.toLowerCase())?.valor   || 1) : 1))
+      ? (Number(c?.profesion_valor) || (c?.profesion_nombre ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.profesion_nombre.toLowerCase())?.valor || 1) : 1))
       : (Number(c?.actividad_eco_valor) || (c?.actividad_eco_nombre ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.actividad_eco_nombre.toLowerCase())?.valor || 1) : 1))
     const ing = parseFloat(c?.ingreso_mensual_est) || 0
     const ingVal = ing > 6000 ? 1 : ing > 4000 ? 1.5 : ing > 2000 ? 2 : ing > 1000 ? 2.5 : ing > 0 ? 3 : 1
     setRespCliente({
-      profesion: actVal,
-      actividad_eco: actVal,
-      servicios: actVal,
-      ingreso_mensual: ingVal,
+      profesion: actVal, actividad_eco: actVal, servicios: actVal,
+      ingreso_mensual: ingVal, info_ingreso: ingVal,
       pep: c?.pep ? 3 : 1,
-      acceso_info: 1,
-      listas_obs: 1,
+      acceso_info: 1, listas_obs: 1,
       struct_admin: esFisica ? undefined : 1,
-      struct_acc: 1,
-      info_ingreso: ingVal,
-      anos_exp: 1,
-      anos_operacion: 1,
+      struct_acc: 1, anos_exp: 1, anos_operacion: 1,
     })
     setRespProductos({})
     setRespCanales({})
     setCalificacionManual('')
     setObservaciones('')
+  }
+
+  function handleSelectCliente(id) {
+    setClienteId(id)
+    const c = clientes.find(x => x.id === id)
+    setClienteActual(c)
+    // Detectar tipo de persona
+    const tipoId = Number(c?.tipo_identificacion)
+    const esFisica = [1, 3, 5].includes(tipoId)
+    setTipoPersona(esFisica ? 'fisica' : 'juridica')
+    // Limpiar respuestas anteriores
+    setRespGeo({}); setRespCliente({}); setRespProductos({}); setRespCanales({})
+    setCalificacionManual(''); setObservaciones('')
 
     // Consultar listas ALA/CFT automáticamente
     setListasResult(null)
@@ -826,24 +832,45 @@ export default function CalificacionRiesgo() {
               </select>
 
               {clienteActual && (
-                <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-1 text-sm">
-                  <p className="font-medium text-gray-900">{nombreCliente}</p>
-                  <p className="text-gray-500">{clienteActual.numero_identificacion}</p>
-                  {clienteActual.calificacion_riesgo && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-gray-500 text-xs">Actual:</span>
-                      <RiesgoBadge nivel={clienteActual.calificacion_riesgo} />
+                <div className="mt-3 space-y-3">
+                  {/* Info básica del cliente */}
+                  <div className="p-3 bg-gray-50 rounded-lg space-y-1 text-sm">
+                    <p className="font-medium text-gray-900">{nombreCliente}</p>
+                    <p className="text-gray-500 text-xs">{clienteActual.numero_identificacion}</p>
+                    {clienteActual.calificacion_riesgo && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-gray-500 text-xs">Calificación actual:</span>
+                        <RiesgoBadge nivel={clienteActual.calificacion_riesgo} />
+                      </div>
+                    )}
+                    {/* Tipo de persona */}
+                    <div className="flex gap-2 mt-2">
+                      {['fisica', 'juridica'].map(tp => (
+                        <button key={tp}
+                          onClick={() => setTipoPersona(tp)}
+                          className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors ${tipoPersona === tp ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 text-gray-500'}`}>
+                          {tp === 'fisica' ? '👤 Persona Física' : '🏢 Persona Jurídica'}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                  {/* Tipo de persona */}
-                  <div className="flex gap-2 mt-2">
-                    {['fisica', 'juridica'].map(tp => (
-                      <button key={tp}
-                        onClick={() => setTipoPersona(tp)}
-                        className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors ${tipoPersona === tp ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 text-gray-500'}`}>
-                        {tp === 'fisica' ? '👤 Persona Física' : '🏢 Persona Jurídica'}
-                      </button>
-                    ))}
+                  </div>
+
+                  {/* Botón pre-llenado automático */}
+                  <div className="border border-brand-200 rounded-xl p-3 bg-brand-50 space-y-2">
+                    <p className="text-xs font-semibold text-brand-800">📋 Datos disponibles en base de datos:</p>
+                    <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
+                      <span>{clienteActual.pais_ubicacion || clienteActual.nacionalidad ? '✅' : '⬜'} País / origen</span>
+                      <span>{clienteActual.actividad_eco_nombre || clienteActual.profesion_nombre ? '✅' : '⬜'} Actividad / profesión</span>
+                      <span>{clienteActual.ingreso_mensual_est ? '✅' : '⬜'} Ingreso estimado</span>
+                      <span>{clienteActual.canton || clienteActual.provincia ? '✅' : '⬜'} Cantón / provincia</span>
+                      <span>{clienteActual.pep ? '✅' : '⬜'} PEP</span>
+                    </div>
+                    <button
+                      onClick={() => preLlenarDesdeDB(clienteActual)}
+                      className="w-full mt-1 py-2 px-3 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+                      📥 Pre-llenar formulario desde base de datos
+                    </button>
+                    <p className="text-xs text-brand-600 text-center">Puede ajustar los valores manualmente después</p>
                   </div>
                 </div>
               )}
