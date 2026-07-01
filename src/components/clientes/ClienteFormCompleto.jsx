@@ -99,7 +99,8 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
   const [tab, setTab]                 = useState('datos') // datos | estructura | adicional
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState('')
-  const [padronInfo, setPadronInfo]   = useState(null)
+  const [padronInfo, setPadronInfo]       = useState(null)   // null | { nombre_completo, tipo }
+  const [padronStatus, setPadronStatus]   = useState('')     // '' | 'encontrado' | 'no_encontrado' | 'error'
   const [padronLoading, setPadronLoading] = useState(false)
 
   // Cargar personas relacionadas si es edición
@@ -126,33 +127,45 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
     }
   }, [tipoPers, esEdicion])
 
-  // Autocompletar desde padrón SUGEF
+  // Autocompletar desde padrón SUGEF (falla graciosamente si no existe el RPC)
   useEffect(() => {
     const cedula = (form.numero_identificacion || '').trim().replace(/[-\s]/g, '')
-    if (cedula.length < 9) { setPadronInfo(null); return }
+    if (cedula.length < 9) { setPadronInfo(null); setPadronStatus(''); return }
     const timer = setTimeout(async () => {
       setPadronLoading(true)
-      const { data } = await supabase.rpc('buscar_padron', { p_identificacion: cedula })
-      if (data?.length > 0) {
-        const reg = data[0]
-        setPadronInfo(reg)
-        if (reg.tipo === 'J' && !form.nombre_empresa) {
-          set('nombre_empresa', reg.nombre_completo)
-          set('cedula_juridica', cedula)
-          set('tipo_persona', 'juridica')
-          setTipoPers('juridica')
-        } else if (reg.tipo === 'F') {
-          if (!form.nombre_cliente) set('nombre_cliente', reg.nombre_completo?.split(' ')[0] || '')
-          if (!form.primer_apellido) {
+      try {
+        const { data, error: rpcErr } = await supabase.rpc('buscar_padron', { p_identificacion: cedula })
+        if (rpcErr) {
+          // El RPC no existe o hay error — permitir llenar manualmente sin bloquear
+          setPadronInfo(null)
+          setPadronStatus('error')
+        } else if (data?.length > 0) {
+          const reg = data[0]
+          setPadronInfo(reg)
+          setPadronStatus('encontrado')
+          if (reg.tipo === 'J' && !form.nombre_empresa) {
+            set('nombre_empresa', reg.nombre_completo)
+            set('cedula_juridica', cedula)
+            set('tipo_persona', 'juridica')
+            setTipoPers('juridica')
+          } else if (reg.tipo === 'F') {
             const parts = (reg.nombre_completo || '').split(' ')
-            if (parts.length >= 3) { set('primer_apellido', parts[parts.length - 2] || ''); set('segundo_apellido', parts[parts.length - 1] || '') }
+            if (!form.nombre_cliente) set('nombre_cliente', parts[0] || '')
+            if (!form.primer_apellido && parts.length >= 3) {
+              set('primer_apellido', parts[parts.length - 2] || '')
+              set('segundo_apellido', parts[parts.length - 1] || '')
+            }
           }
+        } else {
+          setPadronInfo(null)
+          setPadronStatus('no_encontrado')
         }
-      } else {
+      } catch {
         setPadronInfo(null)
+        setPadronStatus('error')
       }
       setPadronLoading(false)
-    }, 600)
+    }, 700)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.numero_identificacion])
@@ -314,8 +327,17 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
                 <input className="input text-sm" value={form.numero_identificacion}
                   onChange={e => set('numero_identificacion', e.target.value)}
                   placeholder="Número de identificación" />
-                {padronInfo && (
+                {padronLoading && (
+                  <p className="text-xs text-gray-400 mt-0.5">⟳ Consultando padrón...</p>
+                )}
+                {!padronLoading && padronStatus === 'encontrado' && padronInfo && (
                   <p className="text-xs text-green-600 mt-0.5">✓ Encontrado en padrón: {padronInfo.nombre_completo}</p>
+                )}
+                {!padronLoading && padronStatus === 'no_encontrado' && (
+                  <p className="text-xs text-amber-600 mt-0.5">⚠ No encontrado en padrón — complete los datos manualmente</p>
+                )}
+                {!padronLoading && padronStatus === 'error' && (
+                  <p className="text-xs text-gray-400 mt-0.5">ℹ Padrón no disponible — complete los datos manualmente</p>
                 )}
               </div>
 
