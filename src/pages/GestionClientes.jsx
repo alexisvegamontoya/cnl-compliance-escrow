@@ -3,13 +3,14 @@
  * Módulo completo de gestión de clientes (separado de SICVECA).
  * Vistas: lista | perfil | form
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
-import InformeClienteCompleto from '../components/clientes/InformeClienteCompleto'
+
+const InformeClienteCompleto = lazy(() => import('../components/clientes/InformeClienteCompleto'))
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const NIVEL_COLORS = {
@@ -261,10 +262,18 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
   return (
     <div className="p-6 space-y-4 max-w-5xl mx-auto">
       {mostrarInforme && (
-        <InformeClienteCompleto
-          cliente={cliente}
-          onClose={() => setMostrarInforme(false)}
-        />
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-8 text-center">
+              <p className="text-gray-500 animate-pulse">Cargando expediente...</p>
+            </div>
+          </div>
+        }>
+          <InformeClienteCompleto
+            cliente={cliente}
+            onClose={() => setMostrarInforme(false)}
+          />
+        </Suspense>
       )}
 
       {/* Header */}
