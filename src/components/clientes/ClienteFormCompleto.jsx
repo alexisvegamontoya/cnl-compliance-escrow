@@ -276,7 +276,11 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
 
       onSave(clienteId)
     } catch (e) {
-      setError('Error al guardar: ' + e.message)
+      if (e.message?.includes('duplicate key') && e.message?.includes('numero_identificacion')) {
+        setError(`Ya existe un cliente con la identificación "${form.numero_identificacion}" en este sujeto obligado. Búsquelo en la lista para editarlo.`)
+      } else {
+        setError('Error al guardar: ' + e.message)
+      }
     } finally {
       setSaving(false)
     }
