@@ -43,7 +43,7 @@ const EMPTY_FISICA = {
   genero: '',
   estado_civil: '',
   profesion_nombre: '',
-  profesion_valor: '',
+  profesion_valor: null,
   pais_nacimiento: 'Costa Rica',
   pais_ubicacion: 'Costa Rica',
   pais_residencia: 'Costa Rica',
@@ -55,12 +55,12 @@ const EMPTY_FISICA = {
   fecha_vinculacion: new Date().toISOString().slice(0, 10),
   proposito_relacion: '',
   origen_fondos: '',
-  ingreso_mensual_est: '',
+  ingreso_mensual_est: null,
   notas: '',
   nombre_empresa: '',
   actividad_economica: '',
   actividad_eco_nombre: '',
-  actividad_eco_valor: '',
+  actividad_eco_valor: null,
 }
 
 const EMPTY_JURIDICA = {
@@ -74,7 +74,7 @@ const EMPTY_JURIDICA = {
   fecha_constitucion: '',
   actividad_economica: '',
   actividad_eco_nombre: '',
-  actividad_eco_valor: '',
+  actividad_eco_valor: null,
   provincia: '',
   canton: '',
   direccion_exacta: '',
@@ -83,7 +83,7 @@ const EMPTY_JURIDICA = {
   fecha_vinculacion: new Date().toISOString().slice(0, 10),
   proposito_relacion: '',
   origen_fondos: '',
-  ingreso_mensual_est: '',
+  ingreso_mensual_est: null,
   pais_ubicacion: 'Costa Rica',
   notas: '',
 }
@@ -398,11 +398,11 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
                   const act = ACTIVIDADES_PROFESIONES.find(a => a.label === nombre)
                   if (tipoPers === 'fisica') {
                     set('profesion_nombre', nombre)
-                    set('profesion_valor', act?.valor || '')
+                    set('profesion_valor', act?.valor ?? null)
                     set('actividad_economica', nombre)
                   } else {
                     set('actividad_eco_nombre', nombre)
-                    set('actividad_eco_valor', act?.valor || '')
+                    set('actividad_eco_valor', act?.valor ?? null)
                     set('actividad_economica', nombre)
                   }
                 }}>
