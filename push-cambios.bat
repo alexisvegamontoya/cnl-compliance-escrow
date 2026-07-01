@@ -12,7 +12,7 @@ if exist ".git\objects\maintenance.lock" del /f /q ".git\objects\maintenance.loc
 
 echo Agregando y committeando cambios...
 git add -A
-git commit -m "feat: checklist DD tabla Estado+Notas+Req, CalificacionRiesgo pre-llenado"
+git commit -m "fix: TablaFactor a nivel modulo, pre-llenar DD, guardar calificacion/listas/pep en DB"
 
 echo Subiendo a GitHub/Vercel...
 git push origin main

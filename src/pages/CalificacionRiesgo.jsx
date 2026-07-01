@@ -346,93 +346,90 @@ function ListasSancionesPanel({ nivel, resultado, loading }) {
 }
 
 // ------------------------------------
+// Helpers de reporte (nivel módulo para evitar errores de Fast Refresh)
+// ------------------------------------
+function _getLabel(key, valor) {
+  if (valor == null || valor === '') return '—'
+  const opciones = OPCIONES[key] || OPCIONES['pais_riesgo']
+  const op = opciones?.find(o => Number(o.valor) === Number(valor))
+  return op?.label || String(valor)
+}
+
+function _getValorMostrado(respuestas, criterio) {
+  const key = criterio.key
+  const val = respuestas[key]
+  const nombreGuardado = respuestas[key + '_nombre'] || respuestas['op_nacional_canton']
+  if (['pais_origen','residencia','ubicacion_geo','casa_matriz'].includes(key) && nombreGuardado) {
+    return { texto: nombreGuardado, valor: val }
+  }
+  if (['actividad_eco','profesion'].includes(key) && respuestas[key + '_nombre']) {
+    return { texto: respuestas[key + '_nombre'], valor: val }
+  }
+  if (key === 'op_nacional' && respuestas['op_nacional_canton']) {
+    return { texto: `${respuestas['op_nacional_provincia'] || ''} / ${respuestas['op_nacional_canton']}`, valor: val }
+  }
+  if (val == null || val === '') return { texto: '—', valor: null }
+  return { texto: _getLabel(key, val), valor: val }
+}
+
+function _colorValor(v) {
+  if (v == null) return '#6b7280'
+  if (Number(v) <= 1) return '#16a34a'
+  if (Number(v) <= 2) return '#d97706'
+  return '#dc2626'
+}
+
+function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
+  if (!respuestas || !criterios?.length) return null
+  const tieneDatos = criterios.some(c => respuestas[c.key] != null && respuestas[c.key] !== '')
+  if (!tieneDatos) return null
+  return (
+    <div style={{ marginBottom: '14px', breakInside: 'avoid' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#0e0e6e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {titulo}
+        </div>
+        <div style={{ fontSize: '10px', color: '#6b7280' }}>
+          Score: <strong style={{ fontFamily: 'monospace', color: _colorValor(scoreF) }}>{scoreF != null ? scoreF.toFixed(3) : '—'}</strong>
+          {pesoLabel && <span style={{ marginLeft: '8px' }}>Peso: <strong>{pesoLabel}</strong></span>}
+        </div>
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#e8eaf6' }}>
+            <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', width: '50%' }}>Criterio</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Peso</th>
+            <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Respuesta seleccionada</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {criterios.map((c, i) => {
+            const { texto, valor } = _getValorMostrado(respuestas, c)
+            return (
+              <tr key={c.key} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>{c.label}</td>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', color: '#6b7280' }}>{(c.peso * 100).toFixed(0)}%</td>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#4b5563' }}>{texto}</td>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: _colorValor(valor) }}>
+                  {valor != null && valor !== '' ? Number(valor).toFixed(1) : '—'}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ------------------------------------
 // Reporte imprimible (solo visible en @media print)
 // ------------------------------------
 function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
   if (!clienteActual) return null
   const nivelColor = calificacionFinal === 'alto' ? '#dc2626' : calificacionFinal === 'medio' ? '#d97706' : '#16a34a'
   const nivelBg    = calificacionFinal === 'alto' ? '#fef2f2' : calificacionFinal === 'medio' ? '#fffbeb' : '#f0fdf4'
-
-  // Obtener la etiqueta de la respuesta seleccionada para un criterio
-  function getLabel(key, valor) {
-    if (valor == null || valor === '') return '—'
-    // Para campos de nombre (país, actividad, cantón)
-    const nombreKey = key + '_nombre'
-    // Buscar en opciones
-    const opciones = OPCIONES[key] || OPCIONES['pais_riesgo']
-    const op = opciones?.find(o => Number(o.valor) === Number(valor))
-    return op?.label || String(valor)
-  }
-
-  function getValorMostrado(respuestas, criterio) {
-    const key = criterio.key
-    const val = respuestas[key]
-    // Campos con _nombre almacenado por separado (países, actividades, cantones)
-    const nombreGuardado = respuestas[key + '_nombre'] || respuestas['op_nacional_canton']
-    if (['pais_origen','residencia','ubicacion_geo','casa_matriz'].includes(key) && nombreGuardado) {
-      return { texto: nombreGuardado, valor: val }
-    }
-    if (['actividad_eco','profesion'].includes(key) && respuestas[key + '_nombre']) {
-      return { texto: respuestas[key + '_nombre'], valor: val }
-    }
-    if (key === 'op_nacional' && respuestas['op_nacional_canton']) {
-      return { texto: `${respuestas['op_nacional_provincia'] || ''} / ${respuestas['op_nacional_canton']}`, valor: val }
-    }
-    if (val == null || val === '') return { texto: '—', valor: null }
-    return { texto: getLabel(key, val), valor: val }
-  }
-
-  function colorValor(v) {
-    if (v == null) return '#6b7280'
-    if (Number(v) <= 1) return '#16a34a'
-    if (Number(v) <= 2) return '#d97706'
-    return '#dc2626'
-  }
-
-  // Tabla de detalle de un factor
-  function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
-    if (!respuestas || !criterios?.length) return null
-    const tieneDatos = criterios.some(c => respuestas[c.key] != null && respuestas[c.key] !== '')
-    if (!tieneDatos) return null
-    return (
-      <div style={{ marginBottom: '14px', breakInside: 'avoid' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#0e0e6e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {titulo}
-          </div>
-          <div style={{ fontSize: '10px', color: '#6b7280' }}>
-            Score: <strong style={{ fontFamily: 'monospace', color: colorValor(scoreF) }}>{scoreF != null ? scoreF.toFixed(3) : '—'}</strong>
-            {pesoLabel && <span style={{ marginLeft: '8px' }}>Peso: <strong>{pesoLabel}</strong></span>}
-          </div>
-        </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#e8eaf6' }}>
-              <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', width: '50%' }}>Criterio</th>
-              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Peso</th>
-              <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Respuesta seleccionada</th>
-              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {criterios.map((c, i) => {
-              const { texto, valor } = getValorMostrado(respuestas, c)
-              return (
-                <tr key={c.key} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
-                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>{c.label}</td>
-                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', color: '#6b7280' }}>{(c.peso * 100).toFixed(0)}%</td>
-                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#4b5563' }}>{texto}</td>
-                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: colorValor(valor) }}>
-                    {valor != null && valor !== '' ? Number(valor).toFixed(1) : '—'}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
 
   const pesosFisica   = { cli: '60%', geo: '40%', prod: 'N/A', can: 'N/A' }
   const pesosJuridica = { cli: '50%', geo: '15%', prod: '20%', can: '15%' }
