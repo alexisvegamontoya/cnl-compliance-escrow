@@ -172,16 +172,39 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
     setSaving(true)
     setError('')
     try {
-      const payload = {
-        ...form,
-        tipo_persona: tipoPers,
-        tenant_id: tenant?.id,
-        nombre_cliente: tipoPers === 'fisica' ? (form.nombre_cliente || '') : '',
-        nombre_empresa:  tipoPers === 'juridica' ? (form.nombre_empresa || '') : '',
-        cedula_juridica: tipoPers === 'juridica' ? (form.cedula_juridica || form.numero_identificacion || '') : null,
-        activo: true,
-      }
-      delete payload.id
+      // Columnas permitidas en la tabla clientes (evita error si hay campos extra en el form state)
+      const CAMPOS_PERMITIDOS = [
+        'tenant_id','tipo_persona','tipo_identificacion','numero_identificacion',
+        'nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa','cedula_juridica',
+        'fecha_nacimiento','genero','estado_civil',
+        'actividad_economica','actividad_eco_nombre','actividad_eco_valor',
+        'profesion_nombre','profesion_valor',
+        'pais_nacimiento','pais_ubicacion','pais_residencia','pais_constitucion',
+        'provincia','canton','direccion_exacta',
+        'telefono','correo_electronico','fecha_vinculacion',
+        'proposito_relacion','origen_fondos','ingreso_mensual_est',
+        'fecha_constitucion',
+        'estado_dd','estado_listas','estado_calificacion',
+        'nivel_riesgo_actual','notas','activo',
+      ]
+      const payload = {}
+      CAMPOS_PERMITIDOS.forEach(k => {
+        if (form[k] !== undefined) payload[k] = form[k]
+      })
+      payload.tipo_persona    = tipoPers
+      payload.tenant_id       = tenant?.id
+      payload.nombre_cliente  = tipoPers === 'fisica'   ? (form.nombre_cliente || '') : ''
+      payload.nombre_empresa  = tipoPers === 'juridica' ? (form.nombre_empresa  || '') : ''
+      payload.cedula_juridica = tipoPers === 'juridica' ? (form.cedula_juridica || form.numero_identificacion || '') : null
+      payload.pais_residencia = form.pais_ubicacion || null   // alias para compatibilidad
+      payload.activo          = true
+
+      // Convertir campos enteros/numéricos: vacío → null (evita "invalid input syntax for type integer")
+      const CAMPOS_INT = ['profesion_valor','actividad_eco_valor','ingreso_mensual_est']
+      CAMPOS_INT.forEach(k => {
+        const v = payload[k]
+        payload[k] = (v === '' || v === undefined || v === null) ? null : Number(v) || null
+      })
 
       let clienteId
       if (esEdicion) {
