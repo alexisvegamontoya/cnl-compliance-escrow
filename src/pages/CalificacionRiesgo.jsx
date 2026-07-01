@@ -348,13 +348,102 @@ function ListasSancionesPanel({ nivel, resultado, loading }) {
 // ------------------------------------
 // Reporte imprimible (solo visible en @media print)
 // ------------------------------------
-function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, fecha }) {
+function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
   if (!clienteActual) return null
   const nivelColor = calificacionFinal === 'alto' ? '#dc2626' : calificacionFinal === 'medio' ? '#d97706' : '#16a34a'
   const nivelBg    = calificacionFinal === 'alto' ? '#fef2f2' : calificacionFinal === 'medio' ? '#fffbeb' : '#f0fdf4'
 
+  // Obtener la etiqueta de la respuesta seleccionada para un criterio
+  function getLabel(key, valor) {
+    if (valor == null || valor === '') return '—'
+    // Para campos de nombre (país, actividad, cantón)
+    const nombreKey = key + '_nombre'
+    // Buscar en opciones
+    const opciones = OPCIONES[key] || OPCIONES['pais_riesgo']
+    const op = opciones?.find(o => Number(o.valor) === Number(valor))
+    return op?.label || String(valor)
+  }
+
+  function getValorMostrado(respuestas, criterio) {
+    const key = criterio.key
+    const val = respuestas[key]
+    // Campos con _nombre almacenado por separado (países, actividades, cantones)
+    const nombreGuardado = respuestas[key + '_nombre'] || respuestas['op_nacional_canton']
+    if (['pais_origen','residencia','ubicacion_geo','casa_matriz'].includes(key) && nombreGuardado) {
+      return { texto: nombreGuardado, valor: val }
+    }
+    if (['actividad_eco','profesion'].includes(key) && respuestas[key + '_nombre']) {
+      return { texto: respuestas[key + '_nombre'], valor: val }
+    }
+    if (key === 'op_nacional' && respuestas['op_nacional_canton']) {
+      return { texto: `${respuestas['op_nacional_provincia'] || ''} / ${respuestas['op_nacional_canton']}`, valor: val }
+    }
+    if (val == null || val === '') return { texto: '—', valor: null }
+    return { texto: getLabel(key, val), valor: val }
+  }
+
+  function colorValor(v) {
+    if (v == null) return '#6b7280'
+    if (Number(v) <= 1) return '#16a34a'
+    if (Number(v) <= 2) return '#d97706'
+    return '#dc2626'
+  }
+
+  // Tabla de detalle de un factor
+  function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
+    if (!respuestas || !criterios?.length) return null
+    const tieneDatos = criterios.some(c => respuestas[c.key] != null && respuestas[c.key] !== '')
+    if (!tieneDatos) return null
+    return (
+      <div style={{ marginBottom: '14px', breakInside: 'avoid' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#0e0e6e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {titulo}
+          </div>
+          <div style={{ fontSize: '10px', color: '#6b7280' }}>
+            Score: <strong style={{ fontFamily: 'monospace', color: colorValor(scoreF) }}>{scoreF != null ? scoreF.toFixed(3) : '—'}</strong>
+            {pesoLabel && <span style={{ marginLeft: '8px' }}>Peso: <strong>{pesoLabel}</strong></span>}
+          </div>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#e8eaf6' }}>
+              <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', width: '50%' }}>Criterio</th>
+              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Peso</th>
+              <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Respuesta seleccionada</th>
+              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {criterios.map((c, i) => {
+              const { texto, valor } = getValorMostrado(respuestas, c)
+              return (
+                <tr key={c.key} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
+                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>{c.label}</td>
+                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', color: '#6b7280' }}>{(c.peso * 100).toFixed(0)}%</td>
+                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#4b5563' }}>{texto}</td>
+                  <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: colorValor(valor) }}>
+                    {valor != null && valor !== '' ? Number(valor).toFixed(1) : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  const pesosFisica   = { cli: '60%', geo: '40%', prod: 'N/A', can: 'N/A' }
+  const pesosJuridica = { cli: '50%', geo: '15%', prod: '20%', can: '15%' }
+  const pesos = tipoPersona === 'fisica' ? pesosFisica : pesosJuridica
+  const criteriosCli  = CRITERIOS_CLIENTE[tipoPersona]  || []
+  const criteriosGeo  = CRITERIOS_GEO[tipoPersona]      || []
+  const criteriosProd = CRITERIOS_PRODUCTOS[tipoPersona] || []
+  const criteriosCan  = CRITERIOS_CANALES[tipoPersona]  || []
+
   return (
-    <div id="reporte-cal" style={{ display: 'none', fontFamily: 'Arial, sans-serif', padding: '24px', color: '#111', maxWidth: '800px' }}>
+    <div id="reporte-cal" style={{ display: 'none', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#111', maxWidth: '780px', margin: '0 auto' }}>
       {/* Encabezado */}
       <div style={{ borderBottom: '3px solid #0e0e6e', paddingBottom: '10px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
@@ -380,13 +469,15 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
             <td style={{ color: '#6b7280', padding: '2px 0' }}>Tipo persona:</td>
             <td style={{ padding: '2px 8px 2px 0' }}>{tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'}</td>
             <td style={{ color: '#6b7280', padding: '2px 0' }}>Score total:</td>
-            <td style={{ fontWeight: 'bold', fontFamily: 'monospace', padding: '2px 0' }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
+            <td style={{ fontWeight: 'bold', fontFamily: 'monospace', padding: '2px 0', color: colorValor(scoreTotal) }}>
+              {scoreTotal != null ? scoreTotal.toFixed(3) : '—'}
+            </td>
           </tr>
         </tbody>
       </table>
 
       {/* Resultado */}
-      <div style={{ border: `2px solid ${nivelColor}`, borderRadius: '6px', padding: '10px 14px', marginBottom: '14px', backgroundColor: nivelBg }}>
+      <div style={{ border: `2px solid ${nivelColor}`, borderRadius: '6px', padding: '10px 14px', marginBottom: '16px', backgroundColor: nivelBg }}>
         <div style={{ fontWeight: 'bold', fontSize: '17px', color: nivelColor }}>
           CALIFICACIÓN: {(calificacionFinal || '').toUpperCase()}
         </div>
@@ -412,46 +503,92 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
         )}
       </div>
 
-      {/* Score por factor */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '11px' }}>
+      {/* Resumen de scores por factor */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '18px', fontSize: '11px' }}>
         <thead>
           <tr style={{ backgroundColor: '#0e0e6e', color: 'white' }}>
             <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>Factor de riesgo</th>
             <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Score</th>
             <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Peso</th>
+            <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Contribución</th>
           </tr>
         </thead>
         <tbody>
           {[
-            { label: 'Factor Cliente',           score: scoreCli,  peso: tipoPersona === 'fisica' ? '60%' : '50%' },
-            { label: 'Zona Geográfica',          score: scoreGeo,  peso: tipoPersona === 'fisica' ? '40%' : '15%' },
-            { label: 'Productos / Servicios',    score: scoreProd, peso: tipoPersona === 'fisica' ? 'N/A' : '20%' },
-            { label: 'Canales de Distribución',  score: scoreCan,  peso: tipoPersona === 'fisica' ? 'N/A' : '15%' },
-          ].map((f, i) => (
-            <tr key={f.label} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
-              <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb' }}>{f.label}</td>
-              <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace' }}>{f.score != null ? f.score.toFixed(3) : '—'}</td>
-              <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>{f.peso}</td>
-            </tr>
-          ))}
+            { label: 'Factor Cliente',           score: scoreCli,  peso: pesos.cli,  pesoPct: tipoPersona === 'fisica' ? 0.6 : 0.5  },
+            { label: 'Zona Geográfica',          score: scoreGeo,  peso: pesos.geo,  pesoPct: tipoPersona === 'fisica' ? 0.4 : 0.15 },
+            { label: 'Productos / Servicios',    score: scoreProd, peso: pesos.prod, pesoPct: tipoPersona === 'fisica' ? 0   : 0.2  },
+            { label: 'Canales de Distribución',  score: scoreCan,  peso: pesos.can,  pesoPct: tipoPersona === 'fisica' ? 0   : 0.15 },
+          ].map((f, i) => {
+            const contrib = f.score != null && f.pesoPct > 0 ? (f.score * f.pesoPct).toFixed(3) : '—'
+            return (
+              <tr key={f.label} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb' }}>{f.label}</td>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: colorValor(f.score) }}>
+                  {f.score != null ? f.score.toFixed(3) : '—'}
+                </td>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>{f.peso}</td>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: '#6b7280' }}>{contrib}</td>
+              </tr>
+            )
+          })}
           <tr style={{ backgroundColor: '#e0e7ff', fontWeight: 'bold' }}>
             <td style={{ padding: '5px 8px' }}>Score Consolidado</td>
-            <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace' }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
+            <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', color: colorValor(scoreTotal) }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
             <td style={{ padding: '5px 8px', textAlign: 'center' }}>—</td>
+            <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', color: colorValor(scoreTotal) }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
           </tr>
         </tbody>
       </table>
 
+      {/* ──── DETALLE POR FACTOR ──── */}
+      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#0e0e6e', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid #0e0e6e', paddingBottom: '4px', marginBottom: '12px' }}>
+        Detalle de criterios evaluados
+      </div>
+
+      <TablaFactor
+        titulo="Factor Cliente"
+        criterios={criteriosCli}
+        respuestas={respCliente}
+        scoreF={scoreCli}
+        pesoLabel={pesos.cli}
+      />
+      <TablaFactor
+        titulo="Zona Geográfica"
+        criterios={criteriosGeo}
+        respuestas={respGeo}
+        scoreF={scoreGeo}
+        pesoLabel={pesos.geo}
+      />
+      {tipoPersona === 'juridica' && (
+        <>
+          <TablaFactor
+            titulo="Productos / Servicios"
+            criterios={criteriosProd}
+            respuestas={respProductos}
+            scoreF={scoreProd}
+            pesoLabel={pesos.prod}
+          />
+          <TablaFactor
+            titulo="Canales de Distribución"
+            criterios={criteriosCan}
+            respuestas={respCanales}
+            scoreF={scoreCan}
+            pesoLabel={pesos.can}
+          />
+        </>
+      )}
+
       {/* Observaciones */}
       {observaciones && (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: '5px', padding: '8px 12px', marginBottom: '14px' }}>
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '5px', padding: '8px 12px', marginBottom: '14px', marginTop: '4px' }}>
           <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#374151', marginBottom: '3px' }}>Observaciones del oficial de cumplimiento:</div>
           <div style={{ fontSize: '11px', color: '#4b5563' }}>{observaciones}</div>
         </div>
       )}
 
       {/* Referencias */}
-      <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '8px', marginTop: '8px' }}>
+      <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '8px', marginTop: '10px' }}>
         <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>
           Referencias y fuentes metodológicas
         </div>
@@ -688,16 +825,27 @@ export default function CalificacionRiesgo() {
       })
       if (error) throw error
 
-      // Actualizar campos de riesgo en clientes
-      await supabase.from('clientes')
+      // Actualizar campo calificacion_riesgo en clientes
+      const hoy = new Date().toISOString().split('T')[0]
+      const updatePayload = { calificacion_riesgo: calificacionFinal }
+      // Intentar actualizar columnas extendidas (pueden no existir en todos los tenants)
+      const { error: errCli } = await supabase.from('clientes')
         .update({
           calificacion_riesgo:       calificacionFinal,
           nivel_riesgo_actual:       calificacionFinal,
           ultima_calificacion:       calificacionFinal,
           estado_calificacion:       'completado',
-          fecha_ultima_calificacion: new Date().toISOString().split('T')[0],
+          fecha_ultima_calificacion: hoy,
         })
         .eq('id', clienteId)
+
+      if (errCli) {
+        // Si falla por columnas inexistentes, intentar solo calificacion_riesgo
+        const { error: errMin } = await supabase.from('clientes')
+          .update({ calificacion_riesgo: calificacionFinal })
+          .eq('id', clienteId)
+        if (errMin) throw new Error('Error actualizando cliente: ' + errMin.message)
+      }
 
       alert('✅ Calificación guardada correctamente.')
       loadClientes()
@@ -1027,14 +1175,17 @@ export default function CalificacionRiesgo() {
       {/* ── Print CSS + reporte imprimible ──────────────────────────────── */}
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #reporte-cal, #reporte-cal * { visibility: visible; }
+          body > * { display: none !important; }
           #reporte-cal {
             display: block !important;
-            position: absolute;
-            left: 0; top: 0;
-            width: 100%;
+            position: static !important;
+            visibility: visible !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
+          #reporte-cal * { visibility: visible !important; }
+          @page { margin: 15mm; size: A4 portrait; }
         }
       `}</style>
       <ReporteImprimible
@@ -1051,6 +1202,10 @@ export default function CalificacionRiesgo() {
         scoreCan={scoreCan}
         observaciones={observaciones}
         listasNivel={listasNivel}
+        respCliente={respCliente}
+        respGeo={respGeo}
+        respProductos={respProductos}
+        respCanales={respCanales}
         fecha={new Date().toLocaleDateString('es-CR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
       />
     </div>

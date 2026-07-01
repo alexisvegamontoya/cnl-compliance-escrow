@@ -197,15 +197,17 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
     </div>`
 
   // Agrupar todos los hits de todas las personas para el reporte de listas
-  const todosLosHits = Object.values(resultadosListas).flatMap(r => r.hits || [])
-  const allHitsCombinados = Object.values(resultadosListas).flatMap(r => r.allHits || r.hits || [])
-  const nivelGlobal = Object.values(resultadosListas).some(r => r.nivel === 'ALERTA') ? 'ALERTA' :
-                      Object.values(resultadosListas).some(r => r.nivel === 'REVISAR') ? 'REVISAR' : 'SIN_COINCIDENCIA'
+  const listaVals = Object.values(resultadosListas || {})
+  const todosLosHits = listaVals.flatMap(r => r.hits || [])
+  const allHitsCombinados = listaVals.flatMap(r => r.allHits || r.hits || [])
+  const nivelGlobal = listaVals.some(r => r.nivel === 'ALERTA') ? 'ALERTA' :
+                      listaVals.some(r => r.nivel === 'REVISAR') ? 'REVISAR' : 'SIN_COINCIDENCIA'
   const fuentesConCoincidencia = [...new Set(todosLosHits.map(r => r.fuente))]
   const fuentesSinCoincidencia = TODAS_FUENTES.filter(f => !fuentesConCoincidencia.includes(f))
   const conteoFuente = {}
   TODAS_FUENTES.forEach(f => { conteoFuente[f] = todosLosHits.filter(r => r.fuente === f).length })
-  const maxConteo = Math.max(1, ...Object.values(conteoFuente))
+  const conteoVals = Object.values(conteoFuente)
+  const maxConteo = conteoVals.length ? Math.max(1, ...conteoVals) : 1
   const uifMatches = allHitsCombinados.filter(r => r.fuente === 'ICD_CR_PEP' && (r.similitud || 0) >= 0.50)
   const enListaUIF = uifMatches.length > 0
   const mejorUIF = uifMatches.sort((a, b) => (b.similitud || 0) - (a.similitud || 0))[0]
@@ -1026,19 +1028,28 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
   }, [cliente?.id])
 
   const imprimirTodo = () => {
-    const hayPEP = Object.values(resultadosListas).some(r => r.esPEP)
-    const html = generarHTMLReporte({
-      cliente, participantes: personas, resultadosListas, perfil, nivelFinal,
-      checklist, hayPEP, tenant, profile,
-      scoreTotal: scoreData.scoreTotal?.toFixed(2),
-      nivelRiesgo: scoreData.nivel,
-      desglose: scoreData.desglose,
-      tipo,
-    })
-    const w = window.open('', '_blank', 'width=900,height=700')
-    w.document.write(html)
-    w.document.close()
-    setTimeout(() => w.print(), 600)
+    try {
+      const hayPEP = Object.values(resultadosListas || {}).some(r => r.esPEP)
+      const html = generarHTMLReporte({
+        cliente, participantes: personas || [], resultadosListas: resultadosListas || {},
+        perfil, nivelFinal, checklist, hayPEP, tenant, profile,
+        scoreTotal: (scoreData.scoreTotal ?? 0).toFixed(2),
+        nivelRiesgo: scoreData.nivel || '',
+        desglose: scoreData.desglose || {},
+        tipo,
+      })
+      const w = window.open('', '_blank', 'width=900,height=700')
+      if (!w) {
+        alert('El navegador bloqueó la ventana emergente. Por favor permita popups para este sitio y vuelva a intentarlo.')
+        return
+      }
+      w.document.write(html)
+      w.document.close()
+      setTimeout(() => { try { w.print() } catch (e) { /* ignorar si falla print */ } }, 600)
+    } catch (err) {
+      alert('Error al generar el informe: ' + err.message)
+      console.error('imprimirTodo error:', err)
+    }
   }
 
   const TABS = [
