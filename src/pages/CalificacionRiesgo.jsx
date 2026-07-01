@@ -797,61 +797,61 @@ export default function CalificacionRiesgo() {
     if (!calificacionAuto && !calificacionManual) { alert('Complete al menos los factores principales.'); return }
     setSaving(true)
     try {
-      // Marcar anteriores como no vigentes
+      const hoy = new Date().toISOString().split('T')[0]
+
+      // 1. Marcar anteriores como no vigentes
       await supabase.from('calificaciones_riesgo')
         .update({ vigente: false })
         .eq('cliente_id', clienteId)
 
-      // Insertar nueva calificación
-      const { error } = await supabase.from('calificaciones_riesgo').insert({
-        tenant_id: tenantEfectivo?.id,
-        cliente_id: clienteId,
-        tipo_persona: tipoPersona,
-        resp_cliente: respCliente,
-        resp_geo: respGeo,
-        resp_productos: respProductos,
-        resp_canales: respCanales,
-        score_cliente: scoreCli,
-        score_geo: scoreGeo,
-        score_productos: scoreProd,
-        score_canales: scoreCan,
-        score_total: scoreTotal,
-        calificacion: calificacionAuto,
+      // 2. Insertar nueva calificación histórica
+      const { error: errInsert } = await supabase.from('calificaciones_riesgo').insert({
+        tenant_id:           tenantEfectivo?.id,
+        cliente_id:          clienteId,
+        tipo_persona:        tipoPersona,
+        resp_cliente:        respCliente,
+        resp_geo:            respGeo,
+        resp_productos:      respProductos,
+        resp_canales:        respCanales,
+        score_cliente:       scoreCli,
+        score_geo:           scoreGeo,
+        score_productos:     scoreProd,
+        score_canales:       scoreCan,
+        score_total:         scoreTotal,
+        calificacion:        calificacionAuto,
         calificacion_manual: calificacionManual || null,
-        observaciones: observaciones || null,
-        calificador_id: profile?.id,
-        fecha_calificacion: new Date().toISOString().split('T')[0],
-        vigente: true,
+        observaciones:       observaciones || null,
+        calificador_id:      profile?.id,
+        fecha_calificacion:  hoy,
+        vigente:             true,
       })
-      if (error) throw error
+      if (errInsert) throw new Error('Error al insertar calificación: ' + errInsert.message)
 
-      // Actualizar campo calificacion_riesgo en clientes
-      const hoy = new Date().toISOString().split('T')[0]
-      const updatePayload = { calificacion_riesgo: calificacionFinal }
-      // Intentar actualizar columnas extendidas (pueden no existir en todos los tenants)
-      const { error: errCli } = await supabase.from('clientes')
-        .update({
-          calificacion_riesgo:       calificacionFinal,
-          nivel_riesgo_actual:       calificacionFinal,
-          ultima_calificacion:       calificacionFinal,
-          estado_calificacion:       'completado',
-          fecha_ultima_calificacion: hoy,
-        })
+      // 3. Actualizar calificacion_riesgo en clientes (columna base — siempre existe)
+      const { error: errBase, data: dataBase } = await supabase
+        .from('clientes')
+        .update({ calificacion_riesgo: calificacionFinal })
         .eq('id', clienteId)
+        .select('id, calificacion_riesgo')
 
-      if (errCli) {
-        // Si falla por columnas inexistentes, intentar solo calificacion_riesgo
-        const { error: errMin } = await supabase.from('clientes')
-          .update({ calificacion_riesgo: calificacionFinal })
-          .eq('id', clienteId)
-        if (errMin) throw new Error('Error actualizando cliente: ' + errMin.message)
+      if (errBase) {
+        throw new Error('Error al actualizar cliente (calificacion_riesgo): ' + errBase.message)
       }
 
-      alert('✅ Calificación guardada correctamente.')
+      // 4. Intentar también las columnas extendidas (si ya se ejecutó el SQL de migración)
+      await supabase.from('clientes').update({
+        nivel_riesgo_actual:       calificacionFinal,
+        estado_calificacion:       'completado',
+        fecha_ultima_calificacion: hoy,
+      }).eq('id', clienteId)
+      // Si falla (columnas no existen) lo ignoramos — la columna base ya quedó guardada
+
+      alert(`✅ Calificación${calificacionFinal.toUpperCase()} guardada correctamente.`)
       loadClientes()
       loadStats()
     } catch (err) {
-      alert('Error: ' + err.message)
+      console.error('guardar() error:', err)
+      alert('Error al guardar: ' + err.message)
     } finally {
       setSaving(false)
     }
