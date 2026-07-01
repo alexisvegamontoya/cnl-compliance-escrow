@@ -8,13 +8,17 @@ const modulo1 = [
   { to: '/informes',      icon: '📈', label: 'Informes' },
 ]
 
-const operaciones = [
-  { to: '/ros',             icon: '🚨', label: 'Operaciones Sospechosas' },
-  { to: '/calificacion',    icon: '🎯', label: 'Calificación de Clientes' },
-  { to: '/compliance',      icon: '📊', label: 'Nivel de Cumplimiento' },
-  { to: '/denuncias',       icon: '📥', label: 'Canal de Denuncias' },
-  { to: '/listas',          icon: '🔎', label: 'PEP / Listas' },
+const clientesItems = [
+  { to: '/clientes',          icon: '👥', label: 'Gestión de Clientes' },
+  { to: '/listas',            icon: '🔎', label: 'PEP / Listas Internacionales' },
   { to: '/debida-diligencia', icon: '🛡️', label: 'Debida Diligencia' },
+  { to: '/calificacion',      icon: '🎯', label: 'Calificación de Riesgo' },
+]
+
+const operaciones = [
+  { to: '/ros',       icon: '🚨', label: 'Operaciones Sospechosas' },
+  { to: '/compliance',icon: '📊', label: 'Nivel de Cumplimiento' },
+  { to: '/denuncias', icon: '📥', label: 'Canal de Denuncias' },
 ]
 
 const documentos = [
@@ -92,7 +96,9 @@ export default function Sidebar() {
         <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
           Clientes
         </p>
-        <NavItem to="/clientes" icon="👥" label="Gestión de Clientes" />
+        {clientesItems.map(item => (
+          <NavItem key={item.to} {...item} />
+        ))}
 
         <div className="border-t border-brand-700 my-3" />
         <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
