@@ -587,7 +587,6 @@ export default function CalificacionRiesgo() {
     })
 
     // Pre-llenar factor CLIENTE desde datos del cliente
-    const esFisica = [1, 3, 5].includes(Number(c?.tipo_identificacion))
     const actVal = esFisica
       ? (Number(c?.profesion_valor)   || (c?.profesion_nombre   ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.profesion_nombre.toLowerCase())?.valor   || 1) : 1))
       : (Number(c?.actividad_eco_valor) || (c?.actividad_eco_nombre ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.actividad_eco_nombre.toLowerCase())?.valor || 1) : 1))
