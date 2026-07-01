@@ -4,7 +4,6 @@ import BellNotificaciones from './BellNotificaciones'
 
 const modulo1 = [
   { to: '/transacciones', icon: '💰', label: 'Transacciones' },
-  { to: '/clientes',      icon: '👤', label: 'Clientes' },
   { to: '/xml',           icon: '📄', label: 'Generar XML' },
   { to: '/informes',      icon: '📈', label: 'Informes' },
 ]
@@ -88,6 +87,12 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
 
         <NavItem to="/" icon="📊" label="Dashboard" end />
+
+        <div className="border-t border-brand-700 my-3" />
+        <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
+          Clientes
+        </p>
+        <NavItem to="/clientes" icon="👥" label="Gestión de Clientes" />
 
         <div className="border-t border-brand-700 my-3" />
         <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">

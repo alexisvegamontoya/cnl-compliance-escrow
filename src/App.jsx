@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Transacciones from './pages/Transacciones'
 import GenerarXML from './pages/GenerarXML'
 import Clientes from './pages/Clientes'
+import GestionClientes from './pages/GestionClientes'
 import SujetosObligados from './pages/admin/SujetosObligados'
 import Usuarios from './pages/admin/Usuarios'
 import Informes from './pages/Informes'
@@ -76,6 +77,11 @@ function AppRoutes() {
         </PrivateRoute>
       } />
       <Route path="/clientes" element={
+        <PrivateRoute>
+          <Layout><GestionClientes /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/sicveca/clientes" element={
         <PrivateRoute>
           <Layout><Clientes /></Layout>
         </PrivateRoute>

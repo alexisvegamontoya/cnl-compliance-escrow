@@ -30,6 +30,11 @@ CREATE INDEX IF NOT EXISTS idx_alertas_noticias_feed   ON alertas_noticias(feed_
 -- RLS
 ALTER TABLE alertas_noticias ENABLE ROW LEVEL SECURITY;
 
+-- Eliminar policies si ya existen (re-ejecución segura)
+DROP POLICY IF EXISTS "alertas_noticias_superadmin"    ON alertas_noticias;
+DROP POLICY IF EXISTS "alertas_noticias_tenant_read"   ON alertas_noticias;
+DROP POLICY IF EXISTS "alertas_noticias_tenant_update" ON alertas_noticias;
+
 -- Superadmin: acceso total
 CREATE POLICY "alertas_noticias_superadmin" ON alertas_noticias
   USING (es_superadmin());
