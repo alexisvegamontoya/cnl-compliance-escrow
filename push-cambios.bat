@@ -1,19 +1,16 @@
 @echo off
 cd /d "C:\Users\alexi\OneDrive\Cumplimiento\claude\Desarrollo de la app\cnl-compliance-app"
 
-echo Limpiando locks de git...
+echo Limpiando locks...
 if exist ".git\index.lock"       del /f /q ".git\index.lock"
 if exist ".git\HEAD.lock"        del /f /q ".git\HEAD.lock"
-if exist ".git\COMMIT_EDITMSG.lock" del /f /q ".git\COMMIT_EDITMSG.lock"
+if exist ".git\MERGE_HEAD.lock"  del /f /q ".git\MERGE_HEAD.lock"
 if exist ".git\objects\maintenance.lock" del /f /q ".git\objects\maintenance.lock"
 
-echo Agregando cambios...
-git add -A
+echo Haciendo commit de todos los archivos modificados...
+git commit -a -m "feat: checklist DD tabla Estado+Notas+Req, CalificacionRiesgo pre-llenado completo"
 
-echo Haciendo commit...
-git commit -m "feat: checklist DD tabla Estado+Notas+Req, CalificacionRiesgo pre-llenado completo"
-
-echo Subiendo a Vercel...
+echo Subiendo a GitHub/Vercel...
 git push origin main
 
 echo.
