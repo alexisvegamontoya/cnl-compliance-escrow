@@ -66,7 +66,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva }) {
   const cargar = useCallback(async () => {
     if (!tenant?.id) return
     setLoading(true)
-    let q = supabase.from('clientes').select('*').eq('tenant_id', tenant.id).order('creado_en', { ascending: false })
+    let q = supabase.from('clientes').select('*').eq('tenant_id', tenant.id).order('id', { ascending: false })
     if (filtroTipo)   q = q.eq('tipo_persona', filtroTipo)
     if (filtroRiesgo) q = q.eq('nivel_riesgo_actual', filtroRiesgo)
     if (filtroDd)     q = q.eq('estado_dd', filtroDd)

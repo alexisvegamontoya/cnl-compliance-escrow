@@ -12,5 +12,4 @@ SELECT
   t.nombre AS nombre_tenant
 FROM clientes c
 LEFT JOIN tenants t ON t.id = c.tenant_id
-ORDER BY c.creado_en DESC
 LIMIT 20;
