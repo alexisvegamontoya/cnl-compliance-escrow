@@ -539,36 +539,43 @@ function SeccionCalificacion({ cliente, onScoreChange, onGuardar }) {
     if (!cliente?.id) return
     setSaving(true); setSavedOk(false)
     try {
+      const hoy = new Date().toISOString().split('T')[0]
       // Marcar vigentes anteriores
       await supabase.from('calificaciones_riesgo').update({ vigente: false }).eq('cliente_id', cliente.id)
-      // Insertar nueva
+      // Insertar nueva calificación histórica
       const { error } = await supabase.from('calificaciones_riesgo').insert({
-        tenant_id:        tenant?.id,
-        cliente_id:       cliente.id,
-        tipo_persona:     tipo,
-        resp_cliente:     resp,
-        resp_geo:         resp,
-        resp_productos:   resp,
-        resp_canales:     resp,
-        score_total:      scoreTotal,
-        calificacion:     nivel,
-        fecha_calificacion: new Date().toISOString().split('T')[0],
-        vigente:          true,
-        calificador_id:   profile?.id,
+        tenant_id:          tenant?.id,
+        cliente_id:         cliente.id,
+        tipo_persona:       tipo,
+        resp_cliente:       resp,
+        resp_geo:           resp,
+        resp_productos:     resp,
+        resp_canales:       resp,
+        score_total:        scoreTotal,
+        calificacion:       nivel,
+        fecha_calificacion: hoy,
+        vigente:            true,
+        calificador_id:     profile?.id,
       })
       if (error) throw error
-      // Actualizar cliente
-      await supabase.from('clientes').update({
+
+      // Actualizar campos en clientes — con fallback si columnas extendidas no existen
+      const { error: errExt } = await supabase.from('clientes').update({
         calificacion_riesgo:       nivel,
         nivel_riesgo_actual:       nivel,
-        ultima_calificacion:       nivel,
         estado_calificacion:       'completado',
-        fecha_ultima_calificacion: new Date().toISOString().split('T')[0],
+        fecha_ultima_calificacion: hoy,
       }).eq('id', cliente.id)
+
+      if (errExt) {
+        // Fallback: solo columnas base
+        await supabase.from('clientes').update({ calificacion_riesgo: nivel }).eq('id', cliente.id)
+      }
+
       setSavedOk(true)
       onGuardar?.(nivel)
     } catch (e) {
-      alert('Error al guardar: ' + e.message)
+      alert('Error al guardar calificación: ' + e.message)
     } finally {
       setSaving(false)
     }
@@ -674,9 +681,10 @@ function SeccionListas({ cliente, personas, onResultados }) {
   const [cargando, setCargando] = useState(false)
   const [buscado, setBuscado]   = useState(false)
   const [error, setError]       = useState('')
+  const [guardadoDB, setGuardadoDB] = useState(false)
 
   const ejecutar = async () => {
-    setCargando(true); setError('')
+    setCargando(true); setError(''); setGuardadoDB(false)
     const nuevos = {}
     try {
       // Cliente principal
@@ -688,16 +696,34 @@ function SeccionListas({ cliente, personas, onResultados }) {
       for (const p of personas) {
         if (!p.nombre?.trim()) continue
         nuevos[p.nombre] = { ...(await buscarEnListas(p.nombre, p.identificacion)), rol: p.tipo_relacion?.replace(/_/g,' ') || '', id: p.identificacion || '' }
-        // Sub-personas
         const subs = p.sub_personas || []
         for (const s of subs) {
           if (!s.nombre?.trim()) continue
           nuevos[s.nombre] = { ...(await buscarEnListas(s.nombre, s.identificacion)), rol: s.tipo_relacion?.replace(/_/g,' ') || 'Vinculado', id: s.identificacion || '' }
         }
       }
+
       setResultadosListas(nuevos)
       onResultados?.(nuevos)
       setBuscado(true)
+
+      // ── Guardar resultados en DB ──────────────────────────────────────
+      const vals = Object.values(nuevos)
+      const hayPEP       = vals.some(r => r.esPEP)
+      const nivelMax     = vals.some(r => r.nivel === 'ALERTA')  ? 'ALERTA'  :
+                           vals.some(r => r.nivel === 'REVISAR') ? 'REVISAR' : 'SIN_HALLAZGOS'
+      const apareceEnListas = nivelMax === 'ALERTA'
+      const estadoListas    = nivelMax === 'ALERTA'  ? 'alerta'    :
+                              nivelMax === 'REVISAR' ? 'revisar'   : 'verificado'
+
+      if (cliente?.id) {
+        const { error: errDB } = await supabase.from('clientes').update({
+          pep:              hayPEP,
+          aparece_en_listas: apareceEnListas,
+          estado_listas:    estadoListas,
+        }).eq('id', cliente.id)
+        if (!errDB) setGuardadoDB(true)
+      }
     } catch (e) {
       setError('Error al consultar listas: ' + e.message)
     } finally {
@@ -784,9 +810,14 @@ function SeccionListas({ cliente, personas, onResultados }) {
         )}
 
         {buscado && (
-          <p className="text-xs text-gray-400 border-t pt-2">
-            ⏱ Consulta realizada: {new Date().toLocaleString('es-CR')}
-          </p>
+          <div className="border-t pt-2 flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              ⏱ Consulta realizada: {new Date().toLocaleString('es-CR')}
+            </p>
+            {guardadoDB && (
+              <p className="text-xs text-green-600 font-medium">✅ PEP y listas guardados en base de datos</p>
+            )}
+          </div>
         )}
       </div>
 
@@ -813,7 +844,7 @@ function SeccionListas({ cliente, personas, onResultados }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelChange, onChecklistChange, onPerfilChange }) {
   const tipo = cliente.tipo_persona === 'juridica' ? 'J' : 'F'
-  const hayPEP = Object.values(resultadosListas).some(r => r.esPEP)
+  const hayPEP = Object.values(resultadosListas || {}).some(r => r.esPEP)
   const todosItems = [...CHECKLIST_BASE, ...(tipo === 'J' ? CHECKLIST_PJ : []), ...(hayPEP ? CHECKLIST_PEP : [])]
 
   const [checklist, setChecklist]   = useState({})
@@ -823,6 +854,8 @@ function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelCha
   const [nivelIA, setNivelIA]       = useState('')
   const [cargandoIA, setCargandoIA] = useState(false)
   const [errorIA, setErrorIA]       = useState('')
+  const [savingDD, setSavingDD]     = useState(false)
+  const [savedDD, setSavedDD]       = useState(false)
 
   const setItem = (id, campo, val) => {
     const next = { ...checklist, [id]: { ...(checklist[id] || {}), [campo]: val } }
@@ -996,8 +1029,39 @@ function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelCha
           value={justif} onChange={e => setJustif(e.target.value)} />
       </div>
 
-      <div className="text-xs text-gray-400 border-t pt-3">
-        <p>⚖ Base legal: Ley 7786, Acuerdo SUGEF 13-19 Art. 27-30, Recomendaciones GAFI 10, 12, 22, 24</p>
+      {/* Guardar estado DD en DB */}
+      <div className="border-t pt-4 flex items-center justify-between flex-wrap gap-3">
+        <p className="text-xs text-gray-400">⚖ Base legal: Ley 7786, Acuerdo SUGEF 13-19 Art. 27-30, Recomendaciones GAFI 10, 12, 22, 24</p>
+        <div className="flex items-center gap-3">
+          {savedDD && <span className="text-xs text-green-600 font-medium">✅ Estado DD guardado</span>}
+          <button
+            disabled={savingDD || !cliente?.id}
+            onClick={async () => {
+              setSavingDD(true); setSavedDD(false)
+              try {
+                const completados = todosItems.filter(it => getEstadoCL(checklist[it.id]) === 'disponible').length
+                const obligatoriosOk = todosItems.filter(it => it.required && getEstadoCL(checklist[it.id]) === 'disponible').length
+                const totalOblig = todosItems.filter(it => it.required).length
+                const estadoDD = obligatoriosOk === totalOblig ? 'completado'
+                               : completados > 0             ? 'en_progreso'
+                               :                               'pendiente'
+                const { error } = await supabase.from('clientes').update({
+                  estado_dd:          estadoDD,
+                  nivel_riesgo_actual: nivelLocal,
+                  calificacion_riesgo: nivelLocal,
+                }).eq('id', cliente.id)
+                if (error) throw error
+                setSavedDD(true)
+              } catch (e) {
+                alert('Error al guardar DD: ' + e.message)
+              } finally {
+                setSavingDD(false)
+              }
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-700 text-white text-sm font-semibold rounded-lg hover:bg-brand-800 disabled:opacity-60 transition-colors">
+            {savingDD ? '⏳ Guardando…' : '💾 Guardar estado DD'}
+          </button>
+        </div>
       </div>
     </div>
   )
