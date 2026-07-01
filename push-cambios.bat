@@ -18,7 +18,13 @@ echo Subiendo a GitHub/Vercel...
 git push origin main
 
 echo Reiniciando OneDrive...
-start "" "%LOCALAPPDATA%\Microsoft\OneDrive\OneDrive.exe"
+if exist "%LOCALAPPDATA%\Microsoft\OneDrive\OneDrive.exe" (
+  start "" "%LOCALAPPDATA%\Microsoft\OneDrive\OneDrive.exe"
+) else if exist "%USERPROFILE%\AppData\Local\Microsoft\OneDrive\OneDrive.exe" (
+  start "" "%USERPROFILE%\AppData\Local\Microsoft\OneDrive\OneDrive.exe"
+) else (
+  echo OneDrive no encontrado en rutas conocidas, omitiendo reinicio.
+)
 
 echo.
 echo Listo! Vercel desplegara en ~2 minutos.

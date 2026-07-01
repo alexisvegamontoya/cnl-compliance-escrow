@@ -1,6 +1,30 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Component } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+
+// ------------------------------------
+// Error Boundary — evita que errores de render derrumben toda la app
+// ------------------------------------
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, msg: '' } }
+  static getDerivedStateFromError(err) { return { hasError: true, msg: err?.message || String(err) } }
+  componentDidCatch(err, info) { console.error('CalificacionRiesgo ErrorBoundary:', err, info) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+          <p className="font-bold text-sm mb-1">⚠ Error al renderizar esta sección</p>
+          <p className="text-xs text-red-500 font-mono">{this.state.msg}</p>
+          <button className="mt-3 px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg"
+            onClick={() => this.setState({ hasError: false, msg: '' })}>
+            Reintentar
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import {
   CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
@@ -42,8 +66,9 @@ function ScoreBar({ score, max = 3 }) {
 // Formulario de un factor de riesgo
 // ------------------------------------
 function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = false, esONG = false }) {
+  if (!criterios?.length) return null   // guard: sin criterios no renderiza nada
   function renderSelect(criterio) {
-    let opciones = OPCIONES[criterio.key] || OPCIONES['pais_riesgo']
+    let opciones = OPCIONES[criterio.key] || OPCIONES['pais_riesgo'] || []
 
     // ── Actividad económica / profesión: dropdown de 152 actividades agrupadas ──
     if (['actividad_eco', 'profesion'].includes(criterio.key)) {
@@ -740,41 +765,51 @@ export default function CalificacionRiesgo() {
   }
 
   function handleSelectCliente(id) {
-    setClienteId(id)
-    const c = clientes.find(x => x.id === id)
-    setClienteActual(c)
-    // Detectar tipo de persona
-    const tipoId = Number(c?.tipo_identificacion)
-    const esFisica = [1, 3, 5].includes(tipoId)
-    setTipoPersona(esFisica ? 'fisica' : 'juridica')
-    // Limpiar respuestas anteriores
-    setRespGeo({}); setRespCliente({}); setRespProductos({}); setRespCanales({})
-    setCalificacionManual(''); setObservaciones('')
+    if (!id) { setClienteId(''); setClienteActual(null); return }
+    try {
+      setClienteId(id)
+      const c = clientes.find(x => x.id === id)
+      if (!c) return
+      setClienteActual(c)
+      // Detectar tipo de persona
+      const tipoId = Number(c?.tipo_identificacion)
+      const esFisica = [1, 3, 5].includes(tipoId)
+      setTipoPersona(esFisica ? 'fisica' : 'juridica')
+      // Limpiar respuestas anteriores
+      setRespGeo({}); setRespCliente({}); setRespProductos({}); setRespCanales({})
+      setCalificacionManual(''); setObservaciones('')
 
-    // Consultar listas ALA/CFT automáticamente
-    setListasResult(null)
-    setListasNivel(null)
-    const nomBuscar = c?.nombre_empresa || `${c?.nombre_cliente || ''} ${c?.primer_apellido || ''}`.trim()
-    if (nomBuscar) {
-      setListasLoading(true)
-      supabase.rpc('buscar_en_listas', {
-        p_nombre:         nomBuscar,
-        p_identificacion: c?.numero_identificacion || null,
-        p_pais:           null,
-        p_limite:         50,
-      }).then(({ data, error }) => {
-        if (!error && data) {
-          setListasResult(data)
-          const nivel = calcNivelListas(data)
-          setListasNivel(nivel)
-          // Si hay coincidencia real, elevar calificación a ALTO automáticamente
-          if (nivel === 'COINCIDENCIA') {
-            setCalificacionManual('alto')
-            setObservaciones('⚠️ Cliente figura en listas internacionales de sanciones. Requiere DDC reforzada — Art. 24 Acuerdo SUGEF 13-19.')
-          }
-        }
-        setListasLoading(false)
-      })
+      // Consultar listas ALA/CFT automáticamente
+      setListasResult(null)
+      setListasNivel(null)
+      const nomBuscar = c?.nombre_empresa || `${c?.nombre_cliente || ''} ${c?.primer_apellido || ''}`.trim()
+      if (nomBuscar) {
+        setListasLoading(true)
+        supabase.rpc('buscar_en_listas', {
+          p_nombre:         nomBuscar,
+          p_identificacion: c?.numero_identificacion || null,
+          p_pais:           null,
+          p_limite:         50,
+        }).then(({ data, error }) => {
+          try {
+            if (!error && Array.isArray(data) && data.length > 0) {
+              setListasResult(data)
+              const nivel = calcNivelListas(data)
+              setListasNivel(nivel)
+              if (nivel === 'COINCIDENCIA') {
+                setCalificacionManual('alto')
+                setObservaciones('⚠️ Cliente figura en listas internacionales de sanciones. Requiere DDC reforzada — Art. 24 Acuerdo SUGEF 13-19.')
+              }
+            } else if (!error && data !== null) {
+              setListasNivel('SIN_COINCIDENCIA')
+            }
+          } catch (e) { console.error('Error procesando resultado listas:', e) }
+          setListasLoading(false)
+        }).catch(e => { console.error('Error RPC buscar_en_listas:', e); setListasLoading(false) })
+      }
+    } catch (err) {
+      console.error('Error en handleSelectCliente:', err)
+      setListasLoading(false)
     }
   }
 
@@ -1122,7 +1157,7 @@ export default function CalificacionRiesgo() {
                 <p className="text-sm mt-1">La calificación se basa en la Metodología N06 del sujeto obligado</p>
               </div>
             ) : (
-              <>
+              <ErrorBoundary>
                 {/* Factor Cliente */}
                 <FactorForm
                   titulo={`Factor Cliente — ${tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'} (${tipoPersona === 'fisica' ? '60' : '50'}%)`}
@@ -1163,7 +1198,7 @@ export default function CalificacionRiesgo() {
                   tipo={tipoPersona}
                   esONG={isONG}
                 />
-              </>
+              </ErrorBoundary>
             )}
           </div>
         </div>

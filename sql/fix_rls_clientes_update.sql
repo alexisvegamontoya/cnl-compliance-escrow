@@ -44,13 +44,13 @@ CREATE POLICY "clientes_update_superadmin" ON clientes
   FOR UPDATE
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
+      SELECT 1 FROM user_profiles
       WHERE id = auth.uid() AND is_superadmin = true
     )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM profiles
+      SELECT 1 FROM user_profiles
       WHERE id = auth.uid() AND is_superadmin = true
     )
   );
