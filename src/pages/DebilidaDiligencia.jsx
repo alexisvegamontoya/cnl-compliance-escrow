@@ -380,6 +380,81 @@ export default function DebilidaDiligencia() {
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
 
+  // ── Selector de cliente desde DB ───────────────────────────────────────────
+  const [clientesDB, setClientesDB]         = useState([])
+  const [clienteSelId, setClienteSelId]     = useState('')
+  const [cargandoDesdeDB, setCargandoDesdeDB] = useState(false)
+
+  useEffect(() => {
+    if (!tenant?.id) return
+    supabase.from('clientes')
+      .select('id, nombre_cliente, primer_apellido, segundo_apellido, nombre_empresa, numero_identificacion, cedula_juridica, tipo_identificacion, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_nacimiento, fecha_constitucion, profesion_nombre, actividad_eco_nombre, actividad_economica, proposito_relacion, pep')
+      .eq('tenant_id', tenant.id)
+      .eq('activo', true)
+      .order('nombre_cliente', { nullsFirst: false })
+      .then(({ data }) => setClientesDB(data || []))
+  }, [tenant?.id])
+
+  const cargarDesdeDB = async () => {
+    if (!clienteSelId) return
+    setCargandoDesdeDB(true)
+    try {
+      const c = clientesDB.find(x => x.id === clienteSelId)
+      if (!c) return
+
+      const tipoId = Number(c.tipo_identificacion)
+      const esFisica = [1, 3, 4, 5].includes(tipoId) // 1=cédula CR, 3=DIMEX, 4=pasaporte, 5=NITE físico
+
+      setTipo(esFisica ? 'F' : 'J')
+
+      if (esFisica) {
+        const nombreCompleto = [c.nombre_cliente, c.primer_apellido, c.segundo_apellido].filter(Boolean).join(' ')
+        setDatos(d => ({
+          ...d,
+          nombre:           nombreCompleto,
+          identificacion:   c.numero_identificacion || '',
+          nacionalidad:     c.nacionalidad || 'Costarricense',
+          pais_residencia:  c.pais_ubicacion || c.pais_nacimiento || 'Costa Rica',
+          fecha_nacimiento: c.fecha_nacimiento || '',
+          ocupacion:        c.profesion_nombre || c.actividad_eco_nombre || c.actividad_economica || '',
+          proposito:        c.proposito_relacion || '',
+        }))
+      } else {
+        setDatos(d => ({
+          ...d,
+          razon_social:      c.nombre_empresa || c.nombre_cliente || '',
+          cedula_juridica:   c.cedula_juridica || c.numero_identificacion || '',
+          pais_constitucion: c.pais_constitucion || 'Costa Rica',
+          actividad_ciiu:    c.actividad_eco_nombre || c.actividad_economica || '',
+          fecha_constitucion: c.fecha_constitucion || '',
+          proposito_pj:      c.proposito_relacion || '',
+        }))
+      }
+
+      // Cargar personas relacionadas como participantes
+      const { data: personas } = await supabase
+        .from('clientes_personas_relacionadas')
+        .select('*')
+        .eq('cliente_id', clienteSelId)
+        .eq('activo', true)
+        .order('orden')
+
+      if (personas?.length) {
+        setParticipantes(personas.map(p => ({
+          rol:           p.tipo_relacion?.replace(/_/g, ' ') || 'Representante Legal',
+          nombre:        p.nombre || '',
+          identificacion: p.identificacion || '',
+          nacionalidad:  p.nacionalidad || '',
+          participacion: p.porcentaje_participacion ? String(p.porcentaje_participacion) : '',
+        })))
+      }
+    } catch (e) {
+      setError('Error al cargar datos: ' + e.message)
+    } finally {
+      setCargandoDesdeDB(false)
+    }
+  }
+
   // ── Paso 1: Datos del cliente ──────────────────────────────────────────────
   const [datos, setDatos] = useState({
     nombre: '', identificacion: '', nacionalidad: 'Costarricense',
@@ -597,6 +672,48 @@ export default function DebilidaDiligencia() {
       {/* ════════════════ PASO 1 — DATOS ════════════════ */}
       {paso === 1 && (
         <div className="space-y-4">
+
+          {/* ── Cargar desde base de datos ── */}
+          <div className="card border-2 border-brand-200 bg-brand-50 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-brand-700 text-lg">🗄️</span>
+              <div>
+                <p className="text-sm font-bold text-brand-800">Cargar cliente desde base de datos</p>
+                <p className="text-xs text-brand-600">Seleccione un cliente registrado para pre-llenar el formulario automáticamente</p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap items-end">
+              <div className="flex-1 min-w-[200px]">
+                <select
+                  className="input text-sm"
+                  value={clienteSelId}
+                  onChange={e => setClienteSelId(e.target.value)}>
+                  <option value="">— Seleccione un cliente —</option>
+                  {clientesDB.map(c => {
+                    const nombre = c.nombre_empresa
+                      || [c.nombre_cliente, c.primer_apellido].filter(Boolean).join(' ')
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {nombre} — {c.numero_identificacion || c.cedula_juridica || ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+              <button
+                onClick={cargarDesdeDB}
+                disabled={!clienteSelId || cargandoDesdeDB}
+                className="px-4 py-2 bg-brand-700 text-white text-sm font-bold rounded-lg hover:bg-brand-800 disabled:opacity-40 transition-colors flex items-center gap-2">
+                {cargandoDesdeDB
+                  ? <><span className="animate-spin">⏳</span> Cargando…</>
+                  : '📥 Cargar datos'}
+              </button>
+            </div>
+            {clienteSelId && !cargandoDesdeDB && (
+              <p className="text-xs text-brand-600">✅ Puede editar los datos cargados antes de continuar</p>
+            )}
+          </div>
+
           {/* Selector tipo */}
           <div className="card flex gap-4 items-center flex-wrap">
             <p className="text-sm font-semibold text-gray-700">Tipo de cliente:</p>
