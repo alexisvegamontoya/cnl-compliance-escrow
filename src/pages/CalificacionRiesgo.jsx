@@ -527,7 +527,7 @@ export default function CalificacionRiesgo() {
     const tid = isSuperAdmin ? tenantId : tenant?.id
     if (!tid) return
     const { data } = await supabase.from('clientes')
-      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion')
+      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep')
       .eq('tenant_id', tid)
       .order('nombre_cliente', { nullsFirst: false })
     setClientes(data || [])
@@ -572,21 +572,41 @@ export default function CalificacionRiesgo() {
     const tipoId = Number(c?.tipo_identificacion)
     const esFisica = [1, 3, 5].includes(tipoId)
     setTipoPersona(esFisica ? 'fisica' : 'juridica')
-    // Pre-llenar país si hay datos
-    if (c?.nacionalidad || c?.pais_ubicacion) {
-      const paisOrigen = c.nacionalidad || ''
-      const paisRes = c.pais_ubicacion || ''
-      const rOrg = PAISES_RIESGO.find(p => p.pais.toLowerCase().includes(paisOrigen.toLowerCase()))?.riesgo
-      const rRes = PAISES_RIESGO.find(p => p.pais.toLowerCase().includes(paisRes.toLowerCase()))?.riesgo
-      setRespGeo({
-        pais_origen_nombre: paisOrigen, pais_origen: rOrg,
-        residencia_nombre: paisRes, residencia: rRes,
-      })
-    } else {
-      setRespGeo({})
-    }
-    // Pre-llenar PEP si aplica
-    setRespCliente(c?.pep ? { pep: 3 } : {})
+    // Pre-llenar factor GEO desde datos del cliente
+    const paisOrigen = c?.pais_nacimiento || c?.pais_constitucion || c?.nacionalidad || ''
+    const paisRes    = c?.pais_ubicacion || ''
+    const rOrig = PAISES_RIESGO.find(p => paisOrigen && p.pais?.toLowerCase().includes(paisOrigen.toLowerCase()))?.riesgo || 1
+    const rRes  = PAISES_RIESGO.find(p => paisRes   && p.pais?.toLowerCase().includes(paisRes.toLowerCase()))?.riesgo || 1
+    setRespGeo({
+      pais_origen_nombre: paisOrigen, pais_origen: rOrig,
+      residencia_nombre: paisRes, residencia: rRes,
+      ubicacion_geo: rOrig, casa_matriz: rOrig,
+      transfronterizo: (rOrig > 1 || rRes > 1 ? 2 : 0.5),
+      op_nacional: (c?.canton || c?.provincia) ? 0.5 : 1,
+      op_internacional: 0.5,
+    })
+
+    // Pre-llenar factor CLIENTE desde datos del cliente
+    const esFisica = [1, 3, 5].includes(Number(c?.tipo_identificacion))
+    const actVal = esFisica
+      ? (Number(c?.profesion_valor)   || (c?.profesion_nombre   ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.profesion_nombre.toLowerCase())?.valor   || 1) : 1))
+      : (Number(c?.actividad_eco_valor) || (c?.actividad_eco_nombre ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.actividad_eco_nombre.toLowerCase())?.valor || 1) : 1))
+    const ing = parseFloat(c?.ingreso_mensual_est) || 0
+    const ingVal = ing > 6000 ? 1 : ing > 4000 ? 1.5 : ing > 2000 ? 2 : ing > 1000 ? 2.5 : ing > 0 ? 3 : 1
+    setRespCliente({
+      profesion: actVal,
+      actividad_eco: actVal,
+      servicios: actVal,
+      ingreso_mensual: ingVal,
+      pep: c?.pep ? 3 : 1,
+      acceso_info: 1,
+      listas_obs: 1,
+      struct_admin: esFisica ? undefined : 1,
+      struct_acc: 1,
+      info_ingreso: ingVal,
+      anos_exp: 1,
+      anos_operacion: 1,
+    })
     setRespProductos({})
     setRespCanales({})
     setCalificacionManual('')
@@ -663,10 +683,13 @@ export default function CalificacionRiesgo() {
       })
       if (error) throw error
 
-      // Actualizar calificacion_riesgo y fecha_ultima_calificacion en clientes
+      // Actualizar campos de riesgo en clientes
       await supabase.from('clientes')
         .update({
-          calificacion_riesgo: calificacionFinal,
+          calificacion_riesgo:       calificacionFinal,
+          nivel_riesgo_actual:       calificacionFinal,
+          ultima_calificacion:       calificacionFinal,
+          estado_calificacion:       'completado',
           fecha_ultima_calificacion: new Date().toISOString().split('T')[0],
         })
         .eq('id', clienteId)

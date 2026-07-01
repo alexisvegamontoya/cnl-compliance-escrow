@@ -65,27 +65,41 @@ function NivelBadge({ nivel }) {
 }
 
 const CHECKLIST_BASE = [
-  { id: 'id_vigente',    label: 'Copia de identificación vigente' },
-  { id: 'domicilio',     label: 'Comprobante de domicilio' },
-  { id: 'origen_fondos', label: 'Declaración de origen de fondos' },
-  { id: 'kyc_firmado',   label: 'Formulario KYC / vinculación firmado' },
-  { id: 'listas_ok',     label: 'Consulta de listas completada (fecha y resultado)' },
-  { id: 'proposito',     label: 'Propósito de la relación comercial documentado' },
+  { id: 'id_vigente',    label: 'Copia de identificación vigente (cédula / DIMEX / pasaporte)', required: true },
+  { id: 'domicilio',     label: 'Comprobante de domicilio (no mayor a 3 meses)', required: true },
+  { id: 'comp_ingreso',  label: 'Comprobante de ingreso (colilla CCSS, carta patronal o declaración)', required: true },
+  { id: 'kyc_firmado',   label: 'Formulario de vinculación firmado por el cliente', required: true },
+  { id: 'proposito',     label: 'Declaración de propósito de la relación comercial', required: true },
+  { id: 'origen_fondos', label: 'Declaración de origen de fondos', required: true },
+  { id: 'pep_check',     label: 'Verificación PEP (persona expuesta políticamente)', required: true },
+  { id: 'listas_ok',     label: 'Verificación en listas internacionales (OFAC, ONU, UE)', required: true },
+  { id: 'ccss_estado',   label: 'Verificación estado CCSS (mora patronal, si aplica)', required: false },
+  { id: 'sugef_check',   label: 'Verificación SUGEF (si es sujeto obligado, Art. 15/15bis/15ter)', required: false },
 ]
 const CHECKLIST_PJ = [
-  { id: 'personeria',  label: 'Certificación de personería jurídica (≤30 días)' },
-  { id: 'acta',        label: 'Acta constitutiva / estatutos' },
-  { id: 'nomina',      label: 'Nómina de socios y % de participación' },
-  { id: 'id_socios',   label: 'Identificación de todos los socios ≥10%' },
-  { id: 'bene_final',  label: 'Identificación del Beneficiario Final' },
-  { id: 'estados_fin', label: 'Estados financieros (si aplica por monto)' },
+  { id: 'personeria',  label: 'Certificación de personería jurídica (≤30 días)', required: true },
+  { id: 'acta',        label: 'Acta constitutiva / estatutos', required: true },
+  { id: 'nomina',      label: 'Nómina de socios y % de participación', required: true },
+  { id: 'id_socios',   label: 'Identificación de todos los socios ≥10%', required: true },
+  { id: 'bene_final',  label: 'Identificación del Beneficiario Final', required: true },
+  { id: 'estados_fin', label: 'Estados financieros (si aplica por monto)', required: false },
 ]
 const CHECKLIST_PEP = [
-  { id: 'aprobacion_jd',   label: 'Aprobación de la Junta Directiva o nivel superior' },
-  { id: 'decl_jurada_pep', label: 'Declaración jurada de cargo y origen de fondos' },
-  { id: 'monitoreo_ref',   label: 'Monitoreo reforzado activado' },
-  { id: 'revision_anual',  label: 'Revisión anual programada' },
+  { id: 'aprobacion_jd',   label: 'Aprobación de la Junta Directiva o nivel superior', required: true },
+  { id: 'decl_jurada_pep', label: 'Declaración jurada de cargo y origen de fondos', required: true },
+  { id: 'monitoreo_ref',   label: 'Monitoreo reforzado activado', required: true },
+  { id: 'revision_anual',  label: 'Revisión anual programada', required: true },
 ]
+
+const ESTADOS_CHECKLIST = [
+  { value: 'pendiente',     label: '⏳ Pendiente' },
+  { value: 'disponible',    label: '✅ Disponible' },
+  { value: 'no_disponible', label: '❌ No disponible' },
+  { value: 'no_aplica',     label: '➖ No aplica' },
+]
+
+function getEstadoCL(val) { return typeof val === 'object' ? val?.estado || 'pendiente' : (val ? 'disponible' : 'pendiente') }
+function getNotaCL(val)   { return typeof val === 'object' ? val?.nota || '' : '' }
 
 const NIVELES = {
   bajo:     { desc: 'DDC estándar — riesgo bajo', years: 3 },
@@ -133,7 +147,7 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
   const nombre = nombreCompleto(cliente)
   const nivel  = NIVELES[nivelFinal] || NIVELES.medio
   const todosItems = [...CHECKLIST_BASE, ...(tipo === 'J' ? CHECKLIST_PJ : []), ...(hayPEP ? CHECKLIST_PEP : [])]
-  const itemsOk = todosItems.filter(it => checklist[it.id]).length
+  const itemsOk = todosItems.filter(it => getEstadoCL(checklist[it.id]) === 'disponible').length
 
   const rowStyle = 'border: 1px solid #ddd; padding: 5px 8px; text-align: left; font-size: 10px;'
   const headStyle = rowStyle + 'background: #f5f5f5; font-weight: 600;'
@@ -421,13 +435,35 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
         </div>` : ''}
       <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; margin-bottom:16px;">
         <div style="background:#f9fafb; padding:10px 16px; border-bottom:1px solid #e5e7eb;">
-          <p style="font-size:12px; font-weight:700; margin:0;">📋 Checklist de Documentos — ${itemsOk}/${todosItems.length} completados</p>
+          <p style="font-size:12px; font-weight:700; margin:0;">📋 Checklist de Debida Diligencia — SUGEF 13-19 — ${itemsOk}/${todosItems.length} completados</p>
         </div>
-        ${todosItems.map(item => `
-          <div style="display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid #f3f4f6;">
-            <span style="width:18px; height:18px; border-radius:4px; background:${checklist[item.id]?'#dcfce7':'#f3f4f6'}; color:${checklist[item.id]?'#16a34a':'#9ca3af'}; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">${checklist[item.id]?'✓':'○'}</span>
-            <span style="font-size:11px; color:${checklist[item.id]?'#111827':'#6b7280'};">${item.label}</span>
-          </div>`).join('')}
+        <table style="width:100%; border-collapse:collapse; font-size:10px;">
+          <thead>
+            <tr style="background:#f3f4f6; border-bottom:1px solid #e5e7eb;">
+              <th style="padding:5px 8px; text-align:left; color:#6b7280; width:24px;">#</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b7280;">Documento / Verificación</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b7280; width:40px;">Req.</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b7280; width:100px;">Estado</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b7280;">Notas / Referencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${todosItems.map((item, idx) => {
+              const est = getEstadoCL(checklist[item.id])
+              const nota = getNotaCL(checklist[item.id])
+              const rowBg = est === 'disponible' ? '#f0fdf4' : est === 'no_disponible' ? '#fef2f2' : '#ffffff'
+              const estLabel = est === 'disponible' ? '✅ Disponible' : est === 'no_disponible' ? '❌ No disponible' : est === 'no_aplica' ? '➖ No aplica' : '⏳ Pendiente'
+              const estColor = est === 'disponible' ? '#16a34a' : est === 'no_disponible' ? '#dc2626' : est === 'no_aplica' ? '#6b7280' : '#d97706'
+              return `<tr style="background:${rowBg}; border-bottom:1px solid #f3f4f6;">
+                <td style="padding:5px 8px; color:#9ca3af;">${idx + 1}</td>
+                <td style="padding:5px 8px; color:#374151;">${item.label}</td>
+                <td style="padding:5px 8px;"><span style="font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; background:${item.required?'#fee2e2':'#f3f4f6'}; color:${item.required?'#b91c1c':'#6b7280'};">${item.required?'Obl':'Opt'}</span></td>
+                <td style="padding:5px 8px; font-size:9px; font-weight:600; color:${estColor};">${estLabel}</td>
+                <td style="padding:5px 8px; color:#6b7280;">${nota || '—'}</td>
+              </tr>`
+            }).join('')}
+          </tbody>
+        </table>
       </div>
       <div style="border:2px solid ${nivelColor(nivelFinal||'medio')}; border-radius:8px; padding:16px; margin-bottom:16px;">
         <p style="font-size:10px; font-weight:700; text-transform:uppercase; color:#6b7280; margin:0 0 6px;">Conclusión — Nivel de Riesgo Asignado</p>
@@ -466,7 +502,8 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECCIÓN 1: CALIFICACIÓN DE RIESGO
 // ─────────────────────────────────────────────────────────────────────────────
-function SeccionCalificacion({ cliente, onScoreChange }) {
+function SeccionCalificacion({ cliente, onScoreChange, onGuardar }) {
+  const { tenant, profile } = useAuth()
   const tipo = cliente.tipo_persona === 'juridica' ? 'juridica' : 'fisica'
 
   const prefill = useCallback(() => {
@@ -488,11 +525,52 @@ function SeccionCalificacion({ cliente, onScoreChange }) {
     return r
   }, [cliente, tipo])
 
-  const [resp, setResp] = useState(prefill)
+  const [resp, setResp]       = useState(prefill)
+  const [saving, setSaving]   = useState(false)
+  const [savedOk, setSavedOk] = useState(false)
   const { scoreTotal, desglose } = calcScore(resp, tipo)
   const nivel = clasificar(scoreTotal)
 
   useEffect(() => { onScoreChange?.({ scoreTotal, nivel, desglose }) }, [scoreTotal, nivel])
+
+  const guardarCalificacion = async () => {
+    if (!cliente?.id) return
+    setSaving(true); setSavedOk(false)
+    try {
+      // Marcar vigentes anteriores
+      await supabase.from('calificaciones_riesgo').update({ vigente: false }).eq('cliente_id', cliente.id)
+      // Insertar nueva
+      const { error } = await supabase.from('calificaciones_riesgo').insert({
+        tenant_id:        tenant?.id,
+        cliente_id:       cliente.id,
+        tipo_persona:     tipo,
+        resp_cliente:     resp,
+        resp_geo:         resp,
+        resp_productos:   resp,
+        resp_canales:     resp,
+        score_total:      scoreTotal,
+        calificacion:     nivel,
+        fecha_calificacion: new Date().toISOString().split('T')[0],
+        vigente:          true,
+        calificador_id:   profile?.id,
+      })
+      if (error) throw error
+      // Actualizar cliente
+      await supabase.from('clientes').update({
+        calificacion_riesgo:       nivel,
+        nivel_riesgo_actual:       nivel,
+        ultima_calificacion:       nivel,
+        estado_calificacion:       'completado',
+        fecha_ultima_calificacion: new Date().toISOString().split('T')[0],
+      }).eq('id', cliente.id)
+      setSavedOk(true)
+      onGuardar?.(nivel)
+    } catch (e) {
+      alert('Error al guardar: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const grupos = [
     { key: 'cliente',   label: 'Factor Cliente',                criterios: CRITERIOS_CLIENTE[tipo] },
@@ -568,9 +646,19 @@ function SeccionCalificacion({ cliente, onScoreChange }) {
           </table>
         </div>
       ))}
-      <div className="text-xs text-gray-400 border-t pt-3">
-        <p>⚖ Base legal: Ley 7786, Acuerdo SUGEF 13-19, Recomendaciones GAFI</p>
-        <p>📋 Metodología: N06 — adaptada del Basel AML Index 2023</p>
+      {/* Botón guardar calificación */}
+      <div className="flex items-center justify-between border-t pt-3">
+        <div className="text-xs text-gray-400">
+          <p>⚖ Base legal: Ley 7786, Acuerdo SUGEF 13-19, Recomendaciones GAFI</p>
+          <p>📋 Metodología: N06 — adaptada del Basel AML Index 2023</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {savedOk && <span className="text-xs text-green-600 font-medium">✅ Calificación guardada</span>}
+          <button onClick={guardarCalificacion} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-700 text-white text-sm font-semibold rounded-lg hover:bg-brand-800 disabled:opacity-60 transition-colors">
+            {saving ? '⏳ Guardando…' : '💾 Guardar calificación'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -734,13 +822,13 @@ function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelCha
   const [cargandoIA, setCargandoIA] = useState(false)
   const [errorIA, setErrorIA]       = useState('')
 
-  const setItem = (id, v) => {
-    const next = { ...checklist, [id]: v }
+  const setItem = (id, campo, val) => {
+    const next = { ...checklist, [id]: { ...(checklist[id] || {}), [campo]: val } }
     setChecklist(next)
     onChecklistChange?.(next)
   }
 
-  const itemsOk = todosItems.filter(it => checklist[it.id]).length
+  const itemsOk = todosItems.filter(it => getEstadoCL(checklist[it.id]) === 'disponible').length
 
   const generarPerfil = async () => {
     setCargandoIA(true); setErrorIA(''); setPerfil('')
@@ -834,33 +922,68 @@ function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelCha
         )}
       </div>
 
-      {/* Checklist */}
-      <div className="card space-y-2">
-        <p className="font-semibold text-gray-900 border-b pb-2">
-          📋 Checklist de Documentos — {itemsOk}/{todosItems.length} completados
-        </p>
-        {[
-          { titulo: 'Base — Todos los clientes',       items: CHECKLIST_BASE },
-          ...(tipo === 'J' ? [{ titulo: 'Persona Jurídica (Art. 30 SUGEF 13-19)', items: CHECKLIST_PJ }] : []),
-          ...(hayPEP       ? [{ titulo: '🏛️ PEP — DDC Ampliada (Art. 38)',          items: CHECKLIST_PEP }] : []),
-        ].map(grupo => (
-          <div key={grupo.titulo}>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider pt-3 pb-1">{grupo.titulo}</p>
-            <div className="space-y-1">
-              {grupo.items.map(item => (
-                <label key={item.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors border ${
-                  checklist[item.id] ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:bg-gray-50'
-                }`}>
-                  <input type="checkbox" checked={!!checklist[item.id]}
-                    onChange={e => setItem(item.id, e.target.checked)}
-                    className="w-4 h-4 rounded accent-green-600 flex-shrink-0" />
-                  <span className={`text-sm flex-1 ${checklist[item.id] ? 'text-gray-700' : 'text-gray-600'}`}>{item.label}</span>
-                  {checklist[item.id] && <span className="text-green-600 text-sm">✓</span>}
-                </label>
-              ))}
-            </div>
-          </div>
-        ))}
+      {/* Checklist tabla */}
+      <div className="card overflow-hidden p-0">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <p className="font-semibold text-gray-900">📋 Checklist de Debida Diligencia — SUGEF 13-19</p>
+          <span className="text-xs text-gray-500">{itemsOk}/{todosItems.length} completados</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-8">#</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Documento / Verificación</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-14">Req.</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-44">Estado</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Notas / Referencia</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[
+                { titulo: 'Base — Todos los clientes', items: CHECKLIST_BASE },
+                ...(tipo === 'J' ? [{ titulo: 'Persona Jurídica — Art. 30 SUGEF 13-19', items: CHECKLIST_PJ }] : []),
+                ...(hayPEP ? [{ titulo: '🏛️ PEP — DDC Ampliada — Art. 38', items: CHECKLIST_PEP }] : []),
+              ].flatMap((grupo, gi) => [
+                <tr key={`h-${gi}`} className="bg-gray-50">
+                  <td colSpan={5} className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider">{grupo.titulo}</td>
+                </tr>,
+                ...grupo.items.map((item, idx) => {
+                  const estado = getEstadoCL(checklist[item.id])
+                  const nota   = getNotaCL(checklist[item.id])
+                  const rowBg  = estado === 'disponible' ? 'bg-green-50' : estado === 'no_disponible' ? 'bg-red-50' : ''
+                  return (
+                    <tr key={item.id} className={`${rowBg} transition-colors`}>
+                      <td className="px-3 py-2 text-gray-400 text-xs">{idx + 1}</td>
+                      <td className="px-3 py-2 text-sm text-gray-700">{item.label}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${item.required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {item.required ? 'Obl' : 'Opt'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <select value={estado} onChange={e => setItem(item.id, 'estado', e.target.value)}
+                          className={`w-full text-xs border rounded px-2 py-1.5 focus:outline-none ${
+                            estado === 'disponible'    ? 'border-green-300 bg-green-50 text-green-700' :
+                            estado === 'no_disponible' ? 'border-red-300 bg-red-50 text-red-700' :
+                            estado === 'no_aplica'     ? 'border-gray-200 bg-gray-50 text-gray-500' :
+                                                         'border-amber-200 bg-amber-50 text-amber-700'
+                          }`}>
+                          {ESTADOS_CHECKLIST.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input type="text" value={nota} placeholder="Observaciones..."
+                          onChange={e => setItem(item.id, 'nota', e.target.value)}
+                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-brand-400" />
+                      </td>
+                    </tr>
+                  )
+                }),
+              ])}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Observaciones */}
@@ -965,6 +1088,7 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
             <SeccionCalificacion
               cliente={cliente}
               onScoreChange={setScoreData}
+              onGuardar={(nv) => setScoreData(prev => ({ ...prev, nivel: nv }))}
             />
           )}
           {tab === 'listas' && (
