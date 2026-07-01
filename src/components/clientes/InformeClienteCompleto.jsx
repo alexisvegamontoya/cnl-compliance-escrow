@@ -822,7 +822,7 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
             <SeccionCalificacion cliente={cliente} />
           </div>
           <div className={tab === 'listas' ? '' : 'hidden'}>
-            <SeccionListasPEP cliente={cliente} personas={personas} />
+            <SeccionListas cliente={cliente} personas={personas} />
           </div>
           <div className={tab === 'dd' ? '' : 'hidden'}>
             <SeccionDebidaDiligencia cliente={cliente} personas={personas} />
