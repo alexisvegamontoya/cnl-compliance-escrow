@@ -348,14 +348,14 @@ function ListasSancionesPanel({ nivel, resultado, loading }) {
 // ------------------------------------
 // Helpers de reporte (nivel módulo para evitar errores de Fast Refresh)
 // ------------------------------------
-function _getLabel(key, valor) {
+function getLabel(key, valor) {
   if (valor == null || valor === '') return '—'
   const opciones = OPCIONES[key] || OPCIONES['pais_riesgo']
   const op = opciones?.find(o => Number(o.valor) === Number(valor))
   return op?.label || String(valor)
 }
 
-function _getValorMostrado(respuestas, criterio) {
+function getValorMostrado(respuestas, criterio) {
   const key = criterio.key
   const val = respuestas[key]
   const nombreGuardado = respuestas[key + '_nombre'] || respuestas['op_nacional_canton']
@@ -369,10 +369,10 @@ function _getValorMostrado(respuestas, criterio) {
     return { texto: `${respuestas['op_nacional_provincia'] || ''} / ${respuestas['op_nacional_canton']}`, valor: val }
   }
   if (val == null || val === '') return { texto: '—', valor: null }
-  return { texto: _getLabel(key, val), valor: val }
+  return { texto: getLabel(key, val), valor: val }
 }
 
-function _colorValor(v) {
+function colorValor(v) {
   if (v == null) return '#6b7280'
   if (Number(v) <= 1) return '#16a34a'
   if (Number(v) <= 2) return '#d97706'
@@ -390,7 +390,7 @@ function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
           {titulo}
         </div>
         <div style={{ fontSize: '10px', color: '#6b7280' }}>
-          Score: <strong style={{ fontFamily: 'monospace', color: _colorValor(scoreF) }}>{scoreF != null ? scoreF.toFixed(3) : '—'}</strong>
+          Score: <strong style={{ fontFamily: 'monospace', color: colorValor(scoreF) }}>{scoreF != null ? scoreF.toFixed(3) : '—'}</strong>
           {pesoLabel && <span style={{ marginLeft: '8px' }}>Peso: <strong>{pesoLabel}</strong></span>}
         </div>
       </div>
@@ -405,13 +405,13 @@ function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
         </thead>
         <tbody>
           {criterios.map((c, i) => {
-            const { texto, valor } = _getValorMostrado(respuestas, c)
+            const { texto, valor } = getValorMostrado(respuestas, c)
             return (
               <tr key={c.key} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
                 <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>{c.label}</td>
                 <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', color: '#6b7280' }}>{(c.peso * 100).toFixed(0)}%</td>
                 <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#4b5563' }}>{texto}</td>
-                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: _colorValor(valor) }}>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: colorValor(valor) }}>
                   {valor != null && valor !== '' ? Number(valor).toFixed(1) : '—'}
                 </td>
               </tr>

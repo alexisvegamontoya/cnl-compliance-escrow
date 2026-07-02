@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
@@ -345,12 +345,44 @@ export default function ConsultaPEP() {
   const [metadata, setMetadata]         = useState([])
   const [nivelRiesgo, setNivelRiesgo]   = useState(null)
 
+  // ── Selector de cliente desde BD ─────────────────────────────────────────────
+  const [clientesDB, setClientesDB]     = useState([])
+  const [clienteSelId, setClienteSelId] = useState('')
+  const [savedToDb, setSavedToDb]       = useState(false)
+
+  useEffect(() => {
+    if (!tenant?.id) return
+    supabase.from('clientes')
+      .select('id, nombre_cliente, primer_apellido, nombre_empresa, numero_identificacion, cedula_juridica, pais_ubicacion, pais_nacimiento, tipo_identificacion')
+      .eq('tenant_id', tenant.id).eq('activo', true)
+      .order('nombre_cliente', { nullsFirst: false })
+      .then(({ data }) => setClientesDB(data || []))
+  }, [tenant?.id])
+
+  const seleccionarClienteDB = (id) => {
+    setClienteSelId(id)
+    setSavedToDb(false)
+    const c = clientesDB.find(x => x.id === id)
+    if (!c) { setNombre(''); setIdentif(''); setPais(''); return }
+    const tipoId = Number(c.tipo_identificacion)
+    const esFisica = [1, 3, 4, 5].includes(tipoId)
+    const nombreCompleto = esFisica
+      ? [c.nombre_cliente, c.primer_apellido].filter(Boolean).join(' ')
+      : (c.nombre_empresa || '')
+    const cedula = esFisica ? (c.numero_identificacion || '') : (c.cedula_juridica || c.numero_identificacion || '')
+    const paisCliente = c.pais_ubicacion || c.pais_nacimiento || ''
+    setNombre(nombreCompleto)
+    setIdentif(cedula)
+    setPais(paisCliente === 'Costa Rica' ? '' : paisCliente)
+  }
+
   const buscar = async (e) => {
     e?.preventDefault()
     if (!nombre.trim()) { setError('Ingrese al menos el nombre a consultar.'); return }
     setError('')
     setLoading(true)
     setResultados(null)
+    setSavedToDb(false)
 
     const { data, error: err } = await supabase.rpc('buscar_en_listas', {
       p_nombre:         nombre.trim(),
@@ -386,6 +418,19 @@ export default function ConsultaPEP() {
       tabla: 'listas_sanciones',
       descripcion: `Consulta PEP: "${nombre}" — ${nivel} (${res.length} resultados)`,
     })
+
+    // Auto-guardar resultado en clientes si hay cliente seleccionado
+    if (clienteSelId) {
+      const coincidencias = res.filter(r => (r.similitud || 0) >= 0.65)
+      const hayAlerta     = coincidencias.some(r => (r.similitud || 0) >= 0.85)
+      const hayPEP        = coincidencias.some(r => r.fuente === 'ICD_CR_PEP' || r.tipo_lista === 'pep')
+      await supabase.from('clientes').update({
+        estado_listas:    hayAlerta ? 'alerta' : coincidencias.length > 0 ? 'revisar' : 'verificado',
+        aparece_en_listas: hayAlerta,
+        pep:              hayPEP,
+      }).eq('id', clienteSelId)
+      setSavedToDb(true)
+    }
   }
 
   const coincidencias = resultados?.filter(r => r.similitud >= 0.65) || []
@@ -422,6 +467,28 @@ export default function ConsultaPEP() {
           </button>
         )}
       </div>
+
+      {/* Selector de cliente desde BD */}
+      {clientesDB.length > 0 && (
+        <div className="card border-l-4 border-brand-400 space-y-2">
+          <p className="text-sm font-semibold text-gray-700">🗄️ Pre-llenar desde base de datos de clientes</p>
+          <div className="flex gap-3 items-center">
+            <select className="input-field flex-1"
+              value={clienteSelId}
+              onChange={e => seleccionarClienteDB(e.target.value)}>
+              <option value="">— Seleccione cliente —</option>
+              {clientesDB.map(c => {
+                const nom = c.nombre_empresa || [c.nombre_cliente, c.primer_apellido].filter(Boolean).join(' ')
+                return <option key={c.id} value={c.id}>{nom} · {c.numero_identificacion || c.cedula_juridica}</option>
+              })}
+            </select>
+            {clienteSelId && <span className="text-xs text-brand-600 font-medium whitespace-nowrap">✅ Datos cargados</span>}
+          </div>
+          {savedToDb && (
+            <p className="text-xs text-green-600 font-medium">✅ Resultado guardado en ficha del cliente (PEP, listas, estado)</p>
+          )}
+        </div>
+      )}
 
       {/* Formulario de búsqueda */}
       <form onSubmit={buscar} className="card space-y-4">

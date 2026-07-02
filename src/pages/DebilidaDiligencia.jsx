@@ -597,6 +597,20 @@ export default function DebilidaDiligencia() {
         created_by:          session?.user?.id,
       })
       if (err) throw err
+
+      // Actualizar ficha del cliente si se seleccionó uno desde la BD
+      if (clienteSelId) {
+        const hayAlerta = Object.values(resultadosListas).some(r => r.nivel === 'ALERTA')
+        const hayRevisar = Object.values(resultadosListas).some(r => r.nivel === 'REVISAR')
+        const hayPEPResult = Object.values(resultadosListas).some(r => r.esPEP)
+        await supabase.from('clientes').update({
+          estado_dd:         'completado',
+          pep:               hayPEPResult,
+          aparece_en_listas: hayAlerta,
+          estado_listas:     hayAlerta ? 'alerta' : hayRevisar ? 'revisar' : 'verificado',
+        }).eq('id', clienteSelId)
+      }
+
       await logAudit({
         accion:      'crear',
         tabla:       'expedientes_dd',
