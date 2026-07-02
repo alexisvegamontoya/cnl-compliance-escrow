@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
+import { exportarExcel } from '../lib/exportExcel'
 
 const InformeClienteCompleto = lazy(() => import('../components/clientes/InformeClienteCompleto'))
 
@@ -115,7 +116,71 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
             {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} registrado{clientes.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => exportarExcel({
+              data: filtrados.map(c => ({
+                ...c,
+                pep:               c.pep               ? 'Sí' : 'No',
+                aparece_en_listas: c.aparece_en_listas ? 'Sí' : 'No',
+                kyc_actualizado:   c.kyc_actualizado   ? 'Sí' : 'No',
+                legal_actualizado: c.legal_actualizado ? 'Sí' : 'No',
+                ingresos_actualizados: c.ingresos_actualizados ? 'Sí' : 'No',
+                activo:            c.activo            ? 'Sí' : 'No',
+              })),
+              columnas: [
+                'numero_identificacion','cedula_juridica','tipo_identificacion',
+                'nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa',
+                'nacionalidad','pais_ubicacion','pais_nacimiento',
+                'fecha_nacimiento','fecha_constitucion',
+                'profesion_nombre','actividad_eco_nombre',
+                'telefono','correo_electronico',
+                'fecha_vinculacion',
+                'proposito_relacion',
+                'pep','aparece_en_listas','estado_listas',
+                'nivel_riesgo_actual','estado_calificacion',
+                'estado_dd',
+                'kyc_actualizado','legal_actualizado','ingresos_actualizados',
+                'activo','notas',
+              ],
+              headers: {
+                numero_identificacion: 'N° Identificación',
+                cedula_juridica:       'Cédula Jurídica',
+                tipo_identificacion:   'Tipo ID',
+                nombre_cliente:        'Nombre',
+                primer_apellido:       'Primer Apellido',
+                segundo_apellido:      'Segundo Apellido',
+                nombre_empresa:        'Razón Social',
+                nacionalidad:          'Nacionalidad',
+                pais_ubicacion:        'País Ubicación',
+                pais_nacimiento:       'País Nacimiento',
+                fecha_nacimiento:      'Fecha Nacimiento',
+                fecha_constitucion:    'Fecha Constitución',
+                profesion_nombre:      'Profesión',
+                actividad_eco_nombre:  'Actividad Económica',
+                telefono:              'Teléfono',
+                correo_electronico:    'Correo',
+                fecha_vinculacion:     'Fecha Vinculación',
+                proposito_relacion:    'Propósito Relación',
+                pep:                   'PEP',
+                aparece_en_listas:     'Aparece en Listas',
+                estado_listas:         'Estado Listas',
+                nivel_riesgo_actual:   'Nivel Riesgo',
+                estado_calificacion:   'Estado Calificación',
+                estado_dd:             'Estado DD',
+                kyc_actualizado:       'KYC Actualizado',
+                legal_actualizado:     'Doc. Legal OK',
+                ingresos_actualizados: 'Ingresos Actualizados',
+                activo:                'Activo',
+                notas:                 'Notas',
+              },
+              nombreArchivo: `clientes_${tenant?.nombre?.replace(/\s/g,'_') || 'cnl'}`,
+              nombreHoja: 'Clientes',
+            })}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-green-600 text-white hover:bg-green-700 transition-colors"
+          >
+            📊 Exportar Excel
+          </button>
           <button onClick={onCargaMasiva}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
             📥 Carga masiva Excel
