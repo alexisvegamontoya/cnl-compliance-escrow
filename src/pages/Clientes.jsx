@@ -271,32 +271,80 @@ export default function Clientes() {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              import(/* @vite-ignore */ "xlsx").then(XLSX => {
-                const rows = clientes.map(c => ({
-                  "N Identificacion": c.numero_identificacion || "",
-                  "Nombre": c.nombre_cliente || "",
-                  "Apellido": c.primer_apellido || "",
-                  "Empresa": c.nombre_empresa || "",
-                  "Correo": c.correo_electronico || "",
-                  "Telefono": c.telefono || "",
-                  "Riesgo": c.calificacion_riesgo || "",
-                  "PEP": c.pep ? "Si" : "No",
-                  "En Listas": c.aparece_en_listas ? "Si" : "No",
-                  "Estado DD": c.estado_dd || "",
-                  "Estado Listas": c.estado_listas || "",
-                  "Vinculacion": c.fecha_vinculacion || "",
-                  "Notas": c.notas || ""
-                }))
-                const ws = XLSX.utils.json_to_sheet(rows)
-                const wb = XLSX.utils.book_new()
-                XLSX.utils.book_append_sheet(wb, ws, "Clientes")
-                XLSX.writeFile(wb, "clientes_" + new Date().toISOString().slice(0,10) + ".xlsx")
+              exportarExcel({
+                data: clientes.map(c => ({
+                  ...c,
+                  tipo_identificacion: TIPO_ID_LABEL[c.tipo_identificacion] || c.tipo_identificacion,
+                  pep:               c.pep ? 'Sí' : 'No',
+                  aparece_en_listas: c.aparece_en_listas ? 'Sí' : 'No',
+                  kyc_actualizado:   c.kyc_actualizado   ? 'Sí' : 'No',
+                  legal_actualizado: c.legal_actualizado  ? 'Sí' : 'No',
+                  ingresos_actualizados: c.ingresos_actualizados ? 'Sí' : 'No',
+                  activo:            c.activo ? 'Sí' : 'No',
+                })),
+                columnas: [
+                  'numero_identificacion','cedula_juridica','tipo_identificacion',
+                  'nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa',
+                  'nacionalidad','pais_ubicacion','pais_nacimiento','pais_constitucion',
+                  'fecha_nacimiento','fecha_constitucion',
+                  'profesion_nombre','actividad_economica','actividad_eco_nombre',
+                  'telefono','correo_electronico',
+                  'fecha_vinculacion','fecha_termino_relacion',
+                  'proposito_relacion',
+                  'pep','aparece_en_listas','estado_listas',
+                  'calificacion_riesgo','nivel_riesgo_actual','estado_calificacion','fecha_ultima_calificacion',
+                  'estado_dd',
+                  'kyc_actualizado','legal_actualizado','ingresos_actualizados',
+                  'nivel_transaccional_max_mes',
+                  'activo','notas',
+                ],
+                headers: {
+                  numero_identificacion:     'N° Identificación',
+                  cedula_juridica:           'Cédula Jurídica',
+                  tipo_identificacion:       'Tipo ID',
+                  nombre_cliente:            'Nombre',
+                  primer_apellido:           'Primer Apellido',
+                  segundo_apellido:          'Segundo Apellido',
+                  nombre_empresa:            'Razón Social',
+                  nacionalidad:              'Nacionalidad',
+                  pais_ubicacion:            'País Ubicación',
+                  pais_nacimiento:           'País Nacimiento',
+                  pais_constitucion:         'País Constitución',
+                  fecha_nacimiento:          'Fecha Nacimiento',
+                  fecha_constitucion:        'Fecha Constitución',
+                  profesion_nombre:          'Profesión',
+                  actividad_economica:       'Cód. Actividad',
+                  actividad_eco_nombre:      'Actividad Económica',
+                  telefono:                  'Teléfono',
+                  correo_electronico:        'Correo',
+                  fecha_vinculacion:         'Fecha Vinculación',
+                  fecha_termino_relacion:    'Fecha Término Relación',
+                  proposito_relacion:        'Propósito Relación',
+                  pep:                       'PEP',
+                  aparece_en_listas:         'Aparece en Listas',
+                  estado_listas:             'Estado Listas',
+                  calificacion_riesgo:       'Calificación Riesgo',
+                  nivel_riesgo_actual:       'Nivel Riesgo',
+                  estado_calificacion:       'Estado Calificación',
+                  fecha_ultima_calificacion: 'Última Calificación',
+                  estado_dd:                 'Estado DD',
+                  kyc_actualizado:           'KYC Actualizado',
+                  legal_actualizado:         'Doc. Legal OK',
+                  ingresos_actualizados:     'Ingresos Actualizados',
+                  nivel_transaccional_max_mes: 'Nivel Transaccional Máx/Mes',
+                  activo:                    'Activo',
+                  notas:                     'Notas',
+                },
+                nombreArchivo: `clientes_${tenant?.nombre?.replace(/\s/g,'_') || 'cnl'}`,
+                nombreHoja: 'Clientes',
               })
+              logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportación Excel de ${clientes.length} clientes` })
             }}
-            style={{marginRight:"8px", background:"#16a34a", color:"white", border:"none", padding:"8px 16px", borderRadius:"8px", fontWeight:"600", cursor:"pointer", fontSize:"14px"}}
+            className="btn-secondary flex items-center gap-1.5 text-sm"
           >
-            Descargar Base de Datos
+            📥 Exportar Excel
           </button>
+          <button onClick={() => exportarExcel({ data: clientes, columnas: ["numero_identificacion","nombre_cliente","primer_apellido","segundo_apellido","nombre_empresa","nacionalidad","correo_electronico","telefono","calificacion_riesgo","pep","aparece_en_listas","estado_dd","estado_listas","fecha_vinculacion","notas"], headers: { numero_identificacion:"N Identificacion", nombre_cliente:"Nombre", primer_apellido:"Primer Apellido", segundo_apellido:"Segundo Apellido", nombre_empresa:"Empresa", nacionalidad:"Nacionalidad", correo_electronico:"Correo", telefono:"Telefono", calificacion_riesgo:"Riesgo", pep:"PEP", aparece_en_listas:"En Listas", estado_dd:"Estado DD", estado_listas:"Estado Listas", fecha_vinculacion:"Vinculacion", notas:"Notas" }, nombreArchivo: "clientes", nombreHoja: "Clientes" })} className="btn-secondary flex items-center gap-1.5 text-sm mr-2">📥 Descargar Excel</button>
           <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
             {showForm && !editId ? '✕ Cancelar' : `+ Nuevo ${etiquetaSingular}`}
           </button>
@@ -523,85 +571,8 @@ export default function Clientes() {
 
       {/* Lista */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-sm text-gray-500">{filtrados.length} de {clientes.length} clientes</p>
-            <button
-              onClick={() => {
-                exportarExcel({
-                  data: clientes.map(c => ({
-                    ...c,
-                    tipo_identificacion: TIPO_ID_LABEL[c.tipo_identificacion] || c.tipo_identificacion,
-                    pep:               c.pep ? 'Sí' : 'No',
-                    aparece_en_listas: c.aparece_en_listas ? 'Sí' : 'No',
-                    kyc_actualizado:   c.kyc_actualizado   ? 'Sí' : 'No',
-                    legal_actualizado: c.legal_actualizado  ? 'Sí' : 'No',
-                    ingresos_actualizados: c.ingresos_actualizados ? 'Sí' : 'No',
-                    activo:            c.activo ? 'Sí' : 'No',
-                  })),
-                  columnas: [
-                    'numero_identificacion','cedula_juridica','tipo_identificacion',
-                    'nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa',
-                    'nacionalidad','pais_ubicacion','pais_nacimiento','pais_constitucion',
-                    'fecha_nacimiento','fecha_constitucion',
-                    'profesion_nombre','actividad_economica','actividad_eco_nombre',
-                    'telefono','correo_electronico',
-                    'fecha_vinculacion','fecha_termino_relacion',
-                    'proposito_relacion',
-                    'pep','aparece_en_listas','estado_listas',
-                    'calificacion_riesgo','nivel_riesgo_actual','estado_calificacion','fecha_ultima_calificacion',
-                    'estado_dd',
-                    'kyc_actualizado','legal_actualizado','ingresos_actualizados',
-                    'nivel_transaccional_max_mes',
-                    'activo','notas',
-                  ],
-                  headers: {
-                    numero_identificacion:     'N° Identificación',
-                    cedula_juridica:           'Cédula Jurídica',
-                    tipo_identificacion:       'Tipo ID',
-                    nombre_cliente:            'Nombre',
-                    primer_apellido:           'Primer Apellido',
-                    segundo_apellido:          'Segundo Apellido',
-                    nombre_empresa:            'Razón Social',
-                    nacionalidad:              'Nacionalidad',
-                    pais_ubicacion:            'País Ubicación',
-                    pais_nacimiento:           'País Nacimiento',
-                    pais_constitucion:         'País Constitución',
-                    fecha_nacimiento:          'Fecha Nacimiento',
-                    fecha_constitucion:        'Fecha Constitución',
-                    profesion_nombre:          'Profesión',
-                    actividad_economica:       'Cód. Actividad',
-                    actividad_eco_nombre:      'Actividad Económica',
-                    telefono:                  'Teléfono',
-                    correo_electronico:        'Correo',
-                    fecha_vinculacion:         'Fecha Vinculación',
-                    fecha_termino_relacion:    'Fecha Término Relación',
-                    proposito_relacion:        'Propósito Relación',
-                    pep:                       'PEP',
-                    aparece_en_listas:         'Aparece en Listas',
-                    estado_listas:             'Estado Listas',
-                    calificacion_riesgo:       'Calificación Riesgo',
-                    nivel_riesgo_actual:       'Nivel Riesgo',
-                    estado_calificacion:       'Estado Calificación',
-                    fecha_ultima_calificacion: 'Última Calificación',
-                    estado_dd:                 'Estado DD',
-                    kyc_actualizado:           'KYC Actualizado',
-                    legal_actualizado:         'Doc. Legal OK',
-                    ingresos_actualizados:     'Ingresos Actualizados',
-                    nivel_transaccional_max_mes: 'Nivel Transaccional Máx/Mes',
-                    activo:                    'Activo',
-                    notas:                     'Notas',
-                  },
-                  nombreArchivo: `clientes_${tenant?.nombre?.replace(/\s/g,'_') || 'cnl'}`,
-                  nombreHoja: 'Clientes',
-                })
-                logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportación Excel de ${clientes.length} clientes` })
-              }}
-              className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
-            >
-              📥 Descargar Excel
-            </button>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-500">{filtrados.length} de {clientes.length} clientes</p>
           <div className="flex gap-2">
             {filtroRiesgo && (
               <button onClick={() => setFiltroRiesgo('')}
