@@ -1204,19 +1204,4 @@ export default function DebilidaDiligencia() {
       {/* ── Navegación ────────────────────────────────────────────────────── */}
       {error && <p className="text-sm text-red-600 font-medium bg-red-50 border border-red-200 rounded-lg px-3 py-2">⚠ {error}</p>}
 
-      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-        <button onClick={retroceder} disabled={paso === 1}
-          className="px-5 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-30 transition-colors">
-          ← Anterior
-        </button>
-        {paso < 5 ? (
-          <button onClick={avanzar} className="btn-primary px-6 py-2">
-            {paso === 1 ? 'Continuar — Consultar listas →' : 'Siguiente →'}
-          </button>
-        ) : (
-          <span className="text-xs text-green-600 font-medium flex items-center gap-1">✓ Expediente completado</span>
-        )}
-      </div>
-    </div>
-  )
-}
+      <div className="flex justi
