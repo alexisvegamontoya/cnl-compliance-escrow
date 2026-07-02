@@ -340,7 +340,7 @@ export default function Clientes() {
               })
               logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportación Excel de ${clientes.length} clientes` })
             }}
-            className="btn-secondary flex items-center gap-1.5 text-sm"
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
           >
             📥 Exportar Excel
           </button>
