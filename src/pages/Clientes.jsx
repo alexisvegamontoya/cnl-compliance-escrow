@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { TIPO_IDENTIFICACION, getEtiquetaCliente } from '../lib/catalogos'
@@ -269,6 +269,34 @@ export default function Clientes() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => {
+              import(/* @vite-ignore */ "xlsx").then(XLSX => {
+                const rows = clientes.map(c => ({
+                  "N Identificacion": c.numero_identificacion || "",
+                  "Nombre": c.nombre_cliente || "",
+                  "Apellido": c.primer_apellido || "",
+                  "Empresa": c.nombre_empresa || "",
+                  "Correo": c.correo_electronico || "",
+                  "Telefono": c.telefono || "",
+                  "Riesgo": c.calificacion_riesgo || "",
+                  "PEP": c.pep ? "Si" : "No",
+                  "En Listas": c.aparece_en_listas ? "Si" : "No",
+                  "Estado DD": c.estado_dd || "",
+                  "Estado Listas": c.estado_listas || "",
+                  "Vinculacion": c.fecha_vinculacion || "",
+                  "Notas": c.notas || ""
+                }))
+                const ws = XLSX.utils.json_to_sheet(rows)
+                const wb = XLSX.utils.book_new()
+                XLSX.utils.book_append_sheet(wb, ws, "Clientes")
+                XLSX.writeFile(wb, "clientes_" + new Date().toISOString().slice(0,10) + ".xlsx")
+              })
+            }}
+            style={{marginRight:"8px", background:"#16a34a", color:"white", border:"none", padding:"8px 16px", borderRadius:"8px", fontWeight:"600", cursor:"pointer", fontSize:"14px"}}
+          >
+            Descargar Base de Datos
+          </button>
           <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
             {showForm && !editId ? '✕ Cancelar' : `+ Nuevo ${etiquetaSingular}`}
           </button>
@@ -678,4 +706,57 @@ export default function Clientes() {
                           <p className="font-semibold text-gray-700 mb-2">Últimas transacciones</p>
                           {txnsCliente.length === 0 ? (
                             <p className="text-gray-400 text-xs">Sin transacciones registradas para este {etiquetaSingular}.</p>
-       
+                          ) : (
+                            <div className="space-y-1.5">
+                              {txnsCliente.map((t, i) => (
+                                <div key={i} className="flex items-center justify-between bg-white rounded p-2 border text-xs">
+                                  <span className="text-gray-500">{t.periodo?.substring(0, 7)}</span>
+                                  <span className={t.tipo_movimiento === 1 ? 'text-green-600' : 'text-orange-600'}>
+                                    {t.tipo_movimiento === 1 ? '⬆' : '⬇'} USD {Number(t.monto_movimiento).toLocaleString('es-CR')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Estado de cumplimiento documental */}
+                      <div className="border-t border-gray-200 pt-4">
+                        <p className="font-semibold text-gray-700 mb-3">Estado de cumplimiento documental</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { key: 'kyc_actualizado',      label: 'KYC actualizado',       icon: '📋', invertir: false },
+                            { key: 'legal_actualizado',    label: 'Info legal actualizada', icon: '⚖️', invertir: false },
+                            { key: 'ingresos_actualizados',label: 'Info ingresos actual.',  icon: '💰', invertir: false },
+                            { key: 'aparece_en_listas',    label: 'Listas internacionales', icon: '🔍', invertir: true },
+                          ].map(({ key, label, icon, invertir }) => {
+                            const ok = invertir ? !c[key] : c[key]
+                            return (
+                              <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                                <span>{icon}</span>
+                                <span className="flex-1">{label}</span>
+                                <span>{ok ? '✓' : '✗'}</span>
+                              </div>
+                            )
+                          })}
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${c.fecha_ultima_calificacion ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                            <span>🎯</span>
+                            <div className="flex-1">
+                              <p>Última calificación</p>
+                              <p className="font-bold">{c.fecha_ultima_calificacion ? new Date(c.fecha_ultima_calificacion).toLocaleDateString('es-CR') : 'Sin calificar'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
