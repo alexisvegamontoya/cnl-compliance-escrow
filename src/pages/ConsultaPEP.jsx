@@ -774,4 +774,73 @@ export default function ConsultaPEP() {
             <div className="space-y-2">
               <p className="text-sm font-semibold text-red-700">🚨 Coincidencias encontradas ({coincidencias.length})</p>
               {coincidencias.map((r, i) => {
-             
+                const cfg = FUENTES_CONFIG[r.fuente] || {}
+                const sim = Math.round(r.similitud * 100)
+                return (
+                  <div key={i} className="card border-l-4 border-red-500 space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cfg.color || '#1e3a8a' }}>
+                            {cfg.flag} {cfg.label || r.fuente}
+                          </span>
+                          <span className="text-xs text-gray-500 capitalize">{r.tipo_lista?.replace('_', ' ')}</span>
+                        </div>
+                        <p className="font-bold text-gray-900 mt-1">{r.nombre_completo}</p>
+                        {r.aliases?.length > 0 && (
+                          <p className="text-xs text-gray-500">Aliases: {r.aliases.slice(0, 3).join(' · ')}</p>
+                        )}
+                        <div className="flex gap-4 mt-1.5 text-xs text-gray-500 flex-wrap">
+                          {r.tipo_entidad && <span>Tipo: {r.tipo_entidad}</span>}
+                          {r.fecha_nacimiento && <span>Nac.: {r.fecha_nacimiento}</span>}
+                          {r.paises?.length > 0 && <span>Países: {r.paises.slice(0, 3).join(', ')}</span>}
+                          {r.programa && <span>Programa: {r.programa}</span>}
+                        </div>
+                        {r.motivo && <p className="text-xs text-gray-600 mt-1 italic">{r.motivo.substring(0, 200)}</p>}
+                      </div>
+                      <div className="text-center flex-shrink-0">
+                        <p className={`text-3xl font-extrabold ${sim >= 85 ? 'text-red-600' : 'text-orange-500'}`}>{sim}%</p>
+                        <p className="text-xs text-gray-400">similitud</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Sin coincidencias */}
+          {coincidencias.length === 0 && (
+            <div className="card text-center py-8 bg-green-50 border-green-200">
+              <p className="text-4xl mb-2">✅</p>
+              <p className="font-semibold text-green-800">Sin coincidencias en ninguna lista</p>
+              <p className="text-sm text-green-600 mt-1">
+                Se consultaron {TODAS_LAS_FUENTES.length} listas internacionales sin resultados para "{nombre}"
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end">
+            <button onClick={() => setShowReporte(true)}
+              className="btn-primary flex items-center gap-2">
+              📄 Generar Reporte para Expediente
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal reporte */}
+      {showReporte && resultados !== null && (
+        <Reporte
+          consulta={{ nombre, identificacion, pais }}
+          resultados={coincidencias}
+          allResultados={resultados}
+          nivelRiesgo={nivelRiesgo}
+          metadata={metadata}
+          onClose={() => setShowReporte(false)}
+          pepDeclaracion={pepDeclaracion}
+        />
+      )}
+    </div>
+  )
+}

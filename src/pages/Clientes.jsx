@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { TIPO_IDENTIFICACION, getEtiquetaCliente } from '../lib/catalogos'
@@ -59,12 +59,12 @@ export default function Clientes() {
   const [txnsCliente, setTxnsCliente] = useState([])
   const [tenantId, setTenantId]   = useState(null) // para superadmin: tenant seleccionado en el form
   const [tenantVista, setTenantVista] = useState(null) // para superadmin: tenant seleccionado para VER clientes
-  const [padronInfo, setPadronInfo]     = useState(null)   // resultado del padrón SUGEF
+  const [padronInfo, setPadronInfo]     = useState(null)   // resultado del padr├│n SUGEF
   const [padronLoading, setPadronLoading] = useState(false)
 
   const esFisica = [1, 3, 5].includes(Number(form.tipo_identificacion))
 
-  // ── Autocomplete desde padrón SUGEF ─────────────────────────────────────────
+  // ÔöÇÔöÇ Autocomplete desde padr├│n SUGEF ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
   useEffect(() => {
     const cedula = form.numero_identificacion.trim().replace(/[-\s]/g, '')
     if (cedula.length < 9) { setPadronInfo(null); return }
@@ -75,7 +75,7 @@ export default function Clientes() {
       if (data && data.length > 0) {
         const reg = data[0]
         setPadronInfo(reg)
-        // Auto-completar campos vacíos
+        // Auto-completar campos vac├¡os
         if (reg.tipo === 'J' && !form.nombre_empresa) {
           setForm(p => ({ ...p, nombre_empresa: reg.nombre_completo }))
         } else if (reg.tipo === 'F') {
@@ -201,7 +201,7 @@ export default function Clientes() {
     logAudit({
       accion: isNew ? 'crear' : 'editar',
       tabla: 'clientes',
-      descripcion: `${isNew ? 'Nuevo' : 'Edición'} cliente: ${form.nombre_empresa || form.nombre_cliente}`,
+      descripcion: `${isNew ? 'Nuevo' : 'Edici├│n'} cliente: ${form.nombre_empresa || form.nombre_cliente}`,
     })
 
     cancelar()
@@ -210,7 +210,7 @@ export default function Clientes() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Eliminar este cliente?')) return
+    if (!confirm('┬┐Eliminar este cliente?')) return
     await supabase.from('clientes').delete().eq('id', id)
     load()
   }
@@ -235,7 +235,7 @@ export default function Clientes() {
       {/* Selector de sujeto obligado (solo superadmin) */}
       {isSuperAdmin && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-          <span className="text-amber-700 text-sm font-medium whitespace-nowrap">👁 Viendo clientes de:</span>
+          <span className="text-amber-700 text-sm font-medium whitespace-nowrap">­ƒæü Viendo clientes de:</span>
           <select
             className="input-field text-sm flex-1 max-w-sm"
             value={tenantVista?.id || ''}
@@ -246,7 +246,7 @@ export default function Clientes() {
               setBusqueda('')
             }}
           >
-            <option value="">— Seleccione un sujeto obligado —</option>
+            <option value="">ÔÇö Seleccione un sujeto obligado ÔÇö</option>
             {tenants.map(t => (
               <option key={t.id} value={t.id}>{t.nombre}</option>
             ))}
@@ -264,7 +264,7 @@ export default function Clientes() {
           <p className="text-gray-500 text-sm mt-1">
             {isSuperAdmin
               ? tenantVista ? `Sujeto obligado: ${tenantVista.nombre}` : 'Seleccione un sujeto obligado para ver sus clientes'
-              : `Base de datos de ${etiqueta} — ${tenant?.nombre}`
+              : `Base de datos de ${etiqueta} ÔÇö ${tenant?.nombre}`
             }
           </p>
         </div>
@@ -275,12 +275,12 @@ export default function Clientes() {
                 data: clientes.map(c => ({
                   ...c,
                   tipo_identificacion: TIPO_ID_LABEL[c.tipo_identificacion] || c.tipo_identificacion,
-                  pep:               c.pep ? 'Sí' : 'No',
-                  aparece_en_listas: c.aparece_en_listas ? 'Sí' : 'No',
-                  kyc_actualizado:   c.kyc_actualizado   ? 'Sí' : 'No',
-                  legal_actualizado: c.legal_actualizado  ? 'Sí' : 'No',
-                  ingresos_actualizados: c.ingresos_actualizados ? 'Sí' : 'No',
-                  activo:            c.activo ? 'Sí' : 'No',
+                  pep:               c.pep ? 'S├¡' : 'No',
+                  aparece_en_listas: c.aparece_en_listas ? 'S├¡' : 'No',
+                  kyc_actualizado:   c.kyc_actualizado   ? 'S├¡' : 'No',
+                  legal_actualizado: c.legal_actualizado  ? 'S├¡' : 'No',
+                  ingresos_actualizados: c.ingresos_actualizados ? 'S├¡' : 'No',
+                  activo:            c.activo ? 'S├¡' : 'No',
                 })),
                 columnas: [
                   'numero_identificacion','cedula_juridica','tipo_identificacion',
@@ -299,53 +299,53 @@ export default function Clientes() {
                   'activo','notas',
                 ],
                 headers: {
-                  numero_identificacion:     'N° Identificación',
-                  cedula_juridica:           'Cédula Jurídica',
+                  numero_identificacion:     'N┬░ Identificaci├│n',
+                  cedula_juridica:           'C├®dula Jur├¡dica',
                   tipo_identificacion:       'Tipo ID',
                   nombre_cliente:            'Nombre',
                   primer_apellido:           'Primer Apellido',
                   segundo_apellido:          'Segundo Apellido',
-                  nombre_empresa:            'Razón Social',
+                  nombre_empresa:            'Raz├│n Social',
                   nacionalidad:              'Nacionalidad',
-                  pais_ubicacion:            'País Ubicación',
-                  pais_nacimiento:           'País Nacimiento',
-                  pais_constitucion:         'País Constitución',
+                  pais_ubicacion:            'Pa├¡s Ubicaci├│n',
+                  pais_nacimiento:           'Pa├¡s Nacimiento',
+                  pais_constitucion:         'Pa├¡s Constituci├│n',
                   fecha_nacimiento:          'Fecha Nacimiento',
-                  fecha_constitucion:        'Fecha Constitución',
-                  profesion_nombre:          'Profesión',
-                  actividad_economica:       'Cód. Actividad',
-                  actividad_eco_nombre:      'Actividad Económica',
-                  telefono:                  'Teléfono',
+                  fecha_constitucion:        'Fecha Constituci├│n',
+                  profesion_nombre:          'Profesi├│n',
+                  actividad_economica:       'C├│d. Actividad',
+                  actividad_eco_nombre:      'Actividad Econ├│mica',
+                  telefono:                  'Tel├®fono',
                   correo_electronico:        'Correo',
-                  fecha_vinculacion:         'Fecha Vinculación',
-                  fecha_termino_relacion:    'Fecha Término Relación',
-                  proposito_relacion:        'Propósito Relación',
+                  fecha_vinculacion:         'Fecha Vinculaci├│n',
+                  fecha_termino_relacion:    'Fecha T├®rmino Relaci├│n',
+                  proposito_relacion:        'Prop├│sito Relaci├│n',
                   pep:                       'PEP',
                   aparece_en_listas:         'Aparece en Listas',
                   estado_listas:             'Estado Listas',
-                  calificacion_riesgo:       'Calificación Riesgo',
+                  calificacion_riesgo:       'Calificaci├│n Riesgo',
                   nivel_riesgo_actual:       'Nivel Riesgo',
-                  estado_calificacion:       'Estado Calificación',
-                  fecha_ultima_calificacion: 'Última Calificación',
+                  estado_calificacion:       'Estado Calificaci├│n',
+                  fecha_ultima_calificacion: '├Ültima Calificaci├│n',
                   estado_dd:                 'Estado DD',
                   kyc_actualizado:           'KYC Actualizado',
                   legal_actualizado:         'Doc. Legal OK',
                   ingresos_actualizados:     'Ingresos Actualizados',
-                  nivel_transaccional_max_mes: 'Nivel Transaccional Máx/Mes',
+                  nivel_transaccional_max_mes: 'Nivel Transaccional M├íx/Mes',
                   activo:                    'Activo',
                   notas:                     'Notas',
                 },
                 nombreArchivo: `clientes_${tenant?.nombre?.replace(/\s/g,'_') || 'cnl'}`,
                 nombreHoja: 'Clientes',
               })
-              logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportación Excel de ${clientes.length} clientes` })
+              logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportaci├│n Excel de ${clientes.length} clientes` })
             }}
-            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
+            className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
           >
-            📥 Exportar Excel
+            ­ƒôÑ Exportar Excel
           </button>
           <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
-            {showForm && !editId ? '✕ Cancelar' : `+ Nuevo ${etiquetaSingular}`}
+            {showForm && !editId ? 'Ô£ò Cancelar' : `+ Nuevo ${etiquetaSingular}`}
           </button>
         </div>
       </div>
@@ -377,11 +377,11 @@ export default function Clientes() {
           <h3 className="font-semibold text-gray-900 text-lg">{editId ? `Editar ${etiquetaSingular}` : `Nuevo ${etiquetaSingular}`}</h3>
           <ErrorBanner error={error} onClose={() => setError(null)} />
 
-          {/* Selector de sujeto obligado — solo superadmin */}
+          {/* Selector de sujeto obligado ÔÇö solo superadmin */}
           {isSuperAdmin && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
               <label className="block text-sm font-semibold text-amber-800 mb-2">
-                🏢 Asignar a Sujeto Obligado *
+                ­ƒÅó Asignar a Sujeto Obligado *
               </label>
               <select
                 className="input"
@@ -389,47 +389,47 @@ export default function Clientes() {
                 onChange={e => setTenantId(e.target.value)}
                 required
               >
-                <option value="">Seleccione el sujeto obligado…</option>
+                <option value="">Seleccione el sujeto obligadoÔÇª</option>
                 {tenants.map(t => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
                 ))}
               </select>
               <p className="text-xs text-amber-600 mt-1.5">
-                Como superadministrador, debe asignar este cliente a un sujeto obligado específico.
+                Como superadministrador, debe asignar este cliente a un sujeto obligado espec├¡fico.
               </p>
             </div>
           )}
 
-          {/* Identificación */}
+          {/* Identificaci├│n */}
           <div>
-            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Identificación</p>
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Identificaci├│n</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Número de identificación *</label>
+                <label className="label">N├║mero de identificaci├│n *</label>
                 <input className="input-field" required placeholder="Sin guiones"
                   value={form.numero_identificacion} onChange={e => { set('numero_identificacion', e.target.value); setPadronInfo(null) }} />
                 {padronLoading && (
                   <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                    <span className="animate-spin inline-block">⏳</span> Consultando padrón SUGEF…
+                    <span className="animate-spin inline-block">ÔÅ│</span> Consultando padr├│n SUGEFÔÇª
                   </p>
                 )}
                 {!padronLoading && padronInfo && (
                   <p className="text-xs text-green-600 font-medium mt-1">
-                    ✅ Encontrado en padrón SUGEF — datos autocompletados
+                    Ô£à Encontrado en padr├│n SUGEF ÔÇö datos autocompletados
                   </p>
                 )}
                 {!padronLoading && !padronInfo && form.numero_identificacion.replace(/[-\s]/g,'').length >= 9 && (
                   <p className="text-xs text-amber-500 mt-1">
-                    ⚠ No encontrado en padrón SUGEF — complete el nombre manualmente
+                    ÔÜá No encontrado en padr├│n SUGEF ÔÇö complete el nombre manualmente
                   </p>
                 )}
               </div>
               <div>
-                <label className="label">Tipo de identificación *</label>
+                <label className="label">Tipo de identificaci├│n *</label>
                 <select className="input-field" value={form.tipo_identificacion}
                   onChange={e => set('tipo_identificacion', Number(e.target.value))}>
                   {TIPO_IDENTIFICACION.map(t => (
-                    <option key={t.codigo} value={t.codigo}>{t.codigo} — {t.descripcion}</option>
+                    <option key={t.codigo} value={t.codigo}>{t.codigo} ÔÇö {t.descripcion}</option>
                   ))}
                 </select>
               </div>
@@ -457,22 +457,22 @@ export default function Clientes() {
           <div>
             <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Contacto y actividad</p>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="label">Actividad económica</label>
+              <div><label className="label">Actividad econ├│mica</label>
                 <input className="input-field" placeholder="Ej: Comercio, Servicios, Manufactura"
                   value={form.actividad_economica} onChange={e => set('actividad_economica', e.target.value)} /></div>
-              <div><label className="label">Fecha de vinculación</label>
+              <div><label className="label">Fecha de vinculaci├│n</label>
                 <input type="date" className="input-field"
                   value={form.fecha_vinculacion} onChange={e => set('fecha_vinculacion', e.target.value)} /></div>
               <div><label className="label">Nacionalidad</label>
                 <input className="input-field" placeholder="Ej: Costarricense, Estadounidense"
                   value={form.nacionalidad} onChange={e => set('nacionalidad', e.target.value)} /></div>
-              <div><label className="label">País de ubicación</label>
-                <input className="input-field" placeholder="Ej: Costa Rica, Panamá"
+              <div><label className="label">Pa├¡s de ubicaci├│n</label>
+                <input className="input-field" placeholder="Ej: Costa Rica, Panam├í"
                   value={form.pais_ubicacion} onChange={e => set('pais_ubicacion', e.target.value)} /></div>
-              <div><label className="label">Teléfono</label>
+              <div><label className="label">Tel├®fono</label>
                 <input className="input-field" placeholder="Ej: 8888-8888"
                   value={form.telefono} onChange={e => set('telefono', e.target.value)} /></div>
-              <div><label className="label">Correo electrónico</label>
+              <div><label className="label">Correo electr├│nico</label>
                 <input type="email" className="input-field"
                   value={form.correo_electronico} onChange={e => set('correo_electronico', e.target.value)} /></div>
             </div>
@@ -483,19 +483,19 @@ export default function Clientes() {
             <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Perfil de riesgo</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Calificación de riesgo</label>
+                <label className="label">Calificaci├│n de riesgo</label>
                 <select className="input-field" value={form.calificacion_riesgo}
                   onChange={e => set('calificacion_riesgo', e.target.value)}>
-                  <option value="">— Sin calificar —</option>
+                  <option value="">ÔÇö Sin calificar ÔÇö</option>
                   <option value="bajo">Bajo</option>
                   <option value="medio">Medio</option>
                   <option value="alto">Alto</option>
                 </select>
               </div>
               <div>
-                <label className="label">Nivel transaccional máximo mensual (USD)</label>
+                <label className="label">Nivel transaccional m├íximo mensual (USD)</label>
                 <input type="number" className="input-field" min="0" step="0.01"
-                  placeholder="Para monitoreo de anomalías"
+                  placeholder="Para monitoreo de anomal├¡as"
                   value={form.nivel_transaccional_max_mes}
                   onChange={e => set('nivel_transaccional_max_mes', e.target.value)} />
               </div>
@@ -504,11 +504,11 @@ export default function Clientes() {
                   <input type="checkbox" className="w-4 h-4 rounded text-brand-600"
                     checked={form.pep} onChange={e => set('pep', e.target.checked)} />
                   <span className="text-sm font-medium text-gray-700">
-                    Persona Expuesta Políticamente (PEP)
+                    Persona Expuesta Pol├¡ticamente (PEP)
                   </span>
                 </label>
                 <p className="text-xs text-gray-400 mt-1 ml-7">
-                  Marque si el cliente es un funcionario público, familiar de este, o colaborador cercano.
+                  Marque si el cliente es un funcionario p├║blico, familiar de este, o colaborador cercano.
                 </p>
               </div>
             </div>
@@ -519,19 +519,19 @@ export default function Clientes() {
             <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Seguimiento y cumplimiento</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Fecha de término de relación</label>
+                <label className="label">Fecha de t├®rmino de relaci├│n</label>
                 <input type="date" className="input-field"
                   value={form.fecha_termino_relacion}
                   onChange={e => set('fecha_termino_relacion', e.target.value)} />
-                <p className="text-xs text-gray-400 mt-1">Dejar en blanco si la relación está activa.</p>
+                <p className="text-xs text-gray-400 mt-1">Dejar en blanco si la relaci├│n est├í activa.</p>
               </div>
               <div />
-              {/* Checkboxes de documentación actualizada */}
+              {/* Checkboxes de documentaci├│n actualizada */}
               {[
-                { key: 'kyc_actualizado',      label: 'Formulario KYC actualizado',              desc: 'El formulario de Conozca a su Cliente está vigente y firmado.' },
-                { key: 'legal_actualizado',    label: 'Información legal del cliente actualizada', desc: 'Documentos legales (cédula, constitución, poderes) están al día.' },
-                { key: 'ingresos_actualizados',label: 'Información de ingresos actualizada',      desc: 'Declaración de ingresos o estados financieros están vigentes.' },
-                { key: 'aparece_en_listas',    label: 'Aparece en listas internacionales de investigación', desc: 'El cliente figura en listas de control internacionales (OFAC, ONU, GAFI, etc.).' },
+                { key: 'kyc_actualizado',      label: 'Formulario KYC actualizado',              desc: 'El formulario de Conozca a su Cliente est├í vigente y firmado.' },
+                { key: 'legal_actualizado',    label: 'Informaci├│n legal del cliente actualizada', desc: 'Documentos legales (c├®dula, constituci├│n, poderes) est├ín al d├¡a.' },
+                { key: 'ingresos_actualizados',label: 'Informaci├│n de ingresos actualizada',      desc: 'Declaraci├│n de ingresos o estados financieros est├ín vigentes.' },
+                { key: 'aparece_en_listas',    label: 'Aparece en listas internacionales de investigaci├│n', desc: 'El cliente figura en listas de control internacionales (OFAC, ONU, GAFI, etc.).' },
               ].map(({ key, label, desc }) => (
                 <div key={key} className="col-span-2">
                   <label className="flex items-start gap-3 cursor-pointer">
@@ -555,7 +555,7 @@ export default function Clientes() {
           <div className="flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={cancelar}>Cancelar</button>
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Guardando…' : editId ? 'Actualizar' : 'Guardar cliente'}
+              {saving ? 'GuardandoÔÇª' : editId ? 'Actualizar' : 'Guardar cliente'}
             </button>
           </div>
         </form>
@@ -576,16 +576,16 @@ export default function Clientes() {
             {filtroRiesgo && (
               <button onClick={() => setFiltroRiesgo('')}
                 className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded-full">
-                ✕ Filtro: {filtroRiesgo}
+                Ô£ò Filtro: {filtroRiesgo}
               </button>
             )}
-            <input className="input-field w-64" placeholder="Buscar por nombre o identificación…"
+            <input className="input-field w-64" placeholder="Buscar por nombre o identificaci├│nÔÇª"
               value={busqueda} onChange={e => setBusqueda(e.target.value)} />
           </div>
         </div>
 
         {loading ? (
-          <div className="py-10 text-center text-gray-400">Cargando…</div>
+          <div className="py-10 text-center text-gray-400">CargandoÔÇª</div>
         ) : filtrados.length === 0 ? (
           <div className="py-10 text-center text-gray-400">No hay clientes que coincidan.</div>
         ) : (
@@ -619,7 +619,7 @@ export default function Clientes() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-400 font-mono">{c.numero_identificacion} · {TIPO_ID_LABEL[c.tipo_identificacion]}</p>
+                      <p className="text-sm text-gray-400 font-mono">{c.numero_identificacion} ┬À {TIPO_ID_LABEL[c.tipo_identificacion]}</p>
                     </div>
 
                     {/* Stats */}
@@ -630,7 +630,7 @@ export default function Clientes() {
                       {c.nivel_transaccional_max_mes && (
                         <div className="text-center">
                           <p className="font-medium text-gray-900 text-xs">USD {Number(c.nivel_transaccional_max_mes).toLocaleString()}</p>
-                          <p className="text-xs text-gray-400">Límite/mes</p>
+                          <p className="text-xs text-gray-400">L├¡mite/mes</p>
                         </div>
                       )}
                     </div>
@@ -654,26 +654,26 @@ export default function Clientes() {
                       <div className="grid grid-cols-2 gap-6">
                         {/* Info general */}
                         <div>
-                          <p className="font-semibold text-gray-700 mb-2">Información del cliente</p>
+                          <p className="font-semibold text-gray-700 mb-2">Informaci├│n del cliente</p>
                           <dl className="space-y-1.5">
                             {c.actividad_economica && <div className="flex justify-between"><dt className="text-gray-400">Actividad</dt><dd className="font-medium">{c.actividad_economica}</dd></div>}
                             {c.nacionalidad && <div className="flex justify-between"><dt className="text-gray-400">Nacionalidad</dt><dd className="font-medium">{c.nacionalidad}</dd></div>}
-                            {c.pais_ubicacion && <div className="flex justify-between"><dt className="text-gray-400">País</dt><dd className="font-medium">{c.pais_ubicacion}</dd></div>}
-                            {c.telefono && <div className="flex justify-between"><dt className="text-gray-400">Teléfono</dt><dd className="font-medium">{c.telefono}</dd></div>}
+                            {c.pais_ubicacion && <div className="flex justify-between"><dt className="text-gray-400">Pa├¡s</dt><dd className="font-medium">{c.pais_ubicacion}</dd></div>}
+                            {c.telefono && <div className="flex justify-between"><dt className="text-gray-400">Tel├®fono</dt><dd className="font-medium">{c.telefono}</dd></div>}
                             {c.correo_electronico && <div className="flex justify-between"><dt className="text-gray-400">Correo</dt><dd className="font-medium">{c.correo_electronico}</dd></div>}
                             {c.fecha_vinculacion && <div className="flex justify-between"><dt className="text-gray-400">Vinculado desde</dt><dd className="font-medium">{c.fecha_vinculacion}</dd></div>}
                             {c.fecha_termino_relacion && (
                               <div className="flex justify-between">
-                                <dt className="text-gray-400">Término relación</dt>
+                                <dt className="text-gray-400">T├®rmino relaci├│n</dt>
                                 <dd className="font-medium text-red-600">{c.fecha_termino_relacion}</dd>
                               </div>
                             )}
                             {c.notas && <div className="mt-2"><p className="text-gray-400 text-xs mb-1">Notas:</p><p className="text-gray-700 text-xs bg-white p-2 rounded border">{c.notas}</p></div>}
                           </dl>
                         </div>
-                        {/* Últimas transacciones */}
+                        {/* ├Ültimas transacciones */}
                         <div>
-                          <p className="font-semibold text-gray-700 mb-2">Últimas transacciones</p>
+                          <p className="font-semibold text-gray-700 mb-2">├Ültimas transacciones</p>
                           {txnsCliente.length === 0 ? (
                             <p className="text-gray-400 text-xs">Sin transacciones registradas para este {etiquetaSingular}.</p>
                           ) : (
@@ -682,7 +682,7 @@ export default function Clientes() {
                                 <div key={i} className="flex items-center justify-between bg-white rounded p-2 border text-xs">
                                   <span className="text-gray-500">{t.periodo?.substring(0, 7)}</span>
                                   <span className={t.tipo_movimiento === 1 ? 'text-green-600' : 'text-orange-600'}>
-                                    {t.tipo_movimiento === 1 ? '⬆' : '⬇'} USD {Number(t.monto_movimiento).toLocaleString('es-CR')}
+                                    {t.tipo_movimiento === 1 ? 'Ô¼å' : 'Ô¼ç'} USD {Number(t.monto_movimiento).toLocaleString('es-CR')}
                                   </span>
                                 </div>
                               ))}
@@ -696,24 +696,24 @@ export default function Clientes() {
                         <p className="font-semibold text-gray-700 mb-3">Estado de cumplimiento documental</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {[
-                            { key: 'kyc_actualizado',      label: 'KYC actualizado',       icon: '📋', invertir: false },
-                            { key: 'legal_actualizado',    label: 'Info legal actualizada', icon: '⚖️', invertir: false },
-                            { key: 'ingresos_actualizados',label: 'Info ingresos actual.',  icon: '💰', invertir: false },
-                            { key: 'aparece_en_listas',    label: 'Listas internacionales', icon: '🔍', invertir: true },
+                            { key: 'kyc_actualizado',      label: 'KYC actualizado',       icon: '­ƒôï', invertir: false },
+                            { key: 'legal_actualizado',    label: 'Info legal actualizada', icon: 'ÔÜû´©Å', invertir: false },
+                            { key: 'ingresos_actualizados',label: 'Info ingresos actual.',  icon: '­ƒÆ░', invertir: false },
+                            { key: 'aparece_en_listas',    label: 'Listas internacionales', icon: '­ƒöì', invertir: true },
                           ].map(({ key, label, icon, invertir }) => {
                             const ok = invertir ? !c[key] : c[key]
                             return (
                               <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600'}`}>
                                 <span>{icon}</span>
                                 <span className="flex-1">{label}</span>
-                                <span>{ok ? '✓' : '✗'}</span>
+                                <span>{ok ? 'Ô£ô' : 'Ô£ù'}</span>
                               </div>
                             )
                           })}
                           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${c.fecha_ultima_calificacion ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                            <span>🎯</span>
+                            <span>­ƒÄ»</span>
                             <div className="flex-1">
-                              <p>Última calificación</p>
+                              <p>├Ültima calificaci├│n</p>
                               <p className="font-bold">{c.fecha_ultima_calificacion ? new Date(c.fecha_ultima_calificacion).toLocaleDateString('es-CR') : 'Sin calificar'}</p>
                             </div>
                           </div>
