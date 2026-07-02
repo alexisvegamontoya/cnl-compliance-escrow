@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { TIPO_IDENTIFICACION, getEtiquetaCliente } from '../lib/catalogos'
@@ -344,7 +344,6 @@ export default function Clientes() {
           >
             📥 Exportar Excel
           </button>
-          <button onClick={() => exportarExcel({ data: clientes, columnas: ["numero_identificacion","nombre_cliente","primer_apellido","segundo_apellido","nombre_empresa","nacionalidad","correo_electronico","telefono","calificacion_riesgo","pep","aparece_en_listas","estado_dd","estado_listas","fecha_vinculacion","notas"], headers: { numero_identificacion:"N Identificacion", nombre_cliente:"Nombre", primer_apellido:"Primer Apellido", segundo_apellido:"Segundo Apellido", nombre_empresa:"Empresa", nacionalidad:"Nacionalidad", correo_electronico:"Correo", telefono:"Telefono", calificacion_riesgo:"Riesgo", pep:"PEP", aparece_en_listas:"En Listas", estado_dd:"Estado DD", estado_listas:"Estado Listas", fecha_vinculacion:"Vinculacion", notas:"Notas" }, nombreArchivo: "clientes", nombreHoja: "Clientes" })} className="btn-secondary flex items-center gap-1.5 text-sm mr-2">📥 Descargar Excel</button>
           <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
             {showForm && !editId ? '✕ Cancelar' : `+ Nuevo ${etiquetaSingular}`}
           </button>
