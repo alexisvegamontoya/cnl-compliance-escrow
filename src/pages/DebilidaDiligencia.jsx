@@ -372,7 +372,7 @@ function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivel
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DebilidaDiligencia() {
-  const { session, tenant, profile } = useAuth()
+  const { session, tenant, profile, isSuperAdmin } = useAuth()
   const [paso, setPaso]   = useState(1)
   const [tipo, setTipo]   = useState('F')
   const [error, setError] = useState('')
@@ -380,20 +380,31 @@ export default function DebilidaDiligencia() {
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
 
+  // ── Superadmin: selector de sujeto obligado ────────────────────────────────
+  const [tenants, setTenants]         = useState([])
+  const [tenantVista, setTenantVista] = useState(null)
+  const tenantEfectivoId = isSuperAdmin ? (tenantVista?.id || null) : tenant?.id
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+    }
+  }, [isSuperAdmin])
+
   // ── Selector de cliente desde DB ───────────────────────────────────────────
   const [clientesDB, setClientesDB]         = useState([])
   const [clienteSelId, setClienteSelId]     = useState('')
   const [cargandoDesdeDB, setCargandoDesdeDB] = useState(false)
 
   useEffect(() => {
-    if (!tenant?.id) return
+    if (!tenantEfectivoId) { setClientesDB([]); return }
     supabase.from('clientes')
       .select('id, nombre_cliente, primer_apellido, segundo_apellido, nombre_empresa, numero_identificacion, cedula_juridica, tipo_identificacion, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_nacimiento, fecha_constitucion, profesion_nombre, actividad_eco_nombre, actividad_economica, proposito_relacion, pep')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenantEfectivoId)
       .eq('activo', true)
       .order('nombre_cliente', { nullsFirst: false })
       .then(({ data }) => setClientesDB(data || []))
-  }, [tenant?.id])
+  }, [tenantEfectivoId])
 
   const cargarDesdeDB = async () => {
     if (!clienteSelId) return
@@ -583,7 +594,7 @@ export default function DebilidaDiligencia() {
     setError('')
     try {
       const { error: err } = await supabase.from('expedientes_dd').insert({
-        tenant_id:           tenant?.id,
+        tenant_id:           tenantEfectivoId || tenant?.id,
         tipo,
         datos_cliente:       datos,
         participantes,
@@ -674,17 +685,42 @@ export default function DebilidaDiligencia() {
     <div className="p-6 max-w-4xl space-y-4">
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Asistente de Debida Diligencia</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Flujo guiado ALA/CFT — Ley 7786, Art. 15 bis · Acuerdo SUGEF 13-19, Art. 21-28
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Asistente de Debida Diligencia</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Flujo guiado ALA/CFT — Ley 7786, Art. 15 bis · Acuerdo SUGEF 13-19, Art. 21-28
+          </p>
+        </div>
+        {isSuperAdmin && (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+            <span className="text-amber-600 text-sm font-semibold whitespace-nowrap">🏢 Sujeto obligado:</span>
+            <select
+              className="input-field text-sm"
+              value={tenantVista?.id || ''}
+              onChange={e => {
+                const t = tenants.find(t => t.id === e.target.value) || null
+                setTenantVista(t)
+                setClienteSelId('')
+              }}
+            >
+              <option value="">— Seleccione —</option>
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
-      <Stepper paso={paso} />
+      {isSuperAdmin && !tenantVista && (
+        <div className="card bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium text-center py-6">
+          Seleccione un sujeto obligado para iniciar una debida diligencia
+        </div>
+      )}
+
+      {(!isSuperAdmin || tenantVista) && <Stepper paso={paso} />}
 
       {/* ════════════════ PASO 1 — DATOS ════════════════ */}
-      {paso === 1 && (
+      {paso === 1 && (!isSuperAdmin || tenantVista) && (
         <div className="space-y-4">
 
           {/* ── Cargar desde base de datos ── */}

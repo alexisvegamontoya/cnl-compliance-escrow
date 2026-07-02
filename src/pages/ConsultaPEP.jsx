@@ -334,7 +334,7 @@ function Reporte({ consulta, resultados, allResultados, nivelRiesgo, metadata, o
 
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function ConsultaPEP() {
-  const { session, tenant, profile } = useAuth()
+  const { session, tenant, profile, isSuperAdmin } = useAuth()
   const [nombre, setNombre]             = useState('')
   const [identificacion, setIdentif]    = useState('')
   const [pais, setPais]                 = useState('')
@@ -345,19 +345,30 @@ export default function ConsultaPEP() {
   const [metadata, setMetadata]         = useState([])
   const [nivelRiesgo, setNivelRiesgo]   = useState(null)
 
+  // ── Superadmin: selector de sujeto obligado ────────────────────────────────
+  const [tenants, setTenants]         = useState([])
+  const [tenantVista, setTenantVista] = useState(null)
+  const tenantEfectivoId = isSuperAdmin ? (tenantVista?.id || null) : tenant?.id
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+    }
+  }, [isSuperAdmin])
+
   // ── Selector de cliente desde BD ─────────────────────────────────────────────
   const [clientesDB, setClientesDB]     = useState([])
   const [clienteSelId, setClienteSelId] = useState('')
   const [savedToDb, setSavedToDb]       = useState(false)
 
   useEffect(() => {
-    if (!tenant?.id) return
+    if (!tenantEfectivoId) { setClientesDB([]); return }
     supabase.from('clientes')
       .select('id, nombre_cliente, primer_apellido, nombre_empresa, numero_identificacion, cedula_juridica, pais_ubicacion, pais_nacimiento, tipo_identificacion')
-      .eq('tenant_id', tenant.id).eq('activo', true)
+      .eq('tenant_id', tenantEfectivoId).eq('activo', true)
       .order('nombre_cliente', { nullsFirst: false })
       .then(({ data }) => setClientesDB(data || []))
-  }, [tenant?.id])
+  }, [tenantEfectivoId])
 
   const seleccionarClienteDB = (id) => {
     setClienteSelId(id)
@@ -401,7 +412,7 @@ export default function ConsultaPEP() {
 
     // Guardar en historial de consultas
     await supabase.from('consultas_listas').insert({
-      tenant_id:            tenant?.id,
+      tenant_id:            tenantEfectivoId || tenant?.id,
       user_id:              session?.user?.id,
       user_email:           session?.user?.email,
       nombre_buscado:       nombre.trim(),
@@ -453,19 +464,39 @@ export default function ConsultaPEP() {
     <div className="p-6 max-w-5xl space-y-6">
 
       {/* Encabezado */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Consulta PEP / Listas Internacionales</h1>
           <p className="text-gray-500 text-sm mt-1">
             Búsqueda simultánea en {TODAS_LAS_FUENTES.length} listas: OFAC · ONU · UK · INTERPOL · GAFI/GAFILAT · ICD Costa Rica PEP
           </p>
         </div>
-        {resultados !== null && nivelRiesgo && (
-          <button onClick={() => setShowReporte(true)}
-            className="btn-primary flex items-center gap-2">
-            📄 Generar Reporte
-          </button>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              <span className="text-amber-600 text-sm font-semibold whitespace-nowrap">🏢 Sujeto obligado:</span>
+              <select
+                className="input-field text-sm"
+                value={tenantVista?.id || ''}
+                onChange={e => {
+                  const t = tenants.find(t => t.id === e.target.value) || null
+                  setTenantVista(t)
+                  setClienteSelId('')
+                  setSavedToDb(false)
+                }}
+              >
+                <option value="">— Seleccione —</option>
+                {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+            </div>
+          )}
+          {resultados !== null && nivelRiesgo && (
+            <button onClick={() => setShowReporte(true)}
+              className="btn-primary flex items-center gap-2">
+              📄 Generar Reporte
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Selector de cliente desde BD */}
