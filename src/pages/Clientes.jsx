@@ -340,9 +340,9 @@ export default function Clientes() {
               })
               logAudit({ accion: 'exportar', tabla: 'clientes', descripcion: `Exportación Excel de ${clientes.length} clientes` })
             }}
-            className="btn-secondary flex items-center gap-1.5 text-sm"
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border-2 border-green-600 text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
           >
-            📥 Exportar Excel
+            📥 Descargar Excel
           </button>
           <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
             {showForm && !editId ? '✕ Cancelar' : `+ Nuevo ${etiquetaSingular}`}
