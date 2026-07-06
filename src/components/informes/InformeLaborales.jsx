@@ -4,8 +4,9 @@ import { useAuth } from '../../lib/AuthContext'
 
 const anioActual = new Date().getFullYear()
 
-export default function InformeLaborales() {
-  const { tenant, profile } = useAuth()
+export default function InformeLaborales({ tenantEfectivo }) {
+  const { tenant: tenantPropio, profile } = useAuth()
+  const tenant = tenantEfectivo || tenantPropio
   const [anio, setAnio]         = useState(anioActual - 1)
   const [loading, setLoading]   = useState(false)
   const [generado, setGenerado] = useState(false)

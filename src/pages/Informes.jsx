@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
@@ -21,7 +21,7 @@ function getNombre(t) {
 }
 
 export default function Informes() {
-  const { tenant, profile } = useAuth()
+  const { tenant, profile, isSuperAdmin } = useAuth()
   const [tabActiva, setTabActiva] = useState('transaccional')
   const hoy = new Date().toISOString().substring(0, 10)
   const primerDiaMes = new Date().toISOString().substring(0, 7) + '-01'
@@ -33,13 +33,32 @@ export default function Informes() {
   const [generado, setGenerado] = useState(false)
   const [error, setError]       = useState(null)
   const informeRef = useRef(null)
+  const [tenants, setTenants]   = useState([])
+  const [tenantVista, setTenantVista] = useState('')
+
+  // Cargar lista de tenants para superadmin
+  useEffect(() => {
+    if (isSuperAdmin) {
+      supabase.from('tenants').select('id, nombre, actividad_apnfd, monto_minimo_usd, email_oficial_cumplimiento')
+        .order('nombre')
+        .then(({ data }) => setTenants(data || []))
+    }
+  }, [isSuperAdmin])
+
+  const tenantEfectivo = isSuperAdmin
+    ? tenants.find(t => t.id === tenantVista) || null
+    : tenant
 
   const labelPeriodo = fechaDesde && fechaHasta
     ? `${new Date(fechaDesde + 'T12:00:00').toLocaleDateString('es-CR')} al ${new Date(fechaHasta + 'T12:00:00').toLocaleDateString('es-CR')}`
     : ''
 
   const cargar = useCallback(async () => {
-    if (!tenant || !fechaDesde || !fechaHasta) return
+    if (!tenantEfectivo) {
+      setError({ tipo: 'validacion', mensaje: isSuperAdmin ? 'Seleccione un sujeto obligado.' : 'Sin entidad configurada.' })
+      return
+    }
+    if (!fechaDesde || !fechaHasta) return
     if (fechaDesde > fechaHasta) {
       setError({ tipo: 'validacion', mensaje: 'La fecha de inicio debe ser anterior a la fecha final.' })
       return
@@ -47,10 +66,17 @@ export default function Informes() {
     setLoading(true)
     setError(null)
     try {
+      // periodo se almacena como YYYY-MM-01 (primer día del mes)
+      // Se filtra el mes de inicio y el mes de fin para capturar todas las transacciones del rango
+      const periodoDesde = fechaDesde.substring(0, 7) + '-01'
+      const periodoHasta = fechaHasta.substring(0, 7) + '-01'
       const [{ data: t, error: e1 }, { data: c, error: e2 }] = await Promise.all([
-        supabase.from('transacciones').select('*').eq('tenant_id', tenant.id)
-          .gte('periodo', fechaDesde).lte('periodo', fechaHasta),
-        supabase.from('clientes').select('*').eq('tenant_id', tenant.id),
+        supabase.from('transacciones').select('*')
+          .eq('tenant_id', tenantEfectivo.id)
+          .gte('periodo', periodoDesde)
+          .lte('periodo', periodoHasta)
+          .order('fecha_transaccion', { ascending: false }),
+        supabase.from('clientes').select('*').eq('tenant_id', tenantEfectivo.id),
       ])
       if (e1) throw e1
       if (e2) throw e2
@@ -62,10 +88,10 @@ export default function Informes() {
     } finally {
       setLoading(false)
     }
-  }, [tenant, fechaDesde, fechaHasta])
+  }, [tenantEfectivo, fechaDesde, fechaHasta, isSuperAdmin])
 
   // ─── Análisis ────────────────────────────────────────────────────────────
-  const umbral = Number(tenant?.monto_minimo_usd) || 10000
+  const umbral = Number(tenantEfectivo?.monto_minimo_usd) || 10000
 
   const totalMonto   = txns.reduce((s, t) => s + Number(t.monto_movimiento), 0)
   const totalIngresos = txns.filter(t => t.tipo_movimiento === 1).reduce((s, t) => s + Number(t.monto_movimiento), 0)
@@ -119,23 +145,19 @@ export default function Informes() {
   }
 
   function generarMailto() {
-    const asunto = encodeURIComponent(`Informe Análisis Transaccional — ${tenant?.nombre} — ${labelPeriodo}`)
+    const asunto = encodeURIComponent(`Informe Análisis Transaccional — ${tenantEfectivo?.nombre} — ${labelPeriodo}`)
     const resumen = encodeURIComponent(
       `Estimados,\n\nAdjunto informe de análisis transaccional.\n\n` +
-      `Período: ${labelPeriodo}\nEntidad: ${tenant?.nombre}\n` +
+      `Período: ${labelPeriodo}\nEntidad: ${tenantEfectivo?.nombre}\n` +
       `Total transacciones: ${txns.length}\nMonto total: USD ${totalMonto.toLocaleString()}\n` +
       `Alertas detectadas: ${alertas.length} (${alertasAlto.length} alta, ${alertasMedio.length} media, ${alertasBajo.length} baja)\n\n` +
       `Elaborado por: ${profile?.nombre}\nCNL Compliance App`
     )
-    const destino = tenant?.email_oficial_cumplimiento || profile?.email || ''
+    const destino = tenantEfectivo?.email_oficial_cumplimiento || profile?.email || ''
     return `mailto:${destino}?cc=${profile?.email || ''}&subject=${asunto}&body=${resumen}`
   }
 
   const fmtUSD = n => Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })
-
-  if (tabActiva === 'labores')      return <InformeLaborales />
-  if (tabActiva === 'plan_trabajo') return <InformePlanTrabajo />
-  if (tabActiva === 'capacitacion') return <InformePlanCapacitacion />
 
   return (
     <div className="p-6 max-w-5xl space-y-6">
@@ -145,10 +167,9 @@ export default function Informes() {
           <h1 className="text-2xl font-bold text-gray-900">Informes de Cumplimiento</h1>
           <p className="text-gray-500 text-sm mt-1">Módulo 1 — Reportes ALA/CFT</p>
         </div>
-        {generado && (
+        {generado && tabActiva === 'transaccional' && (
           <div className="flex gap-2">
-            <a href={generarMailto()}
-              className="btn-secondary text-sm">📧 Enviar por correo</a>
+            <a href={generarMailto()} className="btn-secondary text-sm">📧 Enviar por correo</a>
             <button onClick={imprimir} className="btn-primary text-sm">🖨️ Descargar PDF</button>
           </div>
         )}
@@ -167,6 +188,28 @@ export default function Informes() {
         ))}
       </div>
 
+      {/* Selector sujeto obligado (solo superadmin) — visible en todas las tabs */}
+      {isSuperAdmin && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
+          <span className="text-sm font-medium text-amber-700 flex-shrink-0">🏢 Sujeto obligado:</span>
+          <select
+            className="input-field text-sm"
+            value={tenantVista}
+            onChange={e => { setTenantVista(e.target.value); setGenerado(false) }}
+          >
+            <option value="">— Seleccione el sujeto obligado —</option>
+            {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Subcomponentes con tenantEfectivo como prop */}
+      {tabActiva === 'labores' && <InformeLaborales tenantEfectivo={tenantEfectivo} />}
+      {tabActiva === 'plan_trabajo' && <InformePlanTrabajo tenantEfectivo={tenantEfectivo} />}
+      {tabActiva === 'capacitacion' && <InformePlanCapacitacion tenantEfectivo={tenantEfectivo} />}
+
+      {/* Tab transaccional */}
+      {tabActiva === 'transaccional' && <>
       <ErrorBanner error={error} onClose={() => setError(null)} />
 
       {/* Selector de período */}
@@ -185,13 +228,13 @@ export default function Informes() {
             onChange={e => { setFechaHasta(e.target.value); setGenerado(false) }} />
         </div>
         <div>
-          <button onClick={cargar} disabled={loading || !fechaDesde || !fechaHasta} className="btn-primary">
+          <button onClick={cargar} disabled={loading || !fechaDesde || !fechaHasta || (isSuperAdmin && !tenantVista)} className="btn-primary">
             {loading ? 'Generando…' : '▶ Generar informe'}
           </button>
         </div>
-        {tenant && (
+        {tenantEfectivo && (
           <div className="ml-auto text-sm text-gray-500">
-            <p><span className="font-medium">Entidad:</span> {tenant.nombre}</p>
+            <p><span className="font-medium">Entidad:</span> {tenantEfectivo.nombre}</p>
             <p><span className="font-medium">Umbral SUGEF:</span> USD {umbral.toLocaleString()}</p>
           </div>
         )}
@@ -209,10 +252,10 @@ export default function Informes() {
               <p className="text-brand-600 mt-1">Según Acuerdo SUGEF 13-19 · Ley 7786</p>
               <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
                 <div><p className="text-brand-400">Dirigido a</p><p className="font-semibold text-brand-800">Junta Directiva</p></div>
-                <div><p className="text-brand-400">Entidad</p><p className="font-semibold text-brand-800">{tenant?.nombre}</p></div>
+                <div><p className="text-brand-400">Entidad</p><p className="font-semibold text-brand-800">{tenantEfectivo?.nombre}</p></div>
                 <div><p className="text-brand-400">Período</p><p className="font-semibold text-brand-800">{labelPeriodo}</p></div>
                 <div><p className="text-brand-400">Elaborado por</p><p className="font-semibold text-brand-800">{profile?.nombre}</p></div>
-                <div><p className="text-brand-400">Actividad APNFD</p><p className="font-semibold text-brand-800">{tenant?.actividad_apnfd}</p></div>
+                <div><p className="text-brand-400">Actividad APNFD</p><p className="font-semibold text-brand-800">{tenantEfectivo?.actividad_apnfd}</p></div>
                 <div><p className="text-brand-400">Fecha</p><p className="font-semibold text-brand-800">{new Date().toLocaleDateString('es-CR')}</p></div>
               </div>
             </div>
@@ -387,6 +430,7 @@ export default function Informes() {
           button, a { display: none !important; }
         }
       `}</style>
+      </>}
     </div>
   )
 }

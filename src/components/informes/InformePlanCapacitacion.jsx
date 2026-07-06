@@ -17,8 +17,9 @@ const TEMAS_DEFAULT = [
 const MODALIDADES = ['Virtual', 'Presencial', 'Híbrida', 'E-learning']
 const PUBLICOS = ['Todo el personal', 'Personal de atención al cliente', 'Oficial de Cumplimiento', 'Gerencia', 'Oficial de Cumplimiento, Gerencia', 'Junta Directiva', 'Oficial de Cumplimiento, Junta Directiva']
 
-export default function InformePlanCapacitacion() {
-  const { tenant, profile } = useAuth()
+export default function InformePlanCapacitacion({ tenantEfectivo }) {
+  const { tenant: tenantPropio, profile } = useAuth()
+  const tenant = tenantEfectivo || tenantPropio
   const anio = anioActual
   const [temas, setTemas] = useState(TEMAS_DEFAULT)
   const [intro, setIntro] = useState('')

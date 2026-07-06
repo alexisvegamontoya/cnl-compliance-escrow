@@ -57,8 +57,9 @@ const ACTIVIDADES_DEFAULT = [
 
 const TRIMESTRES = ['I Trimestre', 'II Trimestre', 'III Trimestre', 'IV Trimestre']
 
-export default function InformePlanTrabajo() {
-  const { tenant, profile } = useAuth()
+export default function InformePlanTrabajo({ tenantEfectivo }) {
+  const { tenant: tenantPropio, profile } = useAuth()
+  const tenant = tenantEfectivo || tenantPropio
   const anio = anioActual
   const [planRows, setPlanRows] = useState(
     ACTIVIDADES_DEFAULT.flatMap(grupo =>
