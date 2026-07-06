@@ -49,15 +49,31 @@ export default function Transacciones() {
         <div className="flex gap-2">
           <button
             onClick={async () => {
-              const { data } = await supabase.from('transacciones').select('*').order('fecha_transaccion', { ascending: false })
-              if (!data) return
+              const tid = isSuperAdmin ? tenantVista : tenant?.id
+              if (!tid) { alert('Seleccione un sujeto obligado primero.'); return }
+              const { data } = await supabase
+                .from('transacciones')
+                .select('*')
+                .eq('tenant_id', tid)
+                .order('fecha_transaccion', { ascending: false })
+              if (!data || !data.length) { alert('No hay transacciones para exportar.'); return }
               exportarExcel({
-                data,
-                columnas: ['fecha_transaccion','tipo_transaccion','monto','moneda','nombre_cliente','numero_identificacion','descripcion','medio_pago','pais_origen','pais_destino'],
+                data: data.map(r => ({
+                  ...r,
+                  enviado_sugef: r.enviado_sugef ? 'Sí' : 'No',
+                })),
+                columnas: ['numero_identificacion','nombre_cliente','primer_apellido','nombre_empresa',
+                  'tipo_movimiento','monto_movimiento','tipo_moneda_movimiento',
+                  'fecha_transaccion','periodo','motivo_transaccion',
+                  'pais_origen_recursos','pais_destino_recursos','enviado_sugef'],
                 headers: {
-                  fecha_transaccion: 'Fecha', tipo_transaccion: 'Tipo', monto: 'Monto', moneda: 'Moneda',
-                  nombre_cliente: 'Cliente', numero_identificacion: 'N° ID', descripcion: 'Descripción',
-                  medio_pago: 'Medio de Pago', pais_origen: 'País Origen', pais_destino: 'País Destino',
+                  numero_identificacion: 'N° Identificación',
+                  nombre_cliente: 'Nombre', primer_apellido: 'Apellido', nombre_empresa: 'Empresa',
+                  tipo_movimiento: 'Movimiento', monto_movimiento: 'Monto',
+                  tipo_moneda_movimiento: 'Moneda', fecha_transaccion: 'Fecha Transacción',
+                  periodo: 'Período', motivo_transaccion: 'Motivo',
+                  pais_origen_recursos: 'País Origen', pais_destino_recursos: 'País Destino',
+                  enviado_sugef: 'Enviado SUGEF',
                 },
                 nombreArchivo: 'transacciones_cnl',
                 nombreHoja: 'Transacciones',
@@ -95,32 +111,4 @@ export default function Transacciones() {
       {isSuperAdmin && (
         <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <span className="text-sm font-medium text-amber-700 flex-shrink-0">🏢 Ver calendario de:</span>
-          <select
-            className="input-field text-sm"
-            value={tenantVista}
-            onChange={e => setTenantVista(e.target.value)}
-          >
-            <option value="">— Seleccione sujeto obligado —</option>
-            {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
-        </div>
-      )}
-
-      {/* Calendario de períodos reportados */}
-      {tenantIdCalendario && (
-        <CalendarioReportes
-          tenantId={tenantIdCalendario}
-          refreshTrigger={refresh}
-        />
-      )}
-
-      {/* Carga masiva */}
-      <CargaMasivaTransacciones
-        tenants={tenants}
-        onImportado={() => setRefresh(r => r + 1)}
-      />
-
-      <TransactionList refreshTrigger={refresh} onEdit={handleEdit} tenants={tenants} />
-    </div>
-  )
-}
+       
