@@ -110,5 +110,4 @@ export default function Transacciones() {
       {/* Selector sujeto obligado para superadmin (calendario) */}
       {isSuperAdmin && (
         <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-          <span className="text-sm font-medium text-amber-700 flex-shrink-0">🏢 Ver calendario de:</span>
-       
+   

@@ -195,8 +195,4 @@ export default function TransactionList({ refreshTrigger, onEdit, tenants = [] }
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((row, idx) => {
-                  const nombre = row.nombre_empresa || `${row.nombre_cliente || ''} ${row.primer_apellido || ''}`.trim()
-                  return (
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="py-3 px-2 text-gray-400">{idx + 1}</td>
-                      <
+                  const nombre = row.nombre_empresa || `${row.nombre_cliente || ''} ${row.primer_apellido || ''}`.trim

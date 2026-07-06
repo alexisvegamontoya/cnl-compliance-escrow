@@ -329,8 +329,4 @@ export default function InformeLaborales({ tenantEfectivo }) {
           button, select, textarea { display: none !important; }
           textarea { display: block !important; border: none !important; resize: none; }
         }
-        @media print { textarea { display: block !important; } }
-      `}</style>
-    </div>
-  )
-}
+        @media prin

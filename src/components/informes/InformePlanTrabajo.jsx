@@ -234,9 +234,4 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
           textarea { border: none !important; resize: none; min-height: unset; }
           input { border: none !important; background: transparent; }
           .print\\:hidden { display: none !important; }
-          .print\\:border-0 { border: none !important; }
-        }
-      `}</style>
-    </div>
-  )
-}
+          .print\\:bo
