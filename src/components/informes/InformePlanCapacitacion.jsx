@@ -209,4 +209,9 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
           button { display: none !important; }
           textarea, input, select { border: none !important; background: transparent; }
           .print\\:hidden { display: none !important; }
-          .print\\:bo
+          .print\\:border-0 { border: none !important; }
+        }
+      `}</style>
+    </div>
+  )
+}

@@ -61,7 +61,22 @@ export function AuthProvider({ children }) {
 
       setProfile(prof)
 
-      if (memberships && memberships.length > 0) {
+      const esSuperAdmin = prof?.rol === 'superadmin'
+
+      if (esSuperAdmin) {
+        // Superadmin: cargar TODOS los tenants para poder navegar como cualquiera
+        const { data: allTenants } = await supabase
+          .from('tenants')
+          .select('*')
+          .order('nombre')
+        if (allTenants && allTenants.length > 0) {
+          const lista = allTenants.map(t => ({ ...t, rol_tenant: 'superadmin' }))
+          setTenants(lista)
+          const saved = localStorage.getItem('cnl_tenant_activo')
+          const encontrado = lista.find(t => t.id === saved)
+          setTenant(encontrado || lista[0])
+        }
+      } else if (memberships && memberships.length > 0) {
         // Construir lista de tenants disponibles, inyectando el rol de membresía
         const lista = memberships
           .filter(m => m.tenants)
@@ -86,7 +101,6 @@ export function AuthProvider({ children }) {
           setTenants([t])
         }
       }
-      // Superadmin: no tiene tenant propio, todo se maneja con tenantVista en cada módulo
     } finally {
       setLoading(false)
     }
@@ -112,27 +126,4 @@ export function AuthProvider({ children }) {
   }
 
   const isSuperAdmin = profile?.rol === 'superadmin'
-  const isAdmin      = isSuperAdmin || profile?.rol === 'admin_tenant' ||
-                       tenantsDisponibles.some(t => t.id === tenant?.id && t.rol_tenant === 'admin_tenant')
-
-  return (
-    <AuthContext.Provider value={{
-      session,
-      profile,
-      tenant,
-      tenantsDisponibles,
-      cambiarTenant,
-      loading,
-      signIn,
-      signOut,
-      isSuperAdmin,
-      isAdmin,
-      needsPasswordSetup,
-      setNeedsPasswordSetup,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
-
-export const useAuth = () => useContext(AuthContext)
+  const isAdmin  

@@ -64,14 +64,15 @@ export default function Sidebar() {
 
       {/* Tenant info */}
       {tenant && (
-        <div className="px-4 py-3 bg-brand-800 mx-3 my-3 rounded-lg">
-          <p className="text-xs text-brand-300 uppercase tracking-wider mb-1">Sujeto Obligado</p>
-          {/* Selector si tiene varios tenants */}
+        <div className={`px-4 py-3 mx-3 my-3 rounded-lg ${isSuperAdmin ? 'bg-amber-900 border border-amber-700' : 'bg-brand-800'}`}>
+          <p className={`text-xs uppercase tracking-wider mb-1 ${isSuperAdmin ? 'text-amber-300' : 'text-brand-300'}`}>
+            {isSuperAdmin ? 'Navegando como' : 'Sujeto Obligado'}
+          </p>
           {tenantsDisponibles.length > 1 ? (
             <select
               value={tenant.id}
               onChange={e => cambiarTenant(e.target.value)}
-              className="w-full text-sm font-medium text-white bg-brand-700 border border-brand-600 rounded-lg px-2 py-1.5 mb-1"
+              className={`w-full text-sm font-medium text-white border rounded-lg px-2 py-1.5 mb-1 ${isSuperAdmin ? 'bg-amber-800 border-amber-600' : 'bg-brand-700 border-brand-600'}`}
             >
               {tenantsDisponibles.map(t => (
                 <option key={t.id} value={t.id}>{t.nombre}</option>
@@ -80,8 +81,10 @@ export default function Sidebar() {
           ) : (
             <p className="text-sm font-medium text-white leading-tight truncate">{tenant.nombre}</p>
           )}
-          <p className="text-xs text-brand-300 mt-0.5 truncate">{tenant.actividad_apnfd}</p>
-          <span className="inline-block mt-1 text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full">
+          <p className={`text-xs mt-0.5 truncate ${isSuperAdmin ? 'text-amber-300' : 'text-brand-300'}`}>
+            {tenant.actividad_apnfd}
+          </p>
+          <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${isSuperAdmin ? 'bg-amber-700 text-amber-100' : 'bg-brand-600 text-white'}`}>
             Tipo {tenant.tipo_sujeto}
           </span>
         </div>

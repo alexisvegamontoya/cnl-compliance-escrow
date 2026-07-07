@@ -20,8 +20,8 @@ function normalizarFecha(val) {
   return s || null
 }
 
-export default function CargaMasivaTransacciones({ tenants, onImportado }) {
-  const { tenant, isSuperAdmin } = useAuth()
+export default function CargaMasivaTransacciones({ onImportado }) {
+  const { tenant, isSuperAdmin, tenantsDisponibles: tenants } = useAuth()
   const [abierto, setAbierto]       = useState(false)
   const [periodoFallback, setPeriodoFallback] = useState(new Date().toISOString().substring(0, 7))
   const [tenantId, setTenantId]     = useState(tenant?.id || '')

@@ -33,21 +33,7 @@ export default function Informes() {
   const [generado, setGenerado] = useState(false)
   const [error, setError]       = useState(null)
   const informeRef = useRef(null)
-  const [tenants, setTenants]   = useState([])
-  const [tenantVista, setTenantVista] = useState('')
-
-  // Cargar lista de tenants para superadmin
-  useEffect(() => {
-    if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre, actividad_apnfd, monto_minimo_usd, email_oficial_cumplimiento')
-        .order('nombre')
-        .then(({ data }) => setTenants(data || []))
-    }
-  }, [isSuperAdmin])
-
-  const tenantEfectivo = isSuperAdmin
-    ? tenants.find(t => t.id === tenantVista) || null
-    : tenant
+  const tenantEfectivo = tenant
 
   const labelPeriodo = fechaDesde && fechaHasta
     ? `${new Date(fechaDesde + 'T12:00:00').toLocaleDateString('es-CR')} al ${new Date(fechaHasta + 'T12:00:00').toLocaleDateString('es-CR')}`
@@ -55,7 +41,7 @@ export default function Informes() {
 
   const cargar = useCallback(async () => {
     if (!tenantEfectivo) {
-      setError({ tipo: 'validacion', mensaje: isSuperAdmin ? 'Seleccione un sujeto obligado.' : 'Sin entidad configurada.' })
+      setError({ tipo: 'validacion', mensaje: 'Sin entidad configurada.' })
       return
     }
     if (!fechaDesde || !fechaHasta) return
@@ -188,20 +174,6 @@ export default function Informes() {
         ))}
       </div>
 
-      {/* Selector sujeto obligado (solo superadmin) — visible en todas las tabs */}
-      {isSuperAdmin && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
-          <span className="text-sm font-medium text-amber-700 flex-shrink-0">🏢 Sujeto obligado:</span>
-          <select
-            className="input-field text-sm"
-            value={tenantVista}
-            onChange={e => { setTenantVista(e.target.value); setGenerado(false) }}
-          >
-            <option value="">— Seleccione el sujeto obligado —</option>
-            {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
-        </div>
-      )}
 
       {/* Subcomponentes con tenantEfectivo como prop */}
       {tabActiva === 'labores' && <InformeLaborales tenantEfectivo={tenantEfectivo} />}
@@ -228,7 +200,7 @@ export default function Informes() {
             onChange={e => { setFechaHasta(e.target.value); setGenerado(false) }} />
         </div>
         <div>
-          <button onClick={cargar} disabled={loading || !fechaDesde || !fechaHasta || (isSuperAdmin && !tenantVista)} className="btn-primary">
+          <button onClick={cargar} disabled={loading || !fechaDesde || !fechaHasta || !tenantEfectivo} className="btn-primary">
             {loading ? 'Generando…' : '▶ Generar informe'}
           </button>
         </div>
@@ -394,3 +366,43 @@ export default function Informes() {
             </div>
           )}
 
+          {/* Recomendaciones */}
+          {txns.length > 0 && (
+            <div className="card">
+              <h3 className="font-semibold text-gray-900 mb-4">Recomendaciones de Cumplimiento</h3>
+              <div className="space-y-3 text-sm">
+                {[
+                  { area: 'Monitoreo mensual', accion: 'Comparar ingresos vs salidas por cliente. Detectar acumulaciones o desfases inusuales.' },
+                  { area: 'Documentación', accion: 'Mantener respaldo de cada transacción: contrato, factura, orden o autorización del cliente.' },
+                  { area: 'Debida diligencia', accion: 'Actualizar expedientes de clientes con alertas detectadas. Solicitar justificación de variaciones.' },
+                  alertasAlto.length > 0 ? { area: 'Acción urgente', accion: `Se detectaron ${alertasAlto.length} alertas de severidad alta. Evalúe la elaboración de un Reporte de Operación Sospechosa (ROS).` } : null,
+                ].filter(Boolean).map((r, i) => (
+                  <div key={i} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                    <span className="font-semibold text-brand-700 flex-shrink-0 w-40">{r.area}</span>
+                    <span className="text-gray-600">{r.accion}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pie del informe */}
+          <div className="card bg-gray-50 text-center text-sm text-gray-500">
+            <p>Informe generado el {new Date().toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' })} por {profile?.nombre} · CNL Craniley Compliance Services</p>
+            <p className="text-xs mt-1">Este informe es confidencial y de uso exclusivo del Oficial de Cumplimiento y la Junta Directiva.</p>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #informe-pdf { display: block !important; }
+          .card { border: 1px solid #e5e7eb; box-shadow: none; break-inside: avoid; }
+          button, a { display: none !important; }
+        }
+      `}</style>
+      </>}
+    </div>
+  )
+}
