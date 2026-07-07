@@ -457,7 +457,7 @@ export default function ConsultaPEP() {
   })
 
   // ── Estado CCSS y SUGEF ───────────────────────────────────────────────────────
-  const [ccssAlDia, setCcssAlDia]           = useState(null)  // true / false / null
+  const [ccssAlDia, setCcssAlDia]           = useState(null)  // null / 'al_dia' / 'morosidad' / 'arreglo' / 'no_inscrito'
   const [sujetoObligado, setSujetoObligado] = useState(null)  // null / 'no' / '15' / '15bis' / '15ter'
 
   return (
@@ -686,28 +686,40 @@ export default function ConsultaPEP() {
               </a>
             </div>
             <p className="text-xs text-gray-400">Ingrese la cédula en la plataforma CCSS y registre el resultado:</p>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { v: true,  label: '✅ Al día',           cls: 'bg-green-600 text-white border-green-600' },
-                { v: false, label: '❌ Con morosidad',    cls: 'bg-red-600 text-white border-red-600' },
+                { v: 'al_dia',      label: 'Al dia',              cls: 'bg-green-600 text-white border-green-600' },
+                { v: 'morosidad',   label: 'Con morosidad',       cls: 'bg-red-600 text-white border-red-600' },
+                { v: 'arreglo',     label: 'Con arreglo de pago', cls: 'bg-yellow-500 text-white border-yellow-500' },
+                { v: 'no_inscrito', label: 'No inscrito',         cls: 'bg-gray-500 text-white border-gray-500' },
               ].map(opt => (
-                <button key={String(opt.v)} type="button"
+                <button key={opt.v} type="button"
                   onClick={() => setCcssAlDia(opt.v)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
+                  className={`py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
                     ccssAlDia === opt.v ? opt.cls : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                   }`}>
                   {opt.label}
                 </button>
               ))}
             </div>
-            {ccssAlDia === false && (
+            {ccssAlDia === 'morosidad' && (
               <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
-                ⚠️ El cliente presenta morosidad con la CCSS. Considere esto como factor de riesgo adicional en la evaluación.
+                El cliente presenta morosidad con la CCSS. Considere esto como factor de riesgo adicional.
               </div>
             )}
-            {ccssAlDia === true && (
+            {ccssAlDia === 'arreglo' && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
+                El cliente tiene un arreglo de pago vigente con la CCSS. Monitorear cumplimiento del arreglo.
+              </div>
+            )}
+            {ccssAlDia === 'no_inscrito' && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700">
+                El cliente no figura inscrito en la CCSS. Verifique si aplica obligacion patronal.
+              </div>
+            )}
+            {ccssAlDia === 'al_dia' && (
               <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
-                ✅ Verificado al día con la CCSS — sin señales de alerta por este criterio.
+                Verificado al dia con la CCSS — sin senales de alerta por este criterio.
               </div>
             )}
           </div>
