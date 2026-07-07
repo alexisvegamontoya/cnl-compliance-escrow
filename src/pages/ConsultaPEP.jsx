@@ -458,7 +458,20 @@ export default function ConsultaPEP() {
 
   // ── Estado CCSS y SUGEF ───────────────────────────────────────────────────────
   const [ccssAlDia, setCcssAlDia]           = useState(null)  // null / 'al_dia' / 'morosidad' / 'arreglo' / 'no_inscrito'
-  const [sujetoObligado, setSujetoObligado] = useState(null)  // null / 'no' / '15' / '15bis' / '15ter'
+  const [sujetoObligado, setSujetoObligado] = useState(null)  // null / 'no' / '15' / '15bis' / '15ter' / 'pendiente'
+
+  // Auto-guardar estado SUGEF y CCSS en cliente seleccionado
+  useEffect(() => {
+    if (clienteSelId && sujetoObligado) {
+      supabase.from('clientes').update({ sugef_estado: sujetoObligado }).eq('id', clienteSelId)
+    }
+  }, [sujetoObligado, clienteSelId])
+
+  useEffect(() => {
+    if (clienteSelId && ccssAlDia) {
+      supabase.from('clientes').update({ ccss_estado: ccssAlDia }).eq('id', clienteSelId)
+    }
+  }, [ccssAlDia, clienteSelId])
 
   return (
     <div className="p-6 max-w-5xl space-y-6">
@@ -741,12 +754,13 @@ export default function ConsultaPEP() {
               </a>
             </div>
             <p className="text-xs text-gray-400">Verifique en el portal SUGEF si la persona/empresa es sujeto obligado:</p>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
               {[
-                { v: 'no',     label: '✅ No es sujeto obligado', cls: 'border-green-500 bg-green-50 text-green-700' },
-                { v: '15',     label: '⚖️ Art. 15',              cls: 'border-orange-500 bg-orange-50 text-orange-700' },
-                { v: '15bis',  label: '⚖️ Art. 15 bis',          cls: 'border-orange-500 bg-orange-50 text-orange-700' },
-                { v: '15ter',  label: '⚖️ Art. 15 ter',          cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+                { v: 'no',        label: 'No es sujeto obligado',  cls: 'border-green-500 bg-green-50 text-green-700' },
+                { v: '15',        label: 'Art. 15',                cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+                { v: '15bis',     label: 'Art. 15 bis',            cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+                { v: '15ter',     label: 'Art. 15 ter',            cls: 'border-orange-500 bg-orange-50 text-orange-700' },
+                { v: 'pendiente', label: 'Pendiente de inscripcion', cls: 'border-yellow-500 bg-yellow-50 text-yellow-700' },
               ].map(opt => (
                 <button key={opt.v} type="button"
                   onClick={() => setSujetoObligado(opt.v)}
@@ -757,15 +771,21 @@ export default function ConsultaPEP() {
                 </button>
               ))}
             </div>
-            {sujetoObligado && sujetoObligado !== 'no' && (
+            {sujetoObligado && !['no', 'pendiente'].includes(sujetoObligado) && (
               <div className="bg-orange-50 border border-orange-300 rounded-lg px-3 py-2 text-xs text-orange-800 space-y-1">
-                <p className="font-bold">⚠️ Esta persona/entidad es sujeto obligado ({sujetoObligado === '15' ? 'Art. 15' : sujetoObligado === '15bis' ? 'Art. 15 bis' : 'Art. 15 ter'} — Ley 7786)</p>
-                <p>Debe verificar que cuente con un <strong>Programa de Cumplimiento ALA/CFT</strong> vigente, según lo exige el Acuerdo SUGEF 13-19. La ausencia de un programa de cumplimiento es una señal de alerta adicional. Se recomienda solicitar evidencia de su inscripción y cumplimiento ante SUGEF.</p>
+                <p className="font-bold">Esta persona/entidad es sujeto obligado ({sujetoObligado === '15' ? 'Art. 15' : sujetoObligado === '15bis' ? 'Art. 15 bis' : 'Art. 15 ter'} — Ley 7786)</p>
+                <p>Debe verificar que cuente con un Programa de Cumplimiento ALA/CFT vigente segun el Acuerdo SUGEF 13-19. Se recomienda solicitar evidencia de inscripcion y cumplimiento ante SUGEF.</p>
+              </div>
+            )}
+            {sujetoObligado === 'pendiente' && (
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 text-xs text-yellow-800 space-y-1">
+                <p className="font-bold">Inscripcion pendiente ante SUGEF (Ley 7786)</p>
+                <p>La entidad aun no ha completado su inscripcion como sujeto obligado. Verifique el avance del proceso y solicite evidencia de la gestion ante SUGEF. Considere este pendiente como factor de riesgo adicional.</p>
               </div>
             )}
             {sujetoObligado === 'no' && (
               <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
-                ✅ No figura como sujeto obligado — sin señales de alerta por este criterio.
+                No figura como sujeto obligado — sin senales de alerta por este criterio.
               </div>
             )}
           </div>
