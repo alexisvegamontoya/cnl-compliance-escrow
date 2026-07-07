@@ -399,7 +399,7 @@ export default function DebilidaDiligencia() {
   useEffect(() => {
     if (!tenantEfectivoId) { setClientesDB([]); return }
     supabase.from('clientes')
-      .select('id, nombre_cliente, primer_apellido, segundo_apellido, nombre_empresa, numero_identificacion, cedula_juridica, tipo_identificacion, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_nacimiento, fecha_constitucion, profesion_nombre, actividad_eco_nombre, actividad_economica, proposito_relacion, pep')
+      .select('id, nombre_cliente, primer_apellido, segundo_apellido, nombre_empresa, numero_identificacion, cedula_juridica, tipo_identificacion, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_nacimiento, fecha_constitucion, profesion_nombre, actividad_eco_nombre, actividad_economica, proposito_relacion, pep, sugef_estado')
       .eq('tenant_id', tenantEfectivoId)
       .eq('activo', true)
       .order('nombre_cliente', { nullsFirst: false })
@@ -760,9 +760,25 @@ export default function DebilidaDiligencia() {
               </button>
             </div>
             {clienteSelId && !cargandoDesdeDB && (
-              <p className="text-xs text-brand-600">✅ Puede editar los datos cargados antes de continuar</p>
+              <p className="text-xs text-brand-600">Puede editar los datos cargados antes de continuar</p>
             )}
           </div>
+
+          {/* Banner SUGEF pendiente */}
+          {clienteSelId && clientesDB.find(c => c.id === clienteSelId)?.sugef_estado === 'pendiente' && (
+            <div className="border-2 border-red-500 bg-red-50 rounded-xl p-4 space-y-2">
+              <p className="font-bold text-red-700 text-base">NO SE RECOMIENDA ACEPTAR ESTE CLIENTE</p>
+              <p className="text-sm text-red-600">
+                Este cliente tiene <strong>inscripcion pendiente ante SUGEF</strong> como sujeto obligado (Ley 7786).
+                De conformidad con las buenas practicas ALA/CFT y el Acuerdo SUGEF 13-19, no se recomienda
+                establecer relacion comercial con entidades que no hayan regularizado su situacion ante el ente supervisor.
+              </p>
+              <p className="text-xs text-red-500 font-medium">
+                Accion recomendada: Solicite evidencia de inscripcion ante SUGEF antes de continuar.
+                Si persiste la situacion, considere el rechazo de la relacion comercial.
+              </p>
+            </div>
+          )}
 
           {/* Selector tipo */}
           <div className="card flex gap-4 items-center flex-wrap">

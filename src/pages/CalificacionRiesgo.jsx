@@ -661,7 +661,7 @@ export default function CalificacionRiesgo() {
     const tid = isSuperAdmin ? tenantId : tenant?.id
     if (!tid) return
     const { data } = await supabase.from('clientes')
-      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep')
+      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep, sugef_estado')
       .eq('tenant_id', tid)
       .order('nombre_cliente', { nullsFirst: false })
     setClientes(data || [])
@@ -776,6 +776,15 @@ export default function CalificacionRiesgo() {
         setListasLoading(false)
       })
     }
+
+    // Si el cliente tiene inscripción SUGEF pendiente → riesgo ALTO automático
+    if (c?.sugef_estado === 'pendiente') {
+      setCalificacionManual('alto')
+      setObservaciones(prev =>
+        (prev ? prev + ' | ' : '') +
+        'ALERTA: Cliente con inscripcion SUGEF pendiente (Ley 7786). No se recomienda aceptar clientes en esta condicion hasta regularizar su situacion ante SUGEF.'
+      )
+    }
   }
 
   function setRespF(setFn, key, val) { setFn(prev => ({ ...prev, [key]: val })) }
@@ -788,6 +797,7 @@ export default function CalificacionRiesgo() {
   const scoreTotal = calcularScoreTotal({ cliente: scoreCli, geo: scoreGeo, productos: scoreProd, canales: scoreCan }, tipoPersona)
   const calificacionAuto = clasificar(scoreTotal)
   const calificacionFinal = calificacionManual || calificacionAuto
+  const alertaSugefPendiente = clienteActual?.sugef_estado === 'pendiente'
 
   async function guardar() {
     if (!clienteId) { alert('Seleccione un cliente.'); return }
@@ -978,6 +988,13 @@ export default function CalificacionRiesgo() {
 
               {clienteActual && (
                 <div className="mt-3 space-y-3">
+                  {/* Alerta SUGEF pendiente */}
+                  {alertaSugefPendiente && (
+                    <div className="p-3 bg-red-50 border-2 border-red-400 rounded-lg">
+                      <p className="font-bold text-red-700 text-sm">CLIENTE NO RECOMENDADO — Inscripcion SUGEF Pendiente</p>
+                      <p className="text-xs text-red-600 mt-1">Este cliente tiene inscripcion pendiente ante SUGEF (Ley 7786). No se recomienda aceptar clientes en esta condicion hasta que regularicen su situacion. La calificacion se establece automaticamente como ALTO.</p>
+                    </div>
+                  )}
                   {/* Info básica del cliente */}
                   <div className="p-3 bg-gray-50 rounded-lg space-y-1 text-sm">
                     <p className="font-medium text-gray-900">{nombreCliente}</p>
