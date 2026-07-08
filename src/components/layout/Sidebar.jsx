@@ -32,11 +32,12 @@ const adminItems = [
   { to: '/admin/auditoria', icon: '🔍', label: 'Historial Auditoría' },
 ]
 
-function NavItem({ to, icon, label, end }) {
+function NavItem({ to, icon, label, end, onClose }) {
   return (
     <NavLink
       to={to}
       end={end}
+      onClick={onClose}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
           isActive
@@ -51,15 +52,29 @@ function NavItem({ to, icon, label, end }) {
   )
 }
 
-export default function Sidebar() {
+export default function Sidebar({ open, onClose }) {
   const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isAdmin, isSuperAdmin } = useAuth()
 
   return (
-    <aside className="w-64 bg-brand-900 text-white flex flex-col min-h-screen">
-      {/* Logo + campana */}
+    <aside className={`
+      fixed inset-y-0 left-0 z-50 w-64 bg-brand-900 text-white flex flex-col
+      transition-transform duration-300 ease-in-out
+      ${open ? 'translate-x-0' : '-translate-x-full'}
+      md:relative md:translate-x-0 md:z-auto
+    `}>
+      {/* Logo + campana + botón cerrar (móvil) */}
       <div className="px-4 py-4 border-b border-brand-700 flex items-center gap-2">
         <img src="/logo-blanco.png" alt="CNL Craniley Compliance Services" className="flex-1 max-w-[160px]" />
         <BellNotificaciones />
+        <button
+          className="md:hidden text-brand-300 hover:text-white ml-1 p-1"
+          onClick={onClose}
+          aria-label="Cerrar menú"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       {/* Tenant info */}
@@ -93,14 +108,14 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
 
-        <NavItem to="/" icon="📊" label="Dashboard" end />
+        <NavItem to="/" icon="📊" label="Dashboard" end onClose={onClose} />
 
         <div className="border-t border-brand-700 my-3" />
         <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
           Clientes
         </p>
         {clientesItems.map(item => (
-          <NavItem key={item.to} {...item} />
+          <NavItem key={item.to} {...item} onClose={onClose} />
         ))}
 
         <div className="border-t border-brand-700 my-3" />
@@ -108,7 +123,7 @@ export default function Sidebar() {
           SICVECA
         </p>
         {modulo1.map(item => (
-          <NavItem key={item.to} {...item} />
+          <NavItem key={item.to} {...item} onClose={onClose} />
         ))}
 
         <div className="border-t border-brand-700 my-3" />
@@ -116,7 +131,7 @@ export default function Sidebar() {
           Operaciones
         </p>
         {operaciones.map(item => (
-          <NavItem key={item.to} {...item} />
+          <NavItem key={item.to} {...item} onClose={onClose} />
         ))}
 
         <div className="border-t border-brand-700 my-3" />
@@ -124,7 +139,7 @@ export default function Sidebar() {
           Documentos
         </p>
         {documentos.map(item => (
-          <NavItem key={item.to} {...item} />
+          <NavItem key={item.to} {...item} onClose={onClose} />
         ))}
 
         {(isAdmin || isSuperAdmin) && (
@@ -134,7 +149,7 @@ export default function Sidebar() {
               Administración
             </p>
             {adminItems.map(item => (
-              <NavItem key={item.to} {...item} />
+              <NavItem key={item.to} {...item} onClose={onClose} />
             ))}
           </>
         )}
