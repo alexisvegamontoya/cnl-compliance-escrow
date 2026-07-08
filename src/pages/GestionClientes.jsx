@@ -56,8 +56,7 @@ function nombre_completo(c) {
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
-  const { tenant, isSuperAdmin, isAdmin } = useAuth()
-  const puedeEliminar = isAdmin || isSuperAdmin
+  const { tenant, isSuperAdmin } = useAuth()
 
   const [clientes, setClientes]       = useState([])
   const [loading, setLoading]         = useState(true)
@@ -296,13 +295,11 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
                       <button className="text-brand-600 hover:text-brand-800 text-xs font-medium">Ver →</button>
-                      {puedeEliminar && (
-                        <button
-                          onClick={e => eliminar(e, c.id)}
-                          className="text-red-500 hover:text-red-700 text-xs font-medium">
-                          Eliminar
-                        </button>
-                      )}
+                      <button
+                        onClick={e => eliminar(e, c.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium">
+                        Eliminar
+                      </button>
                     </div>
                   </td>
                 </tr>
