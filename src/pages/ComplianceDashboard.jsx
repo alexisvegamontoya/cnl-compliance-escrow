@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 
 // ─── Pesos de cada ítem ───────────────────────────────────────────────────────
-const PESOS = { i1: 30, i2: 8, i3: 25, i4: 20, i5: 7, i6: 10 }
+const PESOS = { i1: 25, i2: 7, i3: 20, i4: 15, i5: 5, i6: 8, i7: 15, i8: 5 }
 
 // ─── Colores por score ────────────────────────────────────────────────────────
 function colorPct(p) {
@@ -168,6 +168,8 @@ export default function ComplianceDashboard() {
   // Items manuales
   const [fCapacitacion, setFCapacitacion] = useState({ completa: false, fecha: '' })
   const [fSistemas, setFSistemas]         = useState({ actualizado: false, fecha: '' })
+  const [fEvalRiesgo, setFEvalRiesgo]     = useState({ fecha: '' })
+  const [fInformes, setFInformes]         = useState({ labores: '', plan_trabajo: '', plan_capacitacion: '' })
 
   const load = useCallback(async () => {
     if (!tenant) return
@@ -205,9 +207,17 @@ export default function ComplianceDashboard() {
     if (seg) {
       setFCapacitacion({ completa: seg.capacitacion_completa || false, fecha: seg.fecha_capacitacion || '' })
       setFSistemas({ actualizado: seg.sistemas_actualizados || false, fecha: seg.fecha_sistemas || '' })
+      setFEvalRiesgo({ fecha: seg.fecha_evaluacion_riesgo || '' })
+      setFInformes({
+        labores:          seg.fecha_informe_labores       || '',
+        plan_trabajo:     seg.fecha_plan_trabajo          || '',
+        plan_capacitacion: seg.fecha_plan_capacitacion   || '',
+      })
     } else {
       setFCapacitacion({ completa: false, fecha: '' })
       setFSistemas({ actualizado: false, fecha: '' })
+      setFEvalRiesgo({ fecha: '' })
+      setFInformes({ labores: '', plan_trabajo: '', plan_capacitacion: '' })
     }
     setLoading(false)
   }, [tenant])
@@ -223,6 +233,10 @@ export default function ComplianceDashboard() {
       fecha_capacitacion: fCapacitacion.fecha || null,
       sistemas_actualizados: fSistemas.actualizado,
       fecha_sistemas: fSistemas.fecha || null,
+      fecha_evaluacion_riesgo: fEvalRiesgo.fecha || null,
+      fecha_informe_labores: fInformes.labores || null,
+      fecha_plan_trabajo: fInformes.plan_trabajo || null,
+      fecha_plan_capacitacion: fInformes.plan_capacitacion || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
     await load()
@@ -303,16 +317,65 @@ export default function ComplianceDashboard() {
     pendientesI6.push('No se ha generado ningún informe de monitoreo.')
   }
 
+  // Ítem 7: Evaluación de Riesgo LC/FT
+  // Vigencia según tipo: Tipo I → 24 meses, Tipo II/III → 12 meses (SUGEF 13-19)
+  const mesesVigenciaEval = tipoSujeto === 1 ? 24 : 12
+  const pendientesI7 = []
+  let scoreI7 = 0
+  if (fEvalRiesgo.fecha) {
+    const meses = mesesDesde(fEvalRiesgo.fecha)
+    if (meses <= mesesVigenciaEval) {
+      scoreI7 = 100
+      if (meses > mesesVigenciaEval - 2) {
+        pendientesI7.push(`Evaluación próxima a vencer (${meses} meses, vigencia máx ${mesesVigenciaEval} meses)`)
+      }
+    } else {
+      scoreI7 = 0
+      pendientesI7.push(`Evaluación de riesgo VENCIDA (realizada hace ${meses} meses, vigencia máx ${mesesVigenciaEval} meses — Tipo ${tipoSujeto})`)
+    }
+  } else {
+    scoreI7 = 0
+    pendientesI7.push('No se ha registrado la fecha de la última evaluación de riesgo LC/FT/FPADM.')
+  }
+
+  // Ítem 8: Informes ALA/CFT (Labores, Plan de Trabajo, Plan de Capacitación)
+  // SUGEF 13-19: deben elaborarse anualmente como mínimo (12 meses)
+  const pendientesI8 = []
+  const informesDefs = [
+    { key: 'labores',          label: 'Informe de Labores',       fecha: fInformes.labores },
+    { key: 'plan_trabajo',     label: 'Plan de Trabajo',          fecha: fInformes.plan_trabajo },
+    { key: 'plan_capacitacion', label: 'Plan de Capacitación',   fecha: fInformes.plan_capacitacion },
+  ]
+  let informesVigentes = 0
+  for (const inf of informesDefs) {
+    if (!inf.fecha) {
+      pendientesI8.push(`${inf.label}: no registrado`)
+    } else {
+      const m = mesesDesde(inf.fecha)
+      if (m > 12) {
+        pendientesI8.push(`${inf.label}: vencido (elaborado hace ${m} meses, máx 12)`)
+      } else {
+        informesVigentes++
+      }
+    }
+  }
+  const scoreI8 = (informesVigentes / 3) * 100
+
   // Score global
-  const scoreGlobal = (scoreI1*PESOS.i1 + scoreI2*PESOS.i2 + scoreI3*PESOS.i3 + scoreI4*PESOS.i4 + scoreI5*PESOS.i5 + scoreI6*PESOS.i6) / 100
+  const scoreGlobal = (
+    scoreI1*PESOS.i1 + scoreI2*PESOS.i2 + scoreI3*PESOS.i3 + scoreI4*PESOS.i4 +
+    scoreI5*PESOS.i5 + scoreI6*PESOS.i6 + scoreI7*PESOS.i7 + scoreI8*PESOS.i8
+  ) / 100
 
   const items = [
-    { num: 1, label: 'Actualización información de clientes', score: scoreI1, peso: PESOS.i1, pendientes: pendientesI1 },
-    { num: 2, label: 'Capacitación anual del personal',        score: scoreI2, peso: PESOS.i2, pendientes: fCapacitacion.completa ? [] : ['Registrar capacitación anual completada'] },
-    { num: 3, label: 'Normativa interna vigente',              score: scoreI3, peso: PESOS.i3, pendientes: pendientesI3 },
-    { num: 4, label: 'Reporte SICVECA actualizado',            score: scoreI4, peso: PESOS.i4, pendientes: pendientesI4 },
-    { num: 5, label: 'Sistemas SUGEF/UIF actualizados',        score: scoreI5, peso: PESOS.i5, pendientes: fSistemas.actualizado ? [] : ['Confirmar actualización en sistemas SUGEF/UIF'] },
-    { num: 6, label: 'Informe de monitoreo actualizado',       score: scoreI6, peso: PESOS.i6, pendientes: pendientesI6 },
+    { num: 1, label: 'Actualización información de clientes',  score: scoreI1, peso: PESOS.i1, pendientes: pendientesI1 },
+    { num: 2, label: 'Capacitación anual del personal',         score: scoreI2, peso: PESOS.i2, pendientes: fCapacitacion.completa ? [] : ['Registrar capacitación anual completada'] },
+    { num: 3, label: 'Normativa interna vigente',               score: scoreI3, peso: PESOS.i3, pendientes: pendientesI3 },
+    { num: 4, label: 'Reporte SICVECA actualizado',             score: scoreI4, peso: PESOS.i4, pendientes: pendientesI4 },
+    { num: 5, label: 'Sistemas SUGEF/UIF actualizados',         score: scoreI5, peso: PESOS.i5, pendientes: fSistemas.actualizado ? [] : ['Confirmar actualización en sistemas SUGEF/UIF'] },
+    { num: 6, label: 'Informe de monitoreo actualizado',        score: scoreI6, peso: PESOS.i6, pendientes: pendientesI6 },
+    { num: 7, label: 'Evaluación de Riesgo LC/FT actualizada',  score: scoreI7, peso: PESOS.i7, pendientes: pendientesI7 },
+    { num: 8, label: 'Informes ALA/CFT (Labores, PT, PC)',      score: scoreI8, peso: PESOS.i8, pendientes: pendientesI8 },
   ]
 
   const radarData = items.map(i => ({ subject: `Ítem ${i.num}`, value: Math.round(i.score), fullMark: 100 }))
@@ -505,6 +568,62 @@ export default function ComplianceDashboard() {
                   : <p>No hay informes generados.</p>}
                 <p className="text-gray-400">≤6 meses = 100% · 6–12 meses = 50% · más de 12 meses = 0%</p>
                 <p className="text-gray-400">Para generar un informe, vaya a <strong>Módulo 1 → Informes</strong>.</p>
+              </div>
+            </ItemCard>
+
+            {/* Ítem 7 — Evaluación de Riesgo */}
+            <ItemCard {...items[6]}>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-600">Fecha de la última Evaluación de Riesgo LC/FT/FPADM:</p>
+                <div className="text-xs text-gray-500 bg-blue-50 rounded p-2">
+                  <p>Vigencia según SUGEF 13-19 — Tipo {tipoSujeto}: <strong>{mesesVigenciaEval} meses</strong> ({mesesVigenciaEval === 12 ? 'anual' : 'cada 2 años'})</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Fecha de realización</label>
+                  <input type="date" className="input-field mt-1"
+                    value={fEvalRiesgo.fecha}
+                    onChange={e => setFEvalRiesgo({ fecha: e.target.value })} />
+                </div>
+                {fEvalRiesgo.fecha && (
+                  <p className="text-xs text-gray-500">
+                    Realizada hace <strong>{mesesDesde(fEvalRiesgo.fecha)} meses</strong> — {scoreI7 === 100 ? <span className="text-green-600 font-semibold">Vigente ✓</span> : <span className="text-red-600 font-semibold">Vencida ✗</span>}
+                  </p>
+                )}
+                <button onClick={guardarSeguimiento} disabled={saving}
+                  className="btn-primary text-xs py-1.5 px-4">{saving ? 'Guardando…' : 'Guardar'}</button>
+              </div>
+            </ItemCard>
+
+            {/* Ítem 8 — Informes ALA/CFT */}
+            <ItemCard {...items[7]}>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-600">Fecha de elaboración de cada informe (vigencia máx: 12 meses — SUGEF 13-19):</p>
+                {[
+                  { key: 'labores',           label: 'Informe de Labores',    fecha: fInformes.labores },
+                  { key: 'plan_trabajo',      label: 'Plan de Trabajo',       fecha: fInformes.plan_trabajo },
+                  { key: 'plan_capacitacion', label: 'Plan de Capacitación',  fecha: fInformes.plan_capacitacion },
+                ].map(inf => {
+                  const m = inf.fecha ? mesesDesde(inf.fecha) : null
+                  const vigente = m !== null && m <= 12
+                  return (
+                    <div key={inf.key}>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-gray-600 font-medium">{inf.label}</label>
+                        {m !== null && (
+                          <span className={`text-xs font-semibold ${vigente ? 'text-green-600' : 'text-red-600'}`}>
+                            {vigente ? `Vigente (${m} m)` : `Vencido (${m} m)`}
+                          </span>
+                        )}
+                      </div>
+                      <input type="date" className="input-field mt-1"
+                        value={fInformes[inf.key]}
+                        onChange={e => setFInformes(p => ({ ...p, [inf.key]: e.target.value }))} />
+                    </div>
+                  )
+                })}
+                <p className="text-xs text-gray-400">Informes vigentes: <strong>{informesVigentes}/3</strong> · Ir a <strong>Informes</strong> para generarlos.</p>
+                <button onClick={guardarSeguimiento} disabled={saving}
+                  className="btn-primary text-xs py-1.5 px-4">{saving ? 'Guardando…' : 'Guardar'}</button>
               </div>
             </ItemCard>
           </div>
