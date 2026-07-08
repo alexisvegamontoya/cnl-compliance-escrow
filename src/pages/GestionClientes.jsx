@@ -56,8 +56,8 @@ function nombre_completo(c) {
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
-  const { tenant, user } = useAuth()
-  const isSuperAdmin = user?.app_metadata?.role === 'superadmin'
+  const { tenant, isSuperAdmin, isAdmin } = useAuth()
+  const puedeEliminar = isAdmin || isSuperAdmin
 
   const [clientes, setClientes]       = useState([])
   const [loading, setLoading]         = useState(true)
@@ -94,6 +94,13 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   }, [tenant?.id, isSuperAdmin, filtroTenant, filtroTipo, filtroRiesgo, filtroDd])
 
   useEffect(() => { cargar() }, [cargar])
+
+  async function eliminar(e, id) {
+    e.stopPropagation()
+    if (!confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
+    await supabase.from('clientes').delete().eq('id', id)
+    cargar()
+  }
 
   const filtrados = clientes.filter(c => {
     if (!buscar) return true
@@ -287,7 +294,16 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                   <td className="px-4 py-3"><EstadoBadge estado={c.estado_dd} /></td>
                   <td className="px-4 py-3"><EstadoBadge estado={c.estado_listas} /></td>
                   <td className="px-4 py-3 text-right">
-                    <button className="text-brand-600 hover:text-brand-800 text-xs font-medium">Ver →</button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button className="text-brand-600 hover:text-brand-800 text-xs font-medium">Ver →</button>
+                      {puedeEliminar && (
+                        <button
+                          onClick={e => eliminar(e, c.id)}
+                          className="text-red-500 hover:text-red-700 text-xs font-medium">
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
