@@ -11,13 +11,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading]            = useState(true)
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
 
-  function isInviteUrl() {
-    const hash = window.location.hash
-    const search = window.location.search
-    return hash.includes('type=invite') || search.includes('type=invite')
-  }
-
   useEffect(() => {
+    // ── Leer la URL ANTES de que Supabase la borre al procesar el token ──
+    const hash   = window.location.hash
+    const search = window.location.search
+    if (hash.includes('type=invite') || search.includes('type=invite')) {
+      setNeedsPasswordSetup(true)
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session) loadProfile(session.user.id)
@@ -26,9 +27,6 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      if (event === 'SIGNED_IN' && isInviteUrl()) {
-        setNeedsPasswordSetup(true)
-      }
       if (session) loadProfile(session.user.id)
       else {
         setProfile(null)
