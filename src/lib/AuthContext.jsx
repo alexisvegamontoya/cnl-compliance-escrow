@@ -3,6 +3,9 @@ import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
+// Roles que DEBEN tener MFA activo y usar AAL2
+const ROLES_MFA_OBLIGATORIO = ['superadmin', 'admin_tenant']
+
 export function AuthProvider({ children }) {
   const [session, setSession]            = useState(null)
   const [profile, setProfile]            = useState(null)
@@ -10,6 +13,9 @@ export function AuthProvider({ children }) {
   const [tenantsDisponibles, setTenants] = useState([])
   const [loading, setLoading]            = useState(true)
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
+  // MFA enforcement para roles admin
+  const [needsMFAEnroll, setNeedsMFAEnroll]       = useState(false) // sin MFA inscrito
+  const [needsMFAChallenge, setNeedsMFAChallenge] = useState(false) // inscrito pero sesión AAL1
 
   useEffect(() => {
     // ── Leer la URL ANTES de que Supabase la borre al procesar el token ──
@@ -47,6 +53,37 @@ export function AuthProvider({ children }) {
       ])
 
       setProfile(prof)
+
+      // ── MFA enforcement para roles admin ──────────────────────────────
+      const rolEsAdmin = ROLES_MFA_OBLIGATORIO.includes(prof?.rol)
+      if (rolEsAdmin) {
+        try {
+          const { data: factors } = await supabase.auth.mfa.listFactors()
+          const tieneTotp = factors?.totp?.some(f => f.status === 'verified')
+
+          if (!tieneTotp) {
+            // Admin sin MFA → forzar inscripción
+            setNeedsMFAEnroll(true)
+            setNeedsMFAChallenge(false)
+          } else {
+            // Tiene MFA pero puede estar en sesión AAL1 (sólo contraseña)
+            const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+            if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+              setNeedsMFAChallenge(true)
+              setNeedsMFAEnroll(false)
+            } else {
+              // AAL2 OK → limpiar flags
+              setNeedsMFAEnroll(false)
+              setNeedsMFAChallenge(false)
+            }
+          }
+        } catch {
+          // Si falla la consulta MFA no bloqueamos al usuario
+        }
+      } else {
+        setNeedsMFAEnroll(false)
+        setNeedsMFAChallenge(false)
+      }
 
       const esSuperAdmin = prof?.rol === 'superadmin'
 
@@ -109,6 +146,8 @@ export function AuthProvider({ children }) {
       session, profile, tenant, tenantsDisponibles, cambiarTenant,
       loading, signIn, signOut, isSuperAdmin, isAdmin,
       needsPasswordSetup, setNeedsPasswordSetup,
+      needsMFAEnroll, setNeedsMFAEnroll,
+      needsMFAChallenge, setNeedsMFAChallenge,
     }}>
       {children}
     </AuthContext.Provider>

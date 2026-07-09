@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import Login from './components/auth/Login'
 import SetPassword from './pages/SetPassword'
+import MFAGate from './components/auth/MFAGate'
+import StatusPage from './pages/StatusPage'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
 import Transacciones from './pages/Transacciones'
@@ -72,7 +74,7 @@ function PrivateRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { session, loading, needsPasswordSetup } = useAuth()
+  const { session, loading, needsPasswordSetup, needsMFAEnroll, needsMFAChallenge } = useAuth()
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -85,9 +87,15 @@ function AppRoutes() {
     return <SetPassword />
   }
 
+  // MFA enforcement: admin sin MFA inscrito o sin AAL2 en sesión
+  if (session && (needsMFAEnroll || needsMFAChallenge)) {
+    return <MFAGate />
+  }
+
   return (
     <Routes>
       <Route path="/set-password" element={<SetPassword />} />
+      <Route path="/status" element={<StatusPage />} />
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={
         <PrivateRoute>
