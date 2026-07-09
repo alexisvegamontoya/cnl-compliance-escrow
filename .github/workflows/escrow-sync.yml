@@ -1,0 +1,75 @@
+name: Software Escrow — Sincronización automática
+
+# Sincroniza el código fuente al repositorio escrow del cliente
+# Corre cada domingo a medianoche (CR = UTC-6)
+# También puede ejecutarse manualmente desde GitHub Actions
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'   # Domingo 00:00 hora Costa Rica (UTC-6 → 06:00 UTC)
+  workflow_dispatch:        # Ejecución manual desde GitHub UI
+    inputs:
+      reason:
+        description: 'Motivo de sincronización manual'
+        required: false
+        default: 'Sincronización bajo demanda'
+
+jobs:
+  sync-escrow:
+    name: Sincronizar a repositorio escrow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout código fuente CNL
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # Historia completa para el mirror
+
+      - name: Configurar identidad Git
+        run: |
+          git config --global user.email "escrow-bot@cnl-cr.com"
+          git config --global user.name  "CNL Escrow Bot"
+
+      - name: Preparar mirror limpio (sin secrets)
+        run: |
+          # Eliminar archivos que NO deben ir al escrow del cliente
+          rm -f .env .env.local .env.production
+          # Asegurar que .gitignore excluye secrets
+          echo ".env*" >> .gitignore
+          echo "node_modules/" >> .gitignore
+
+      - name: Push mirror al repositorio escrow del cliente
+        env:
+          ESCROW_REPO_URL: ${{ secrets.ESCROW_REPO_URL }}
+          ESCROW_TOKEN:    ${{ secrets.ESCROW_TOKEN }}
+        run: |
+          # Construir URL autenticada
+          AUTHENTICATED_URL=$(echo "$ESCROW_REPO_URL" | sed "s|https://|https://x-access-token:${ESCROW_TOKEN}@|")
+
+          # Push completo (mirror) al repo del cliente
+          git remote add escrow "$AUTHENTICATED_URL" || git remote set-url escrow "$AUTHENTICATED_URL"
+          git push escrow main --force
+
+          echo "✅ Escrow sincronizado: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "   Commit: $(git rev-parse --short HEAD)"
+          echo "   Mensaje: $(git log -1 --format='%s')"
+
+      - name: Generar registro de sincronización
+        if: always()
+        run: |
+          echo "## Sincronización Escrow" >> $GITHUB_STEP_SUMMARY
+          echo ""                          >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |"         >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|"         >> $GITHUB_STEP_SUMMARY
+          echo "| Fecha | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`$(git rev-parse --short HEAD)\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rama | main |"           >> $GITHUB_STEP_SUMMARY
+          echo "| Motivo | ${{ github.event.inputs.reason || 'Programado (semanal)' }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notificar resultado
+        if: failure()
+        run: |
+          echo "❌ ERROR: La sincronización del escrow falló."
+          echo "   Revise los logs y verifique que ESCROW_REPO_URL y ESCROW_TOKEN sean correctos."
+          exit 1
