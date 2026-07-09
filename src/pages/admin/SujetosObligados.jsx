@@ -393,4 +393,82 @@ export default function SujetosObligados() {
         {loading ? (
           <div className="py-12 text-center text-gray-400">Cargando…</div>
         ) : filtrados.length === 0 ? (
-          <div className="py-12 text-center tex
+          <div className="py-12 text-center text-gray-400">
+            <p className="text-4xl mb-2">🏢</p>
+            <p>No hay sujetos obligados registrados.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtrados.map(t => (
+              <div key={t.id}
+                className={`border rounded-xl p-4 flex items-center justify-between gap-4 ${t.activo ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  {/* Avatar / Logo */}
+                  <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-sm flex-shrink-0 overflow-hidden">
+                    {t.logo_url ? (
+                      <img src={t.logo_url} alt={t.nombre} className="w-full h-full object-contain p-0.5" />
+                    ) : (
+                      t.nombre[0]
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900 truncate">{t.nombre}</p>
+                      {!t.activo && <span className="badge-error">Inactivo</span>}
+                      {t.logo_url && <span className="text-xs text-gray-400" title="Logo configurado">🖼</span>}
+                    </div>
+                    <p className="text-sm text-gray-500">Cédula: {t.cedula_juridica}</p>
+                  </div>
+                </div>
+
+                <div className="hidden lg:flex items-center gap-6 text-sm text-gray-600 flex-shrink-0">
+                  <div className="text-center">
+                    <p className="font-medium text-gray-900">{t.actividad_apnfd}</p>
+                    <p className="text-xs text-gray-400">Actividad</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium text-gray-900">Tipo {t.tipo_sujeto}</p>
+                    <p className="text-xs text-gray-400">c/ {t.meses_periodo} meses</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium text-gray-900">{t.clase_dato} / {t.archivo}</p>
+                    <p className="text-xs text-gray-400">Clase / Archivo</p>
+                  </div>
+                  {t.monto_minimo_usd && (
+                    <div className="text-center">
+                      <p className="font-medium text-gray-900">USD {Number(t.monto_minimo_usd).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400">Monto mín.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => startEdit(t)}
+                    className="btn-secondary text-xs py-1.5 px-3">
+                    Editar
+                  </button>
+                  <button onClick={() => toggleActivo(t.id, t.activo)}
+                    className={`text-xs py-1.5 px-3 rounded-lg font-medium transition-colors ${
+                      t.activo
+                        ? 'text-amber-600 hover:bg-amber-50 border border-amber-200'
+                        : 'text-green-600 hover:bg-green-50 border border-green-200'
+                    }`}>
+                    {t.activo ? 'Desactivar' : 'Activar'}
+                  </button>
+                  <button
+                    onClick={() => eliminarConRespaldo(t)}
+                    disabled={saving}
+                    title="Genera respaldo Excel y elimina permanentemente"
+                    className="text-xs py-1.5 px-3 rounded-lg font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+                  >
+                    🗑 Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

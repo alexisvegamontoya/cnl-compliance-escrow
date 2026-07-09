@@ -586,4 +586,40 @@ export default function Usuarios() {
                       </>
                     ) : (
                       <p className="text-xs text-gray-400 px-14 py-3">
-                        El Super Admin tiene acceso global a todos los sujetos 
+                        El Super Admin tiene acceso global a todos los sujetos obligados.
+                      </p>
+                    )}
+
+                    {/* Zona peligrosa — solo superadmin, nunca sobre sí mismo */}
+                    {isSuperAdmin && !esYo && u.rol !== 'superadmin' && (
+                      <div className="mx-4 mb-3 mt-1 pt-3 border-t border-red-100 flex items-center justify-between">
+                        <p className="text-xs text-red-400">Zona peligrosa — acción irreversible</p>
+                        <button
+                          disabled={saving === u.id}
+                          onClick={() => eliminarUsuario(u)}
+                          className="text-xs text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                        >
+                          {saving === u.id ? '…' : '🗑 Eliminar usuario'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Info de roles */}
+      <div className="card bg-gray-50 border border-gray-200">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">📋 Roles disponibles</h4>
+        <div className="space-y-1 text-xs text-gray-600">
+          <p><strong>Operador:</strong> puede registrar y consultar transacciones, clientes y ROS del sujeto obligado.</p>
+          <p><strong>Administrador:</strong> operador + puede gestionar usuarios de su sujeto obligado y acceder a informes.</p>
+          <p><strong>Super Admin:</strong> acceso total a todos los sujetos obligados (solo CNL Craniley).</p>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -728,4 +728,25 @@ export default function Clientes() {
                                 <span className="flex-1">{label}</span>
                                 <span>{ok ? 'Ô£ô' : 'Ô£ù'}</span>
                               </div>
-                       
+                            )
+                          })}
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${c.fecha_ultima_calificacion ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                            <span>­ƒÄ»</span>
+                            <div className="flex-1">
+                              <p>├Ültima calificaci├│n</p>
+                              <p className="font-bold">{c.fecha_ultima_calificacion ? new Date(c.fecha_ultima_calificacion).toLocaleDateString('es-CR') : 'Sin calificar'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

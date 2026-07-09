@@ -716,4 +716,29 @@ export default function GestionClientes() {
       )}
       {vista === 'perfil' && clienteActual && (
         <PerfilCliente
-          cliente
+          cliente={clienteActual}
+          onEditar={handleEditar}
+          onVolver={() => setVista('lista')}
+        />
+      )}
+      {vista === 'form' && (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <button onClick={handleVolver} className="text-gray-400 hover:text-gray-700 text-sm">← Volver</button>
+            <h1 className="text-xl font-bold text-gray-900">
+              {modoForm === 'crear' ? 'Nuevo cliente' : `Editar: ${nombre_completo(clienteActual)}`}
+            </h1>
+          </div>
+          <div className="card">
+            <ClienteFormCompleto
+              clienteInicial={modoForm === 'editar' ? clienteActual : null}
+              onSave={handleSave}
+              onCancel={handleVolver}
+              onBuscarDuplicado={handleBuscarDuplicado}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
