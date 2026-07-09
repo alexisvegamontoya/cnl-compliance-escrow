@@ -53,6 +53,13 @@ function EnrollPanel({ onDone, onSignOut }) {
     setLoading(true)
     setError('')
     try {
+      // Limpiar factores no verificados previos para evitar conflicto
+      const { data: existing } = await supabase.auth.mfa.listFactors()
+      const pendientes = existing?.totp?.filter(f => f.status === 'unverified') || []
+      for (const f of pendientes) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id })
+      }
+
       const { data, error: err } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         issuer: 'CNL Compliance',
@@ -119,6 +126,11 @@ function EnrollPanel({ onDone, onSignOut }) {
             proteger su cuenta con una app autenticadora (Google Authenticator,
             Authy, Microsoft Authenticator, etc.).
           </div>
+          {error && (
+            <div className="bg-red-500/20 border border-red-400 text-red-200 rounded-lg p-3 text-sm">
+              {error}
+            </div>
+          )}
           <button
             onClick={startEnroll}
             disabled={loading}
