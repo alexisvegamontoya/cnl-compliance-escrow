@@ -8,6 +8,7 @@ import { logAudit } from '../lib/auditLog'
 import { alertaListasCliente } from '../lib/emailAlertas'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { clasificarError } from '../lib/errorHandler'
+import { imprimirFichaCliente } from '../utils/imprimirFicha'
 
 const TIPO_ID_LABEL = Object.fromEntries(TIPO_IDENTIFICACION.map(t => [t.codigo, t.descripcion]))
 
@@ -42,7 +43,7 @@ const EMPTY = {
 }
 
 export default function Clientes() {
-  const { tenant, isSuperAdmin } = useAuth()
+  const { tenant, profile, isSuperAdmin } = useAuth()
   const etiqueta = getEtiquetaCliente(tenant)
   const etiquetaSingular = getEtiquetaCliente(tenant, false)
   const [tenants, setTenants] = useState([])
@@ -146,6 +147,19 @@ export default function Clientes() {
       .order('periodo', { ascending: false })
       .limit(10)
     setTxnsCliente(data || [])
+  }
+
+  async function imprimirFicha(c) {
+    // Obtener personas vinculadas (representantes, socios, junta) para jurídicas
+    let personas = []
+    if (c.nombre_empresa || [2, 4].includes(Number(c.tipo_identificacion))) {
+      const { data } = await supabase
+        .from('clientes_personas_relacionadas')
+        .select('*')
+        .eq('cliente_id', c.id)
+      personas = data || []
+    }
+    imprimirFichaCliente({ cliente: c, personas, tenant, profile })
   }
 
   async function guardar(e) {
@@ -643,6 +657,12 @@ export default function Clientes() {
                       </button>
                       <button onClick={() => startEdit(c)}
                         className="btn-secondary text-xs py-1.5 px-3">Editar</button>
+                      <button
+                        onClick={() => imprimirFicha(c)}
+                        title="Imprimir ficha completa del cliente"
+                        className="text-xs py-1.5 px-3 rounded-lg font-medium text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors">
+                        🖨️ Ficha
+                      </button>
                       <button onClick={() => eliminar(c.id)}
                         className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
                     </div>
@@ -708,25 +728,4 @@ export default function Clientes() {
                                 <span className="flex-1">{label}</span>
                                 <span>{ok ? 'Ô£ô' : 'Ô£ù'}</span>
                               </div>
-                            )
-                          })}
-                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${c.fecha_ultima_calificacion ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                            <span>­ƒÄ»</span>
-                            <div className="flex-1">
-                              <p>├Ültima calificaci├│n</p>
-                              <p className="font-bold">{c.fecha_ultima_calificacion ? new Date(c.fecha_ultima_calificacion).toLocaleDateString('es-CR') : 'Sin calificar'}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+                       

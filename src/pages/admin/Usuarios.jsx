@@ -377,7 +377,22 @@ export default function Usuarios() {
     }
 
     const { data, error: err } = await query
-    if (!err) setUsuarios(data || [])
+    if (!err) {
+      let listaUsuarios = data || []
+      // Superadmin: enriquecer cada usuario con sus tenants asignados (para mostrar en fila)
+      if (isSuperAdmin) {
+        const { data: allMems } = await supabase
+          .from('user_tenant_memberships')
+          .select('user_id, rol, tenants(id, nombre)')
+        const memsByUser = {}
+        for (const m of allMems || []) {
+          if (!memsByUser[m.user_id]) memsByUser[m.user_id] = []
+          memsByUser[m.user_id].push({ id: m.tenants?.id, nombre: m.tenants?.nombre, rol: m.rol })
+        }
+        listaUsuarios = listaUsuarios.map(u => ({ ...u, _tenants: memsByUser[u.id] || [] }))
+      }
+      setUsuarios(listaUsuarios)
+    }
     setLoading(false)
   }, [tenant, isSuperAdmin])
 
@@ -515,6 +530,23 @@ export default function Usuarios() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                    {/* Tenants asignados — visible en vista superadmin */}
+                    {isSuperAdmin && u.rol !== 'superadmin' && u._tenants?.length > 0 && (
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {u._tenants.slice(0, 3).map(t => (
+                          <span key={t.id}
+                            className="px-1.5 py-0.5 rounded text-xs bg-brand-50 text-brand-700 border border-brand-100">
+                            {t.nombre}
+                          </span>
+                        ))}
+                        {u._tenants.length > 3 && (
+                          <span className="text-xs text-gray-400">+{u._tenants.length - 3} más</span>
+                        )}
+                      </div>
+                    )}
+                    {isSuperAdmin && u.rol !== 'superadmin' && (!u._tenants || u._tenants.length === 0) && (
+                      <p className="text-xs text-amber-500 mt-0.5">⚠ Sin sujeto obligado asignado</p>
+                    )}
                   </div>
 
                   {/* Acciones */}
@@ -554,40 +586,4 @@ export default function Usuarios() {
                       </>
                     ) : (
                       <p className="text-xs text-gray-400 px-14 py-3">
-                        El Super Admin tiene acceso global a todos los sujetos obligados.
-                      </p>
-                    )}
-
-                    {/* Zona peligrosa — solo superadmin, nunca sobre sí mismo */}
-                    {isSuperAdmin && !esYo && u.rol !== 'superadmin' && (
-                      <div className="mx-4 mb-3 mt-1 pt-3 border-t border-red-100 flex items-center justify-between">
-                        <p className="text-xs text-red-400">Zona peligrosa — acción irreversible</p>
-                        <button
-                          disabled={saving === u.id}
-                          onClick={() => eliminarUsuario(u)}
-                          className="text-xs text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg font-medium transition-colors"
-                        >
-                          {saving === u.id ? '…' : '🗑 Eliminar usuario'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
-      </div>
-
-      {/* Info de roles */}
-      <div className="card bg-gray-50 border border-gray-200">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">📋 Roles disponibles</h4>
-        <div className="space-y-1 text-xs text-gray-600">
-          <p><strong>Operador:</strong> puede registrar y consultar transacciones, clientes y ROS del sujeto obligado.</p>
-          <p><strong>Administrador:</strong> operador + puede gestionar usuarios de su sujeto obligado y acceder a informes.</p>
-          <p><strong>Super Admin:</strong> acceso total a todos los sujetos obligados (solo CNL Craniley).</p>
-        </div>
-      </div>
-    </div>
-  )
-}
+                        El Super Admin tiene acceso global a todos los sujetos 

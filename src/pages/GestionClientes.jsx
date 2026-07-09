@@ -10,6 +10,7 @@ import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
 import { exportarExcel } from '../lib/exportExcel'
+import { imprimirFichaCliente } from '../utils/imprimirFicha'
 
 const InformeClienteCompleto = lazy(() => import('../components/clientes/InformeClienteCompleto'))
 
@@ -317,6 +318,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
 // ─── Perfil del cliente ──────────────────────────────────────────────────────
 function PerfilCliente({ cliente, onEditar, onVolver }) {
   const navigate = useNavigate()
+  const { tenant, profile } = useAuth()
   const [tab, setTab] = useState('datos')
   const [personas, setPersonas] = useState([])
   const [histDD, setHistDD]     = useState([])
@@ -403,6 +405,21 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
               <button onClick={() => setMostrarInforme(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-700 text-white rounded-lg hover:bg-brand-800 transition-colors">
                 📄 Generar expediente
+              </button>
+              <button
+                onClick={() => {
+                  // Normalizar campos para imprimirFichaCliente
+                  const c = {
+                    ...cliente,
+                    numero_identificacion: cliente.numero_identificacion || cliente.cedula_juridica || '',
+                    nombre_empresa: cliente.tipo_persona === 'juridica'
+                      ? (cliente.nombre_empresa || cliente.nombre_cliente || '')
+                      : undefined,
+                  }
+                  imprimirFichaCliente({ cliente: c, personas, tenant, profile })
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                🖨️ Imprimir ficha
               </button>
               <button onClick={onEditar} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">
                 ✏ Editar
@@ -699,29 +716,4 @@ export default function GestionClientes() {
       )}
       {vista === 'perfil' && clienteActual && (
         <PerfilCliente
-          cliente={clienteActual}
-          onEditar={handleEditar}
-          onVolver={() => setVista('lista')}
-        />
-      )}
-      {vista === 'form' && (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={handleVolver} className="text-gray-400 hover:text-gray-700 text-sm">← Volver</button>
-            <h1 className="text-xl font-bold text-gray-900">
-              {modoForm === 'crear' ? 'Nuevo cliente' : `Editar: ${nombre_completo(clienteActual)}`}
-            </h1>
-          </div>
-          <div className="card">
-            <ClienteFormCompleto
-              clienteInicial={modoForm === 'editar' ? clienteActual : null}
-              onSave={handleSave}
-              onCancel={handleVolver}
-              onBuscarDuplicado={handleBuscarDuplicado}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+          cliente
