@@ -1,7 +1,7 @@
 /**
  * GET /api/admin-list-users
- * Retorna TODOS los user_profiles + sus membresías de tenant.
- * Usa SUPABASE_SERVICE_ROLE_KEY para bypassear RLS.
+ * Retorna TODOS los usuarios de Auth + sus perfiles + sus membresías.
+ * Usa SUPABASE_SERVICE_ROLE_KEY para bypasear RLS y leer auth.users.
  * Solo debe llamarse desde el frontend cuando isSuperAdmin === true.
  */
 
@@ -17,37 +17,40 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada.' })
   }
 
-  try {
-    // 1. Todos los perfiles
-    const profilesRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_profiles?select=*&order=created_at.asc`,
-      {
-        headers: {
-          'apikey': serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-        },
-      }
-    )
-    if (!profilesRes.ok) {
-      const err = await profilesRes.json().catch(() => ({}))
-      return res.status(500).json({ error: err.message || 'Error al leer user_profiles' })
-    }
-    const profiles = await profilesRes.json()
+  const headers = {
+    'apikey': serviceKey,
+    'Authorization': `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+  }
 
-    // 2. Todas las membresías con nombre del tenant
+  try {
+    // 1. Todos los usuarios de Auth (paginado, máx 1000)
+    const authRes = await fetch(
+      `${SUPABASE_URL}/auth/v1/admin/users?per_page=1000&page=1`,
+      { headers }
+    )
+    if (!authRes.ok) {
+      const err = await authRes.json().catch(() => ({}))
+      return res.status(500).json({ error: err.message || 'Error al leer auth.users' })
+    }
+    const authData = await authRes.json()
+    const authUsers = authData.users || []
+
+    // 2. Todos los perfiles (user_profiles)
+    const profilesRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?select=*`,
+      { headers }
+    )
+    const profiles = profilesRes.ok ? await profilesRes.json() : []
+    const profilesById = {}
+    for (const p of profiles) profilesById[p.id] = p
+
+    // 3. Todas las membresías con nombre del tenant
     const memsRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_tenant_memberships?select=user_id,rol,tenant_id,tenants(id,nombre)`,
-      {
-        headers: {
-          'apikey': serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-          'Accept': 'application/json',
-        },
-      }
+      `${SUPABASE_URL}/rest/v1/user_tenant_memberships?select=user_id,rol,tenants(id,nombre)`,
+      { headers }
     )
     const mems = memsRes.ok ? await memsRes.json() : []
-
-    // 3. Agrupar membresías por user_id
     const memsByUser = {}
     for (const m of mems) {
       if (!memsByUser[m.user_id]) memsByUser[m.user_id] = []
@@ -58,13 +61,26 @@ export default async function handler(req, res) {
       })
     }
 
-    // 4. Enriquecer perfiles
-    const result = profiles.map(p => ({
-      ...p,
-      _tenants: memsByUser[p.id] || [],
-    }))
+    // 4. Combinar: auth user + profile + membresías
+    const resultado = authUsers.map(au => {
+      const perfil = profilesById[au.id] || {}
+      return {
+        id:         au.id,
+        email:      au.email,
+        nombre:     perfil.nombre || au.user_metadata?.nombre || au.email,
+        rol:        perfil.rol || 'sin_perfil',
+        activo:     perfil.activo !== false,
+        created_at: au.created_at,
+        // campos extra del perfil si existen
+        ...perfil,
+        // membresías siempre desde la tabla
+        _tenants: memsByUser[au.id] || [],
+        // marcar si no tiene perfil creado
+        _sin_perfil: !profilesById[au.id],
+      }
+    })
 
-    return res.status(200).json({ usuarios: result })
+    return res.status(200).json({ usuarios: resultado })
 
   } catch (err) {
     console.error('[admin-list-users]', err)
