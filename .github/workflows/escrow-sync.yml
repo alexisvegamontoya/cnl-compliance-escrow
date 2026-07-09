@@ -4,7 +4,7 @@ name: Software Escrow — Sincronización automática
 # Corre cada domingo a medianoche (CR = UTC-6)
 # También puede ejecutarse manualmente desde GitHub Actions
 
-on:
+"on":
   schedule:
     - cron: '0 6 * * 0'   # Domingo 00:00 hora Costa Rica (UTC-6 → 06:00 UTC)
   workflow_dispatch:        # Ejecución manual desde GitHub UI
