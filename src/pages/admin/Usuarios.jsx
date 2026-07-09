@@ -360,39 +360,39 @@ export default function Usuarios() {
 
   const cargar = useCallback(async () => {
     setLoading(true)
-    const query = supabase
+
+    if (isSuperAdmin) {
+      // Superadmin: usar endpoint de servidor que bypasea RLS
+      try {
+        const res = await fetch('/api/admin-list-users')
+        const json = await res.json()
+        if (res.ok) {
+          setUsuarios(json.usuarios || [])
+        } else {
+          setError({ tipo: 'operativo', mensaje: json.error || 'Error al cargar usuarios' })
+        }
+      } catch (err) {
+        setError({ tipo: 'operativo', mensaje: 'Error de conexión: ' + err.message })
+      }
+      setLoading(false)
+      return
+    }
+
+    // Admin de tenant: solo usuarios de su tenant (vía membresías)
+    if (!tenant) { setLoading(false); return }
+    const { data: mems } = await supabase
+      .from('user_tenant_memberships')
+      .select('user_id')
+      .eq('tenant_id', tenant.id)
+    const ids = (mems || []).map(m => m.user_id)
+    if (!ids.length) { setUsuarios([]); setLoading(false); return }
+
+    const { data, error: err } = await supabase
       .from('user_profiles')
       .select('*')
+      .in('id', ids)
       .order('created_at', { ascending: true })
-
-    if (!isSuperAdmin && tenant) {
-      // Admin de tenant: solo usuarios de su tenant (vía membresías)
-      const { data: mems } = await supabase
-        .from('user_tenant_memberships')
-        .select('user_id')
-        .eq('tenant_id', tenant.id)
-      const ids = (mems || []).map(m => m.user_id)
-      if (ids.length > 0) query.in('id', ids)
-      else { setUsuarios([]); setLoading(false); return }
-    }
-
-    const { data, error: err } = await query
-    if (!err) {
-      let listaUsuarios = data || []
-      // Superadmin: enriquecer cada usuario con sus tenants asignados (para mostrar en fila)
-      if (isSuperAdmin) {
-        const { data: allMems } = await supabase
-          .from('user_tenant_memberships')
-          .select('user_id, rol, tenants(id, nombre)')
-        const memsByUser = {}
-        for (const m of allMems || []) {
-          if (!memsByUser[m.user_id]) memsByUser[m.user_id] = []
-          memsByUser[m.user_id].push({ id: m.tenants?.id, nombre: m.tenants?.nombre, rol: m.rol })
-        }
-        listaUsuarios = listaUsuarios.map(u => ({ ...u, _tenants: memsByUser[u.id] || [] }))
-      }
-      setUsuarios(listaUsuarios)
-    }
+    if (!err) setUsuarios(data || [])
     setLoading(false)
   }, [tenant, isSuperAdmin])
 
