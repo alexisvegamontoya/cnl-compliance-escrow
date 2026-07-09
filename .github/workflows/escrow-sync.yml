@@ -24,7 +24,8 @@ jobs:
       - name: Checkout código fuente CNL
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0    # Historia completa para el mirror
+          fetch-depth: 0              # Historia completa para el mirror
+          persist-credentials: false  # No usar GITHUB_TOKEN como credencial global
 
       - name: Configurar identidad Git
         run: |
