@@ -48,9 +48,9 @@ jobs:
           # Eliminar credenciales automáticas de GitHub Actions (evita 403 por github-actions[bot])
           git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true
 
-          # Push directo con token embebido en URL (más confiable que via remote)
+          # Push con PAT clásico: formato correcto es usuario:token (no x-access-token)
           REPO_PATH="${ESCROW_REPO_URL#https://github.com/}"
-          git push "https://x-access-token:${ESCROW_TOKEN}@github.com/${REPO_PATH}" HEAD:main --force
+          git push "https://alexisvegamontoya:${ESCROW_TOKEN}@github.com/${REPO_PATH}" HEAD:main --force
 
           echo "✅ Escrow sincronizado: $(date -u '+%Y-%m-%d %H:%M UTC')"
           echo "   Commit: $(git rev-parse --short HEAD)"
