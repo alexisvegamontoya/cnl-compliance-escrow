@@ -142,8 +142,9 @@ function EnrollPanel({ onDone, onSignOut }) {
           </p>
           <div className="flex justify-center">
             <div className="bg-white p-3 rounded-xl">
-              <div
-                dangerouslySetInnerHTML={{ __html: enrollData.totp.qr_code }}
+              <img
+                src={enrollData.totp.qr_code}
+                alt="Código QR para autenticador 2FA"
                 className="w-44 h-44"
               />
             </div>
