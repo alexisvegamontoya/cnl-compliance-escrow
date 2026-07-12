@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
+import { evaluarSeñalesAPNFD, etiquetaActividad } from '../../lib/señalesAlertaAPNFD'
 
 // Países de alto riesgo según GAFI (lista negra y gris prioritaria)
 const PAISES_ALTO_RIESGO = [
@@ -170,6 +171,10 @@ export default function AlertasAnomalias({ periodo, onCount }) {
         })
       })
 
+    // ─── 7. Señales específicas por actividad APNFD ───────────────────────
+    const señalesAPNFD = evaluarSeñalesAPNFD(txns, [], tenant)
+    for (const s of señalesAPNFD) lista.push({ ...s, ref: 'apnfd' })
+
     setAlertas(lista)
     onCount?.(lista.length)
     setLoading(false)
@@ -289,10 +294,14 @@ export default function AlertasAnomalias({ periodo, onCount }) {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-gray-400">
-        Las alertas se generan automáticamente según los criterios de la Ley 7786 y las guías GAFI.
-        Documente en su expediente las acciones tomadas ante cada alerta.
-      </p>
+      <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
+        <p>Alertas generadas según Ley 7786, Acuerdo SUGEF 13-19 y guías GAFI para {etiquetaActividad(tenant)}.</p>
+        {alertas.some(a => a.ref === 'apnfd') && (
+          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded text-xs font-medium">
+            🎯 Incluye señales APNFD específicas
+          </span>
+        )}
+      </div>
     </div>
   )
 }

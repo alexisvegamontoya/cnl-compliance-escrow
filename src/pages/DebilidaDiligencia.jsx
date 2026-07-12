@@ -615,10 +615,11 @@ export default function DebilidaDiligencia() {
         const hayRevisar = Object.values(resultadosListas).some(r => r.nivel === 'REVISAR')
         const hayPEPResult = Object.values(resultadosListas).some(r => r.esPEP)
         await supabase.from('clientes').update({
-          estado_dd:         'completado',
-          pep:               hayPEPResult,
-          aparece_en_listas: hayAlerta,
-          estado_listas:     hayAlerta ? 'alerta' : hayRevisar ? 'revisar' : 'verificado',
+          estado_dd:              'completado',
+          pep:                    hayPEPResult,
+          aparece_en_listas:      hayAlerta,
+          estado_listas:          hayAlerta ? 'alerta' : hayRevisar ? 'revisar' : 'verificado',
+          fecha_debida_diligencia: new Date().toISOString().substring(0, 10),
         }).eq('id', clienteSelId)
       }
 

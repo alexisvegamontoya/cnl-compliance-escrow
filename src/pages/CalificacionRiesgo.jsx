@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+import PanelPeriodicidad from '../components/informes/PanelPeriodicidad'
 import {
   CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
@@ -611,6 +612,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
 export default function CalificacionRiesgo() {
   const { tenant, profile, isSuperAdmin } = useAuth()
   const isONG = Number(tenant?.clase_dato) === 42
+  const [penalizacionInformes, setPenalizacionInformes] = useState(0)
 
   const [clientes, setClientes] = useState([])
   const [tenants, setTenants] = useState([])
@@ -850,6 +852,7 @@ export default function CalificacionRiesgo() {
         nivel_riesgo_actual:       calificacionFinal,
         estado_calificacion:       'completado',
         fecha_ultima_calificacion: hoy,
+        fecha_calificacion_riesgo: hoy,
       }).eq('id', clienteId)
       // Si falla (columnas no existen) lo ignoramos — la columna base ya quedó guardada
 
@@ -885,6 +888,20 @@ export default function CalificacionRiesgo() {
           ))}
         </div>
       </div>
+
+      {/* Panel de periodicidad — informes vencidos penalizan la calificación global */}
+      {tenant?.id && (
+        <PanelPeriodicidad
+          tenantId={tenant.id}
+          onPenalizacion={setPenalizacionInformes}
+        />
+      )}
+      {penalizacionInformes > 0 && (
+        <div className="px-4 py-3 bg-red-50 border border-red-300 rounded-xl text-sm text-red-800 space-y-1">
+          <p className="font-bold">⚠️ Penalización por informes vencidos: -{penalizacionInformes} puntos sobre la calificación global de cumplimiento</p>
+          <p className="text-xs text-red-600">El nivel de cumplimiento del sujeto obligado se ve afectado mientras existan informes SUGEF 13-19 sin generar. Vaya a <strong>Informes de Cumplimiento</strong> para regularizarlos.</p>
+        </div>
+      )}
 
       {/* ======= DASHBOARD ======= */}
       {tab === 'dashboard' && (

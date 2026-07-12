@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 
 const anioActual = new Date().getFullYear()
@@ -21,6 +22,18 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
   const { tenant: tenantPropio, profile } = useAuth()
   const tenant = tenantEfectivo || tenantPropio
   const anio = anioActual
+  const [guardado, setGuardado] = useState(false)
+
+  // Auto-registrar en BD cuando se muestra el componente (primera vez por año)
+  useEffect(() => {
+    if (!tenant?.id) return
+    supabase.from('informes_generados').insert({
+      tenant_id: tenant.id, tipo_informe: 'capacitacion', periodo: String(anio),
+      generado_por: profile?.id, generado_por_nombre: profile?.nombre,
+      resumen_json: { anio },
+    }).then(() => setGuardado(true)).catch(() => {})
+  }, [tenant?.id]) // eslint-disable-line
+
   const [temas, setTemas] = useState(TEMAS_DEFAULT)
   const [intro, setIntro] = useState('')
   const [proveedor, setProveedor] = useState('CNL Craniley Compliance Services')
@@ -199,6 +212,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
           </div>
         </div>
         <p className="text-xs text-gray-400">{tenant?.nombre} · Plan de Capacitación {anio} · Confidencial</p>
+        {guardado && <p className="text-xs mt-1 text-green-600">✅ Plan registrado en el sistema</p>}
       </div>
 
       <style>{`

@@ -357,9 +357,11 @@ export default function ConsultaPEP() {
   }, [isSuperAdmin])
 
   // ── Selector de cliente desde BD ─────────────────────────────────────────────
-  const [clientesDB, setClientesDB]     = useState([])
-  const [clienteSelId, setClienteSelId] = useState('')
-  const [savedToDb, setSavedToDb]       = useState(false)
+  const [clientesDB, setClientesDB]         = useState([])
+  const [clienteSelId, setClienteSelId]     = useState('')
+  const [savedToDb, setSavedToDb]           = useState(false)
+  const [personasRelacionadas, setPersonasRelacionadas] = useState([])
+  const [personaSelIdx, setPersonaSelIdx]   = useState(null)
 
   useEffect(() => {
     if (!tenantEfectivoId) { setClientesDB([]); return }
@@ -370,9 +372,11 @@ export default function ConsultaPEP() {
       .then(({ data }) => setClientesDB(data || []))
   }, [tenantEfectivoId])
 
-  const seleccionarClienteDB = (id) => {
+  const seleccionarClienteDB = async (id) => {
     setClienteSelId(id)
     setSavedToDb(false)
+    setPersonasRelacionadas([])
+    setPersonaSelIdx(null)
     const c = clientesDB.find(x => x.id === id)
     if (!c) { setNombre(''); setIdentif(''); setPais(''); return }
     const tipoId = Number(c.tipo_identificacion)
@@ -385,6 +389,26 @@ export default function ConsultaPEP() {
     setNombre(nombreCompleto)
     setIdentif(cedula)
     setPais(paisCliente === 'Costa Rica' ? '' : paisCliente)
+    // Personas jurídicas: cargar socios, junta directiva, representantes
+    if (!esFisica) {
+      const { data: personas } = await supabase
+        .from('clientes_personas_relacionadas')
+        .select('*')
+        .eq('cliente_id', id)
+        .eq('activo', true)
+        .order('orden')
+      setPersonasRelacionadas(personas || [])
+    }
+  }
+
+  const consultarPersonaRelacionada = (idx) => {
+    const p = personasRelacionadas[idx]
+    if (!p) return
+    setPersonaSelIdx(idx)
+    setNombre(p.nombre || '')
+    setIdentif(p.identificacion || '')
+    setPais('')
+    setResultados(null)
   }
 
   const buscar = async (e) => {
@@ -436,9 +460,10 @@ export default function ConsultaPEP() {
       const hayAlerta     = coincidencias.some(r => (r.similitud || 0) >= 0.85)
       const hayPEP        = coincidencias.some(r => r.fuente === 'ICD_CR_PEP' || r.tipo_lista === 'pep')
       await supabase.from('clientes').update({
-        estado_listas:    hayAlerta ? 'alerta' : coincidencias.length > 0 ? 'revisar' : 'verificado',
-        aparece_en_listas: hayAlerta,
-        pep:              hayPEP,
+        estado_listas:         hayAlerta ? 'alerta' : coincidencias.length > 0 ? 'revisar' : 'verificado',
+        aparece_en_listas:     hayAlerta,
+        pep:                   hayPEP,
+        fecha_consulta_listas: new Date().toISOString().substring(0, 10),
       }).eq('id', clienteSelId)
       setSavedToDb(true)
     }
@@ -529,7 +554,44 @@ export default function ConsultaPEP() {
             {clienteSelId && <span className="text-xs text-brand-600 font-medium whitespace-nowrap">✅ Datos cargados</span>}
           </div>
           {savedToDb && (
-            <p className="text-xs text-green-600 font-medium">✅ Resultado guardado en ficha del cliente (PEP, listas, estado)</p>
+            <p className="text-xs text-green-600 font-medium">✅ Resultado guardado en ficha del cliente (PEP, listas, estado, fecha)</p>
+          )}
+        </div>
+      )}
+
+      {/* Panel personas relacionadas — solo para personas jurídicas */}
+      {personasRelacionadas.length > 0 && (
+        <div className="card border-l-4 border-amber-400 bg-amber-50 space-y-3">
+          <div>
+            <p className="text-sm font-bold text-amber-800">🏢 Persona Jurídica — Personas Vinculadas ({personasRelacionadas.length})</p>
+            <p className="text-xs text-amber-700">SUGEF 11-18 requiere consultar en listas a todos los socios, representantes y miembros de junta directiva. Seleccione cada persona para consultarla.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {personasRelacionadas.map((p, idx) => {
+              const etiquetaTipo = { socio: 'Socio/Accionista', representante_legal: 'Representante Legal', junta_directiva: 'Junta Directiva', apoderado: 'Apoderado', beneficiario_final: 'Beneficiario Final', otro: 'Otro' }
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => consultarPersonaRelacionada(idx)}
+                  className={`flex items-start gap-3 rounded-lg border px-3 py-2 text-left transition-all ${personaSelIdx === idx ? 'border-amber-500 bg-amber-100 ring-1 ring-amber-400' : 'border-amber-200 bg-white hover:border-amber-400'}`}
+                >
+                  <span className="text-lg mt-0.5">👤</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-800 truncate">{p.nombre}</p>
+                    <p className="text-xs text-gray-500">{etiquetaTipo[p.tipo_relacion] || p.tipo_relacion}</p>
+                    {p.identificacion && <p className="text-xs text-gray-400">{p.identificacion}</p>}
+                    {p.porcentaje_participacion && <p className="text-xs text-amber-600">Participación: {p.porcentaje_participacion}%</p>}
+                  </div>
+                  <span className="ml-auto text-xs text-amber-600 font-medium shrink-0">Consultar →</span>
+                </button>
+              )
+            })}
+          </div>
+          {personaSelIdx !== null && (
+            <p className="text-xs text-amber-800 font-medium bg-amber-100 rounded-lg px-3 py-2">
+              ✍️ Consultando a: <strong>{personasRelacionadas[personaSelIdx]?.nombre}</strong> ({({ socio: 'Socio', representante_legal: 'Rep. Legal', junta_directiva: 'Junta Directiva', apoderado: 'Apoderado', beneficiario_final: 'Benef. Final' })[personasRelacionadas[personaSelIdx]?.tipo_relacion] || personasRelacionadas[personaSelIdx]?.tipo_relacion}) — El formulario ya tiene los datos precargados. Presione "Consultar en listas".
+            </p>
           )}
         </div>
       )}

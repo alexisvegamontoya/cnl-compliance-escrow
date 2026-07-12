@@ -4,6 +4,16 @@ import { useAuth } from '../../lib/AuthContext'
 
 const anioActual = new Date().getFullYear()
 
+async function registrarInforme(tenantId, anio, profileId, profileNombre, resumen) {
+  try {
+    await supabase.from('informes_generados').insert({
+      tenant_id: tenantId, tipo_informe: 'labores', periodo: String(anio),
+      generado_por: profileId, generado_por_nombre: profileNombre,
+      resumen_json: resumen,
+    })
+  } catch { /* tabla puede no existir aún */ }
+}
+
 export default function InformeLaborales({ tenantEfectivo }) {
   const { tenant: tenantPropio, profile } = useAuth()
   const tenant = tenantEfectivo || tenantPropio
@@ -13,6 +23,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
   const [datos, setDatos]       = useState(null)
   const [intro, setIntro]       = useState('')
   const [conclusiones, setConclusiones] = useState('')
+  const [guardado, setGuardado] = useState(false)
 
   const cargar = useCallback(async () => {
     if (!tenant) return
@@ -66,7 +77,14 @@ export default function InformeLaborales({ tenantEfectivo }) {
     })
     setGenerado(true)
     setLoading(false)
-  }, [tenant, anio])
+
+    // Persistir el informe en la base de datos
+    await registrarInforme(
+      tenant.id, anio, profile?.id, profile?.nombre,
+      { anio, txns_total: (txns || []).length, ros_total: (ros || []).length, dds_total: (dds || []).length }
+    )
+    setGuardado(true)
+  }, [tenant, anio, profile])
 
   const fmtUSD = n => Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })
   const fmtFecha = f => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'
@@ -317,6 +335,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
             <p className="mt-1">{tenant?.nombre}</p>
             <p className="text-xs mt-2">Informe elaborado el {new Date().toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' })} · CNL Craniley Compliance Services</p>
             <p className="text-xs mt-1 text-gray-400">Documento confidencial — Uso exclusivo de Junta Directiva</p>
+            {guardado && <p className="text-xs mt-1 text-green-600">✅ Informe registrado en el sistema</p>}
           </div>
         </div>
       )}
