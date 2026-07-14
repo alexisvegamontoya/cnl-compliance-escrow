@@ -441,7 +441,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
   const criteriosCan  = CRITERIOS_CANALES[tipoPersona]  || []
 
   return (
-    <div id="reporte-cal" style={{ display: 'none', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#111', maxWidth: '780px', margin: '0 auto' }}>
+    <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#111', maxWidth: '780px', margin: '0 auto' }}>
       {/* Encabezado */}
       <div style={{ borderBottom: '3px solid #0e0e6e', paddingBottom: '10px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
@@ -1206,14 +1206,15 @@ export default function CalificacionRiesgo() {
       {/* ── Print CSS + reporte imprimible ──────────────────────────────── */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
+          body * { visibility: hidden !important; }
           #reporte-cal {
-            display: block !important;
-            position: static !important;
             visibility: visible !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             width: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 28px 32px !important;
           }
           #reporte-cal * { visibility: visible !important; }
           @page { margin: 15mm; size: A4 portrait; }
