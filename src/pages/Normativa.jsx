@@ -72,7 +72,7 @@ export default function Normativa() {
 
   async function guardar(e) {
     e.preventDefault()
-    if (!archivo) { setError('Debe seleccionar un archivo PDF.'); return }
+    if (!archivo) { setError('Debe seleccionar un archivo.'); return }
     setSaving(true)
     setError('')
     try {
@@ -199,15 +199,15 @@ export default function Normativa() {
           )}
 
           <div className="col-span-2">
-              <label className="label">Archivo PDF *</label>
+              <label className="label">Archivo (PDF, Word o Excel) *</label>
               <input
                 ref={fileRef}
                 type="file"
-                accept=".pdf,.doc,.docx"
+                accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer"
                 onChange={e => setArchivo(e.target.files[0] || null)}
               />
-              <p className="text-xs text-gray-400 mt-1">Formatos aceptados: PDF, DOC, DOCX. Máximo 10 MB.</p>
+              <p className="text-xs text-gray-400 mt-1">Formatos aceptados: PDF, DOC, DOCX, XLSX, XLS, CSV. Máximo 10 MB.</p>
             </div>
           </div>
 
