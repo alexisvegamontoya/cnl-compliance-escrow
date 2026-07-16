@@ -24,6 +24,7 @@ import AuditLog from './pages/admin/AuditLog'
 import ConsultaPEP from './pages/ConsultaPEP'
 import DebilidaDiligencia from './pages/DebilidaDiligencia'
 import ModuloIA from './pages/ModuloIA'
+import CambiarClaveObligatoria from './pages/CambiarClaveObligatoria'
 
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -74,7 +75,7 @@ function PrivateRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { session, loading, needsPasswordSetup, needsMFAEnroll, needsMFAChallenge } = useAuth()
+  const { session, loading, needsPasswordSetup, mustChangePassword, setMustChangePassword, needsMFAEnroll, needsMFAChallenge } = useAuth()
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -85,6 +86,11 @@ function AppRoutes() {
   // Si viene de un link de invitación, mostrar página de configurar contraseña
   if (needsPasswordSetup && session) {
     return <SetPassword />
+  }
+
+  // Usuario con contraseña provisional — forzar cambio antes de continuar
+  if (mustChangePassword && session) {
+    return <CambiarClaveObligatoria onCambiada={() => setMustChangePassword(false)} />
   }
 
   // MFA enforcement: admin sin MFA inscrito o sin AAL2 en sesión

@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   const [tenantsDisponibles, setTenants] = useState([])
   const [loading, setLoading]            = useState(true)
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
+  const [mustChangePassword, setMustChangePassword] = useState(false)
   // MFA enforcement para roles admin
   const [needsMFAEnroll, setNeedsMFAEnroll]       = useState(false) // sin MFA inscrito
   const [needsMFAChallenge, setNeedsMFAChallenge] = useState(false) // inscrito pero sesión AAL1
@@ -53,6 +54,14 @@ export function AuthProvider({ children }) {
       ])
 
       setProfile(prof)
+
+      // ── Contraseña provisional: forzar cambio ─────────────────────────
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser?.user_metadata?.must_change_password === true) {
+        setMustChangePassword(true)
+      } else {
+        setMustChangePassword(false)
+      }
 
       // ── MFA enforcement para roles admin ──────────────────────────────
       const rolEsAdmin = ROLES_MFA_OBLIGATORIO.includes(prof?.rol)
@@ -146,6 +155,7 @@ export function AuthProvider({ children }) {
       session, profile, tenant, tenantsDisponibles, cambiarTenant,
       loading, signIn, signOut, isSuperAdmin, isAdmin,
       needsPasswordSetup, setNeedsPasswordSetup,
+      mustChangePassword, setMustChangePassword,
       needsMFAEnroll, setNeedsMFAEnroll,
       needsMFAChallenge, setNeedsMFAChallenge,
     }}>

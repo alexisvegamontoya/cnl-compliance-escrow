@@ -13,12 +13,15 @@ const ROL_TENANT_LABEL = {
 // Formulario para crear nuevo usuario (solo superadmin)
 // ──────────────────────────────────────────────────────────────
 function FormCrearUsuario({ tenants, onCreado, onCancel }) {
-  const [email, setEmail]   = useState('')
-  const [nombre, setNombre] = useState('')
-  const [sel, setSel]       = useState({}) // { tenant_id: rol }
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState(null)
-  const [ok, setOk]         = useState('')
+  const [email, setEmail]       = useState('')
+  const [nombre, setNombre]     = useState('')
+  const [password, setPassword] = useState('')
+  const [passVer, setPassVer]   = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [sel, setSel]           = useState({}) // { tenant_id: rol }
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState(null)
+  const [ok, setOk]             = useState('')
 
   function toggleTenant(tid) {
     setSel(prev => {
@@ -46,6 +49,14 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
       setError({ tipo: 'operativo', mensaje: 'El correo y el nombre son requeridos.' })
       return
     }
+    if (!password || password.length < 6) {
+      setError({ tipo: 'operativo', mensaje: 'La contraseña provisional debe tener al menos 6 caracteres.' })
+      return
+    }
+    if (password !== passVer) {
+      setError({ tipo: 'operativo', mensaje: 'Las contraseñas no coinciden.' })
+      return
+    }
     if (tenantsSeleccionados.length === 0) {
       setError({ tipo: 'operativo', mensaje: 'Seleccione al menos un sujeto obligado.' })
       return
@@ -54,9 +65,10 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
     setSaving(true)
     try {
       const payload = {
-        email: email.trim(),
-        nombre: nombre.trim(),
-        tenants: tenantsSeleccionados.map(tid => ({ tenant_id: tid, rol: sel[tid] })),
+        email:    email.trim(),
+        nombre:   nombre.trim(),
+        password: password,
+        tenants:  tenantsSeleccionados.map(tid => ({ tenant_id: tid, rol: sel[tid] })),
       }
 
       const res = await fetch('/api/admin-invite-user', {
@@ -82,6 +94,8 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
       setOk(json.message)
       setEmail('')
       setNombre('')
+      setPassword('')
+      setPassVer('')
       setSel({})
       onCreado?.()
     } catch (err) {
@@ -122,7 +136,39 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
             required
           />
         </div>
+        <div>
+          <label className="label">Contraseña provisional *</label>
+          <div className="relative">
+            <input
+              type={showPass ? 'text' : 'password'}
+              className="input-field pr-10"
+              placeholder="Mínimo 6 caracteres"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+            <button type="button" tabIndex={-1}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+              onClick={() => setShowPass(s => !s)}>
+              {showPass ? '🙈' : '👁'}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="label">Confirmar contraseña *</label>
+          <input
+            type={showPass ? 'text' : 'password'}
+            className="input-field"
+            placeholder="Repetir contraseña"
+            value={passVer}
+            onChange={e => setPassVer(e.target.value)}
+            required
+          />
+        </div>
       </div>
+      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        ⚠ El sistema solicitará al usuario cambiar esta contraseña al primer ingreso. Comparta las credenciales de forma segura.
+      </p>
 
       {/* Sujetos obligados */}
       <div>
@@ -192,7 +238,7 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
           className="btn-primary text-sm"
           disabled={saving}
         >
-          {saving ? 'Enviando invitación…' : '✉️ Enviar invitación'}
+          {saving ? 'Creando usuario…' : '👤 Crear usuario'}
         </button>
       </div>
     </form>

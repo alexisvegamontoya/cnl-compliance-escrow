@@ -1,21 +1,20 @@
 /**
  * POST /api/admin-invite-user
  *
- * Crea un nuevo usuario en Supabase Auth (invitación por correo)
+ * Crea un nuevo usuario en Supabase Auth con contraseña provisional
  * y registra sus membresías a uno o varios sujetos obligados.
+ * El usuario deberá cambiar su contraseña al primer ingreso.
  *
  * Requiere en Vercel → Settings → Environment Variables:
- *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
  *
  * Body:
- *   { email, nombre, tenants: [{ tenant_id, rol }] }
+ *   { email, nombre, password, tenants: [{ tenant_id, rol }] }
  */
 
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL      = process.env.SUPABASE_URL      || 'https://akczzwsfggzcfqyytyho.supabase.co'
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || ''
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://akczzwsfggzcfqyytyho.supabase.co'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,38 +26,43 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada.' })
   }
 
-  const { email, nombre, tenants } = req.body || {}
+  const { email, nombre, password, tenants } = req.body || {}
 
-  if (!email || !nombre || !Array.isArray(tenants) || tenants.length === 0) {
-    return res.status(400).json({
-      error: 'Se requieren email, nombre y al menos un sujeto obligado.'
-    })
+  if (!email || !nombre || !password) {
+    return res.status(400).json({ error: 'Se requieren email, nombre y contraseña provisional.' })
+  }
+  if (!Array.isArray(tenants) || tenants.length === 0) {
+    return res.status(400).json({ error: 'Seleccione al menos un sujeto obligado.' })
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'La contraseña provisional debe tener al menos 6 caracteres.' })
   }
 
-  // Cliente admin con service_role (solo server-side)
   const supabaseAdmin = createClient(SUPABASE_URL, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   })
 
   try {
-    // 1. Invitar al usuario vía SDK oficial
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email.trim(),
-      {
-        data:        { nombre: nombre.trim() },
-        redirectTo:  'https://cnl-compliance-app.vercel.app',
-      }
-    )
+    // 1. Crear usuario con contraseña provisional y flag de cambio obligatorio
+    const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email:          email.trim(),
+      password:       password,
+      email_confirm:  true,           // confirmar email automáticamente
+      user_metadata:  {
+        nombre:               nombre.trim(),
+        must_change_password: true,   // flag para forzar cambio al primer login
+      },
+    })
 
-    if (inviteError) {
-      const msg = inviteError.message || JSON.stringify(inviteError)
+    if (createError) {
+      const msg = createError.message || JSON.stringify(createError)
       if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('registered')) {
         return res.status(409).json({ error: 'Ya existe un usuario con ese correo electrónico.' })
       }
-      return res.status(400).json({ error: `Error al invitar: ${msg}` })
+      return res.status(400).json({ error: `Error al crear usuario: ${msg}` })
     }
 
-    const userId = inviteData?.user?.id
+    const userId = created?.user?.id
     if (!userId) {
       return res.status(500).json({ error: 'No se pudo obtener el ID del usuario creado.' })
     }
@@ -72,11 +76,10 @@ export default async function handler(req, res) {
         nombre: nombre.trim(),
         rol:    'operador',
         activo: true,
-      }, { onConflict: 'id', ignoreDuplicates: false })
+      }, { onConflict: 'id' })
 
     if (profError) {
       console.error('[admin-invite-user] user_profiles error:', profError)
-      // No bloqueamos — continuamos con membresías
     }
 
     // 3. Insertar membresías
@@ -89,7 +92,7 @@ export default async function handler(req, res) {
 
     const { error: memError } = await supabaseAdmin
       .from('user_tenant_memberships')
-      .upsert(memberships, { onConflict: 'user_id,tenant_id', ignoreDuplicates: false })
+      .upsert(memberships, { onConflict: 'user_id,tenant_id' })
 
     if (memError) {
       console.error('[admin-invite-user] memberships error:', memError)
@@ -101,7 +104,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok:      true,
       userId,
-      message: `Invitación enviada a ${email}. El usuario recibirá un correo para establecer su contraseña.`
+      message: `Usuario ${email} creado correctamente. Puede ingresar con la contraseña provisional asignada.`
     })
 
   } catch (err) {
