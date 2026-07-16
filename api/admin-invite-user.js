@@ -51,7 +51,7 @@ export default async function handler(req, res) {
 
   try {
     // 1. Invitar al usuario vía Supabase Auth Admin API
-    const inviteRes = await sbFetch('/auth/v1/invite', serviceKey, 'POST', {
+    const inviteRes = await sbFetch('/auth/v1/admin/invite', serviceKey, 'POST', {
       email:       email.trim(),
       data:        { nombre: nombre.trim() },
       redirect_to: 'https://cnl-compliance-app.vercel.app',
