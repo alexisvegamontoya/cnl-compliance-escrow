@@ -5,31 +5,17 @@
  * y registra sus membresías a uno o varios sujetos obligados.
  *
  * Requiere en Vercel → Settings → Environment Variables:
+ *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
  *
  * Body:
  *   { email, nombre, tenants: [{ tenant_id, rol }] }
  */
 
-const SUPABASE_URL = 'https://akczzwsfggzcfqyytyho.supabase.co'
+import { createClient } from '@supabase/supabase-js'
 
-async function sbFetch(path, serviceKey, method = 'GET', body = null) {
-  const opts = {
-    method,
-    headers: {
-      'apikey':        serviceKey,
-      'Authorization': `Bearer ${serviceKey}`,
-      'Content-Type':  'application/json',
-      'Prefer':        'return=representation',
-    },
-  }
-  if (body) opts.body = JSON.stringify(body)
-  const res = await fetch(`${SUPABASE_URL}${path}`, opts)
-  const text = await res.text()
-  let data = null
-  try { data = JSON.parse(text) } catch (_) { data = text }
-  return { ok: res.ok, status: res.status, data }
-}
+const SUPABASE_URL      = process.env.SUPABASE_URL      || 'https://akczzwsfggzcfqyytyho.supabase.co'
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || ''
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -49,38 +35,47 @@ export default async function handler(req, res) {
     })
   }
 
-  try {
-    // 1. Invitar al usuario vía Supabase Auth Admin API
-    const inviteRes = await sbFetch('/auth/v1/admin/invite', serviceKey, 'POST', {
-      email:       email.trim(),
-      data:        { nombre: nombre.trim() },
-      redirect_to: 'https://cnl-compliance-app.vercel.app',
-    })
+  // Cliente admin con service_role (solo server-side)
+  const supabaseAdmin = createClient(SUPABASE_URL, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
 
-    if (!inviteRes.ok) {
-      const msg = inviteRes.data?.msg || inviteRes.data?.message || JSON.stringify(inviteRes.data)
-      if (msg?.toLowerCase().includes('already')) {
+  try {
+    // 1. Invitar al usuario vía SDK oficial
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      email.trim(),
+      {
+        data:        { nombre: nombre.trim() },
+        redirectTo:  'https://cnl-compliance-app.vercel.app',
+      }
+    )
+
+    if (inviteError) {
+      const msg = inviteError.message || JSON.stringify(inviteError)
+      if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('registered')) {
         return res.status(409).json({ error: 'Ya existe un usuario con ese correo electrónico.' })
       }
       return res.status(400).json({ error: `Error al invitar: ${msg}` })
     }
 
-    const userId = inviteRes.data?.id
+    const userId = inviteData?.user?.id
     if (!userId) {
       return res.status(500).json({ error: 'No se pudo obtener el ID del usuario creado.' })
     }
 
     // 2. Crear perfil en user_profiles
-    const profRes = await sbFetch('/rest/v1/user_profiles', serviceKey, 'POST', {
-      id:     userId,
-      email:  email.toLowerCase().trim(),
-      nombre: nombre.trim(),
-      rol:    'operador',
-      activo: true,
-    })
-    // Ignorar error 409 (ya existe el perfil)
-    if (!profRes.ok && profRes.status !== 409) {
-      console.error('[admin-invite-user] user_profiles error:', profRes.data)
+    const { error: profError } = await supabaseAdmin
+      .from('user_profiles')
+      .upsert({
+        id:     userId,
+        email:  email.toLowerCase().trim(),
+        nombre: nombre.trim(),
+        rol:    'operador',
+        activo: true,
+      }, { onConflict: 'id', ignoreDuplicates: false })
+
+    if (profError) {
+      console.error('[admin-invite-user] user_profiles error:', profError)
       // No bloqueamos — continuamos con membresías
     }
 
@@ -92,16 +87,14 @@ export default async function handler(req, res) {
       activo:    true,
     }))
 
-    const memRes = await sbFetch(
-      '/rest/v1/user_tenant_memberships?on_conflict=user_id,tenant_id',
-      serviceKey, 'POST', memberships
-    )
+    const { error: memError } = await supabaseAdmin
+      .from('user_tenant_memberships')
+      .upsert(memberships, { onConflict: 'user_id,tenant_id', ignoreDuplicates: false })
 
-    if (!memRes.ok) {
-      console.error('[admin-invite-user] memberships error:', memRes.data)
+    if (memError) {
+      console.error('[admin-invite-user] memberships error:', memError)
       return res.status(500).json({
-        error: 'Usuario creado pero falló la asignación de sujetos obligados: ' +
-               (memRes.data?.message || JSON.stringify(memRes.data))
+        error: 'Usuario creado pero falló la asignación de sujetos obligados: ' + memError.message
       })
     }
 
