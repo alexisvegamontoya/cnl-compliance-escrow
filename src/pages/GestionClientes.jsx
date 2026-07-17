@@ -55,6 +55,63 @@ function nombre_completo(c) {
   return [c.nombre_cliente, c.primer_apellido, c.segundo_apellido].filter(Boolean).join(' ') || c.nombre_empresa || '—'
 }
 
+// ─── Selector con búsqueda ──────────────────────────────────────────────────
+function SearchableSelect({ options, value, onChange, placeholder = 'Buscar…', allLabel = '— Todos —' }) {
+  const [open, setOpen]     = useState(false)
+  const [query, setQuery]   = useState('')
+  const selected = options.find(o => o.id === value)
+  const filtered = options.filter(o => o.nombre.toLowerCase().includes(query.toLowerCase()))
+
+  return (
+    <div className="relative w-full">
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setQuery('') }}
+        className="input text-sm w-full text-left flex items-center justify-between gap-2 truncate"
+      >
+        <span className="truncate">{selected ? selected.nombre : allLabel}</span>
+        <span className="text-gray-400 flex-shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              autoFocus
+              className="input-field text-sm py-1.5"
+              placeholder="Escriba para buscar…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+          </div>
+          <ul className="max-h-56 overflow-y-auto py-1">
+            <li
+              className="px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 cursor-pointer"
+              onClick={() => { onChange(''); setOpen(false) }}
+            >
+              {allLabel}
+            </li>
+            {filtered.length === 0 && (
+              <li className="px-3 py-2 text-sm text-gray-400 italic">Sin resultados</li>
+            )}
+            {filtered.map(o => (
+              <li
+                key={o.id}
+                onClick={() => { onChange(o.id); setOpen(false) }}
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-brand-50 hover:text-brand-700 ${
+                  o.id === value ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-700'
+                }`}
+              >
+                {o.nombre}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
   const { tenant, isSuperAdmin } = useAuth()
@@ -203,13 +260,12 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
         {isSuperAdmin && (
           <div className="w-full">
             <label className="label text-xs text-purple-700">🔐 Sujeto Obligado (superadmin)</label>
-            <select className="input text-sm border-purple-300 focus:ring-purple-400"
-              value={filtroTenant} onChange={e => setFiltroTenant(e.target.value)}>
-              <option value="">— Todos los sujetos obligados —</option>
-              {tenants.map(t => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={tenants}
+              value={filtroTenant}
+              onChange={setFiltroTenant}
+              allLabel="— Todos los sujetos obligados —"
+            />
           </div>
         )}
         <div className="flex-1 min-w-[200px]">
