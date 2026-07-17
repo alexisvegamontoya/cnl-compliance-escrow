@@ -93,9 +93,8 @@ export default function CargaMasivaTransacciones({ onImportado }) {
         monto_movimiento: parseFloat(r.monto_movimiento),
         fecha_transaccion: normalizarFecha(r.fecha_transaccion),
         motivo_transaccion: String(r.motivo_transaccion || '').trim() || null,
-        ubicacion_cliente: String(r.ubicacion_cliente || '').trim() || null,
-        pais_origen_recursos: String(r.pais_origen_recursos || '').toUpperCase().trim() || null,
-        pais_destino_recursos: String(r.pais_destino_recursos || '').toUpperCase().trim() || null,
+        origen_recursos: String(r.origen_recursos || '').trim() || null,
+        motivo_credito: Number(r.motivo_credito) || 0,
         periodo: derivarPeriodo(r.fecha_transaccion),
         accion: 'insertar',
       }

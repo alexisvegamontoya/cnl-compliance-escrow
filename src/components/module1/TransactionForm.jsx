@@ -388,45 +388,16 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
         </div>
       </div>
 
-      {/* 4. Ubicación y países */}
+      {/* 4. Origen de recursos */}
       <div className="card">
-        <h3 className="font-semibold text-gray-900 mb-4">4. Origen de recursos y ubicación</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="label">Origen de recursos <span className="text-red-500">*</span></label>
-            <input type="text" className="input-field" required
-              placeholder="Ej: Flujo de caja de la empresa para atender la deuda"
-              value={form.origen_recursos}
-              onChange={e => set('origen_recursos', e.target.value)} />
-            <p className="text-xs text-gray-400 mt-1">Requerido por SUGEF/SICVECA. Describa el origen de los fondos de la transacción.</p>
-          </div>
-          <div>
-            <label className="label">Ubicación del cliente</label>
-            <input type="text" className="input-field"
-              placeholder="Ej: San José, Costa Rica"
-              value={form.ubicacion_cliente}
-              onChange={e => set('ubicacion_cliente', e.target.value)} />
-          </div>
-          <div>
-            <label className="label">Ubicación comprador/vendedor</label>
-            <input type="text" className="input-field"
-              value={form.ubicacion_comprador_vendedor}
-              onChange={e => set('ubicacion_comprador_vendedor', e.target.value)} />
-          </div>
-          <div>
-            <label className="label">País origen de recursos (ISO)</label>
-            <input type="text" className="input-field" maxLength={2}
-              placeholder="Ej: CR"
-              value={form.pais_origen_recursos}
-              onChange={e => set('pais_origen_recursos', e.target.value.toUpperCase())} />
-          </div>
-          <div>
-            <label className="label">País destino de recursos (ISO)</label>
-            <input type="text" className="input-field" maxLength={2}
-              placeholder="Ej: CR"
-              value={form.pais_destino_recursos}
-              onChange={e => set('pais_destino_recursos', e.target.value.toUpperCase())} />
-          </div>
+        <h3 className="font-semibold text-gray-900 mb-4">4. Origen de recursos</h3>
+        <div>
+          <label className="label">Origen de recursos <span className="text-red-500">*</span></label>
+          <input type="text" className="input-field" required
+            placeholder="Ej: Flujo de caja de la empresa para atender la deuda"
+            value={form.origen_recursos}
+            onChange={e => set('origen_recursos', e.target.value)} />
+          <p className="text-xs text-gray-400 mt-1">Campo requerido por SUGEF/SICVECA. Describa el origen de los fondos de la transacción.</p>
         </div>
       </div>
 
