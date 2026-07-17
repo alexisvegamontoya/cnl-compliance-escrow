@@ -158,14 +158,19 @@ function validarFila(fila, idx) {
 
 // ─── Componente principal ────────────────────────────────────────────────────
 export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
-  const { tenant } = useAuth()
+  const { tenant, isSuperAdmin, tenantsDisponibles } = useAuth()
   const inputRef = useRef(null)
 
+  const [selectedTenantId, setSelectedTenantId] = useState(tenant?.id || '')
   const [filas, setFilas]       = useState([])        // datos parseados
   const [errores, setErrores]   = useState([])        // errores de validación
   const [paso, setPaso]         = useState('inicio')  // inicio | preview | cargando | resultado
   const [resultado, setResultado] = useState(null)    // { ok, fallidos }
   const [archivoNombre, setArchivoNombre] = useState('')
+
+  const tenantEfectivo = isSuperAdmin
+    ? tenantsDisponibles?.find(t => t.id === selectedTenantId)
+    : tenant
 
   // Parsear Excel subido
   const handleArchivo = (e) => {
@@ -203,7 +208,8 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
     if (errores.length > 0) return
     setPaso('cargando')
 
-    const payloads = filas.map(f => normalizarFila(f, tenant?.id))
+    if (!tenantEfectivo?.id) return
+    const payloads = filas.map(f => normalizarFila(f, tenantEfectivo.id))
     const LOTE = 50
     let ok = 0
     const fallidos = []
@@ -266,9 +272,37 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                 </button>
               </div>
 
-              {/* Paso 2: subir archivo */}
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-brand-400 transition-colors cursor-pointer"
-                onClick={() => inputRef.current?.click()}>
+              {/* Paso 2 (solo superadmin): sujeto obligado */}
+              {isSuperAdmin && (
+                <div className="border border-amber-200 bg-amber-50 rounded-xl p-4 space-y-2">
+                  <p className="text-sm font-semibold text-amber-800">Paso 2 — Seleccione el sujeto obligado</p>
+                  <select
+                    className="input-field"
+                    value={selectedTenantId}
+                    onChange={e => setSelectedTenantId(e.target.value)}
+                  >
+                    <option value="">— Seleccione el sujeto obligado —</option>
+                    {tenantsDisponibles?.map(t => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                  </select>
+                  {tenantEfectivo && (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <span>✓</span>
+                      <span>Sujeto obligado: <strong>{tenantEfectivo.nombre}</strong></span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Paso 3 (o 2 para no-superadmin): subir archivo */}
+              <div
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                  isSuperAdmin && !tenantEfectivo
+                    ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                    : 'border-gray-300 hover:border-brand-400 cursor-pointer'
+                }`}
+                onClick={() => tenantEfectivo && inputRef.current?.click()}>
                 <p className="text-4xl mb-3">📂</p>
                 <p className="text-sm font-medium text-gray-700">
                   {archivoNombre || 'Haga clic para seleccionar el archivo Excel'}
@@ -300,6 +334,13 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
           {/* ── PASO: PREVIEW ── */}
           {paso === 'preview' && (
             <div className="space-y-4">
+              {/* Confirmación de sujeto obligado */}
+              {tenantEfectivo && (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <span>✓</span>
+                  <span>Cargando en: <strong>{tenantEfectivo.nombre}</strong></span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-800">
@@ -412,9 +453,17 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
               <button onClick={reset} className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                 ← Volver
               </button>
-              <button onClick={handleCargar} disabled={errores.length > 0}
-                className="btn-primary px-6 disabled:opacity-40 disabled:cursor-not-allowed">
-                {errores.length > 0 ? `⚠ ${errores.length} errores — corrija antes de importar` : `⬆ Importar ${filas.length} clientes`}
+              <button
+                onClick={handleCargar}
+                disabled={errores.length > 0 || !tenantEfectivo}
+                className="btn-primary px-6 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {!tenantEfectivo
+                  ? '⚠ Seleccione el sujeto obligado'
+                  : errores.length > 0
+                    ? `⚠ ${errores.length} errores — corrija antes de importar`
+                    : `⬆ Importar ${filas.length} clientes`
+                }
               </button>
             </>
           )}
