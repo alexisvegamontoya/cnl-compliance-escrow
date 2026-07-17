@@ -133,7 +133,7 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
         monto_movimiento: parseFloat(form.monto_movimiento),
         fecha_transaccion: form.fecha_transaccion || null,
         motivo_transaccion: form.motivo_transaccion || null,
-        origen_recursos: form.origen_recursos ? Number(form.origen_recursos) : null,
+        origen_recursos: form.origen_recursos || null,
         ubicacion_cliente: form.ubicacion_cliente || null,
         motivo_credito: esFacilidadCrediticia ? Number(form.motivo_credito) : 0,
         ubicacion_comprador_vendedor: form.ubicacion_comprador_vendedor || null,
@@ -390,8 +390,16 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
 
       {/* 4. Ubicación y países */}
       <div className="card">
-        <h3 className="font-semibold text-gray-900 mb-4">4. Ubicación y países</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">4. Origen de recursos y ubicación</h3>
         <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="label">Origen de recursos <span className="text-red-500">*</span></label>
+            <input type="text" className="input-field" required
+              placeholder="Ej: Flujo de caja de la empresa para atender la deuda"
+              value={form.origen_recursos}
+              onChange={e => set('origen_recursos', e.target.value)} />
+            <p className="text-xs text-gray-400 mt-1">Requerido por SUGEF/SICVECA. Describa el origen de los fondos de la transacción.</p>
+          </div>
           <div>
             <label className="label">Ubicación del cliente</label>
             <input type="text" className="input-field"

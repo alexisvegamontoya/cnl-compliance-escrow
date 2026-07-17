@@ -33,8 +33,12 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
     if (data) {
       const unicos = [...new Set(data.map(r => r.periodo ? String(r.periodo).substring(0, 7) : null).filter(Boolean))]
       setPeriodosDisponibles(unicos)
+      // Auto-navegar al período más reciente si el actual no tiene datos
+      if (unicos.length > 0 && !unicos.includes(periodo)) {
+        setPeriodo(unicos[0])
+      }
     }
-  }, [tenantId])
+  }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     if (!tenantId) return
