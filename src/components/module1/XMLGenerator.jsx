@@ -1,10 +1,54 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import { generarXMLSICVECA, descargarXML } from '../../lib/xmlGenerator'
 import { TIPO_CARGA } from '../../lib/catalogos'
 import ErrorBanner from '../ui/ErrorBanner'
 import { clasificarError } from '../../lib/errorHandler'
+
+// Selector de tenant con búsqueda
+function TenantSearch({ tenants, value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen]   = useState(false)
+  const ref = useRef(null)
+  const selected = tenants.find(t => t.id === value)
+  const filtered = tenants.filter(t => t.nombre.toLowerCase().includes(query.toLowerCase()))
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <button type="button"
+        onClick={() => { setOpen(o => !o); setQuery('') }}
+        className="input-field text-sm w-full text-left flex items-center justify-between gap-2">
+        <span className="truncate">{selected ? selected.nombre : '— Seleccione el sujeto obligado —'}</span>
+        <span className="text-gray-400 flex-shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input autoFocus className="input-field text-sm py-1.5" placeholder="Escriba para buscar…"
+              value={query} onChange={e => setQuery(e.target.value)} />
+          </div>
+          <ul className="max-h-56 overflow-y-auto py-1">
+            {filtered.length === 0 && <li className="px-3 py-2 text-sm text-gray-400 italic">Sin resultados</li>}
+            {filtered.map(t => (
+              <li key={t.id} onClick={() => { onChange(t.id); setOpen(false) }}
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-brand-50 hover:text-brand-700 ${t.id === value ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-700'}`}>
+                {t.nombre}
+                {(!t.clase_dato || !t.archivo) && <span className="ml-2 text-xs text-amber-500">⚠ config. incompleta</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function XMLGenerator() {
   const { tenant, isSuperAdmin } = useAuth()
@@ -47,11 +91,17 @@ export default function XMLGenerator() {
       setError({ tipo: 'operativo', mensaje: 'Seleccione el sujeto obligado antes de generar el XML.' })
       return
     }
+    if (!tenantActivo.clase_dato || !tenantActivo.archivo || !tenantActivo.cedula_juridica) {
+      setError({ tipo: 'operativo', mensaje: `Faltan campos de configuración SICVECA para ${tenantActivo.nombre}: clase_dato, archivo y cedula_juridica deben estar configurados en Sujetos Obligados.` })
+      return
+    }
     setError(null)
     setLoading(true)
     try {
       const desde = periodo + '-01'
-      const hasta = periodo + '-31'
+      const [yr, mo] = periodo.split('-').map(Number)
+      const ultimoDia = new Date(yr, mo, 0).getDate()  // día 0 del mes siguiente = último día del mes actual
+      const hasta = `${periodo}-${String(ultimoDia).padStart(2, '0')}`
       const { data: txs, error: txErr } = await supabase
         .from('transacciones')
         .select('*')
@@ -94,7 +144,8 @@ export default function XMLGenerator() {
   async function marcarEnviado() {
     if (!tenantActivo || !stats) return
     const desde = periodo + '-01'
-    const hasta = periodo + '-31'
+    const [yr2, mo2] = periodo.split('-').map(Number)
+    const hasta = `${periodo}-${String(new Date(yr2, mo2, 0).getDate()).padStart(2, '0')}`
     const { error: err } = await supabase
       .from('transacciones')
       .update({ enviado_sugef: true, fecha_envio_sugef: new Date().toISOString() })
@@ -114,12 +165,22 @@ export default function XMLGenerator() {
         {isSuperAdmin && (
           <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
             <span className="text-amber-700 text-sm font-medium flex-shrink-0">🏢 Sujeto obligado:</span>
-            <select className="input-field text-sm"
+            <TenantSearch
+              tenants={tenants}
               value={tenantVistaId}
-              onChange={e => setTenantVistaId(e.target.value)}>
-              <option value="">— Seleccione el sujeto obligado —</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
+              onChange={setTenantVistaId}
+            />
+          </div>
+        )}
+
+        {/* Alerta si falta configuración SICVECA */}
+        {tenantActivo && (!tenantActivo.clase_dato || !tenantActivo.archivo || !tenantActivo.cedula_juridica) && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            ⚠ <strong>Configuración incompleta:</strong> Este sujeto obligado no tiene configurados los campos requeridos para SICVECA
+            (<code>clase_dato</code>{!tenantActivo.clase_dato ? ' ✗' : ' ✓'},
+            <code>archivo</code>{!tenantActivo.archivo ? ' ✗' : ' ✓'},
+            <code>cedula_juridica</code>{!tenantActivo.cedula_juridica ? ' ✗' : ' ✓'}).
+            Configure estos campos en <strong>Sujetos Obligados</strong> antes de generar el XML.
           </div>
         )}
 
