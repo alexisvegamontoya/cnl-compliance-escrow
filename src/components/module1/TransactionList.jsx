@@ -52,7 +52,9 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
 
     if (modo === MODO_MES) {
       const desde = periodo + '-01'
-      const hasta = periodo + '-31'
+      const [yr, mo] = periodo.split('-').map(Number)
+      const ultimoDia = new Date(yr, mo, 0).getDate()
+      const hasta = `${periodo}-${String(ultimoDia).padStart(2, '0')}`
       query = query.gte('periodo', desde).lte('periodo', hasta)
     } else if (modo === MODO_RANGO && rangoDesde && rangoHasta) {
       query = query.gte('fecha_transaccion', rangoDesde).lte('fecha_transaccion', rangoHasta)
