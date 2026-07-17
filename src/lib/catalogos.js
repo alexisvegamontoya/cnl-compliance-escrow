@@ -164,6 +164,7 @@ export const TIPOS_SALIDA = [
   { codigo: 44, descripcion: 'Empeño',                                  clases: [2] },
 ]
 
+// Catálogo activo SUGEF SICVECA clase 47 — código 6 no está activo en SUGEF
 export const MOTIVO_CREDITO = [
   { codigo: 0, descripcion: 'N/A' },
   { codigo: 1, descripcion: 'Crédito personal' },
@@ -171,7 +172,6 @@ export const MOTIVO_CREDITO = [
   { codigo: 3, descripcion: 'Crédito consumo' },
   { codigo: 4, descripcion: 'Crédito vehículo' },
   { codigo: 5, descripcion: 'Crédito salud' },
-  { codigo: 6, descripcion: 'Otros' },
   { codigo: 7, descripcion: 'Crédito empresarial' },
   { codigo: 8, descripcion: 'Servicios exequiales' },
 ]

@@ -56,7 +56,7 @@ export function generarXMLSICVECA(config, transacciones) {
   let registros = ''
   transacciones.forEach((t, idx) => {
     const registroId = idx + 1
-    const accion = escapeXml(t.accion || 'insertar')
+    const accion = 'insertar'  // Siempre 'insertar' para SICVECA; TipoCarga maneja correcciones
     const esFisica = [1, 3, 5].includes(Number(t.tipo_identificacion))
 
     // Siempre se incluyen los 4 campos de nombre; vacíos según aplique

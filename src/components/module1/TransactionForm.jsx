@@ -92,6 +92,16 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
     e.preventDefault()
     setError('')
     if (!tenant) { setError('No se encontró el sujeto obligado.'); return }
+    // Validar TipoSalida cuando movimiento = Salida
+    if (Number(form.tipo_movimiento) === 2 && (!form.tipo_salida || Number(form.tipo_salida) === 0)) {
+      setError('Cuando el tipo de movimiento es Salida debe seleccionar un Tipo de Salida válido (ej: 33 Desembolso de crédito).')
+      return
+    }
+    // Validar TipoIngreso cuando movimiento = Ingreso
+    if (Number(form.tipo_movimiento) === 1 && (!form.tipo_ingreso || Number(form.tipo_ingreso) === 0)) {
+      setError('Cuando el tipo de movimiento es Ingreso debe seleccionar un Tipo de Ingreso válido (ej: 37 Pago de intereses).')
+      return
+    }
 
     setLoading(true)
     try {
