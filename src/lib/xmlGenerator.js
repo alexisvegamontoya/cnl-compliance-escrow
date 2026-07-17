@@ -82,7 +82,7 @@ export function generarXMLSICVECA(config, transacciones) {
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             ${t.fecha_transaccion ? `<FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>` : ''}
             ${t.motivo_transaccion ? `<MotivoTransaccion>${escapeXml(t.motivo_transaccion)}</MotivoTransaccion>` : ''}
-            ${t.origen_recursos ? `<OrigenRecursos>${escapeXml(t.origen_recursos)}</OrigenRecursos>` : ''}
+            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
             ${t.ubicacion_cliente ? `<UbicacionCliente>${escapeXml(t.ubicacion_cliente)}</UbicacionCliente>` : ''}
             ${t.motivo_credito ? `<MotivoCredito>${t.motivo_credito}</MotivoCredito>` : ''}
             ${t.ubicacion_comprador_vendedor ? `<UbicacionCompradorVendedor>${escapeXml(t.ubicacion_comprador_vendedor)}</UbicacionCompradorVendedor>` : ''}
