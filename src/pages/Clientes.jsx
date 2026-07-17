@@ -28,6 +28,7 @@ const EMPTY = {
   nacionalidad: '',
   pais_ubicacion: '',
   actividad_economica: '',
+  nombre_contacto: '',
   telefono: '',
   correo_electronico: '',
   fecha_vinculacion: '',
@@ -183,6 +184,7 @@ export default function Clientes() {
       nacionalidad: form.nacionalidad || null,
       pais_ubicacion: form.pais_ubicacion || null,
       actividad_economica: form.actividad_economica || null,
+      nombre_contacto: form.nombre_contacto || null,
       telefono: form.telefono || null,
       correo_electronico: form.correo_electronico || null,
       fecha_vinculacion: form.fecha_vinculacion || null,
@@ -483,6 +485,9 @@ export default function Clientes() {
               <div><label className="label">Pa├¡s de ubicaci├│n</label>
                 <input className="input-field" placeholder="Ej: Costa Rica, Panam├í"
                   value={form.pais_ubicacion} onChange={e => set('pais_ubicacion', e.target.value)} /></div>
+              <div className="col-span-2"><label className="label">Nombre del contacto</label>
+                <input className="input-field" placeholder="Ej: Mar├¡a Gonz├ílez (persona de contacto)"
+                  value={form.nombre_contacto} onChange={e => set('nombre_contacto', e.target.value)} /></div>
               <div><label className="label">Tel├®fono</label>
                 <input className="input-field" placeholder="Ej: 8888-8888"
                   value={form.telefono} onChange={e => set('telefono', e.target.value)} /></div>
@@ -679,6 +684,7 @@ export default function Clientes() {
                             {c.actividad_economica && <div className="flex justify-between"><dt className="text-gray-400">Actividad</dt><dd className="font-medium">{c.actividad_economica}</dd></div>}
                             {c.nacionalidad && <div className="flex justify-between"><dt className="text-gray-400">Nacionalidad</dt><dd className="font-medium">{c.nacionalidad}</dd></div>}
                             {c.pais_ubicacion && <div className="flex justify-between"><dt className="text-gray-400">Pa├¡s</dt><dd className="font-medium">{c.pais_ubicacion}</dd></div>}
+                            {c.nombre_contacto && <div className="flex justify-between"><dt className="text-gray-400">Contacto</dt><dd className="font-medium">{c.nombre_contacto}</dd></div>}
                             {c.telefono && <div className="flex justify-between"><dt className="text-gray-400">Tel├®fono</dt><dd className="font-medium">{c.telefono}</dd></div>}
                             {c.correo_electronico && <div className="flex justify-between"><dt className="text-gray-400">Correo</dt><dd className="font-medium">{c.correo_electronico}</dd></div>}
                             {c.fecha_vinculacion && <div className="flex justify-between"><dt className="text-gray-400">Vinculado desde</dt><dd className="font-medium">{c.fecha_vinculacion}</dd></div>}

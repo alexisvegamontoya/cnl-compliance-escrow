@@ -507,6 +507,7 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
             <Row label="Provincia" v={cliente.provincia} />
             <Row label="Cantón" v={cliente.canton} />
             <Row label="Dirección" v={cliente.direccion_exacta} />
+            <Row label="Contacto" v={cliente.nombre_contacto} />
             <Row label="Teléfono" v={cliente.telefono} />
             <Row label="Correo" v={cliente.correo_electronico} />
             <Row label="Vinculación" v={cliente.fecha_vinculacion} />
