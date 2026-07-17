@@ -50,6 +50,7 @@ const EMPTY_FISICA = {
   provincia: '',
   canton: '',
   direccion_exacta: '',
+  nombre_contacto: '',
   telefono: '',
   correo_electronico: '',
   fecha_vinculacion: new Date().toISOString().slice(0, 10),
@@ -78,6 +79,7 @@ const EMPTY_JURIDICA = {
   provincia: '',
   canton: '',
   direccion_exacta: '',
+  nombre_contacto: '',
   telefono: '',
   correo_electronico: '',
   fecha_vinculacion: new Date().toISOString().slice(0, 10),
@@ -210,7 +212,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
         'profesion_nombre','profesion_valor',
         'pais_nacimiento','pais_ubicacion','pais_residencia','pais_constitucion',
         'provincia','canton','direccion_exacta',
-        'telefono','correo_electronico','fecha_vinculacion',
+        'nombre_contacto','telefono','correo_electronico','fecha_vinculacion',
         'proposito_relacion','origen_fondos','ingreso_mensual_est',
         'fecha_constitucion',
         'estado_dd','estado_listas','estado_calificacion',
@@ -551,6 +553,11 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
           <div className="card space-y-3">
             <p className="text-sm font-bold text-gray-700 border-b pb-2">Contacto</p>
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="label text-xs">Nombre del contacto</label>
+                <input className="input text-sm" value={form.nombre_contacto}
+                  onChange={e => set('nombre_contacto', e.target.value)} placeholder="Persona de contacto en la empresa" />
+              </div>
               <div>
                 <label className="label text-xs">Teléfono</label>
                 <input className="input text-sm" value={form.telefono}
