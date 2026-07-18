@@ -87,7 +87,7 @@ export default function CargaMasivaClientes({ tenants, etiquetaCliente = 'client
         fecha_vinculacion: normalizarFecha(r.fecha_vinculacion),
         pep,
         calificacion_riesgo: ['alto', 'medio', 'bajo'].includes(riesgo) ? riesgo : null,
-        nivel_transaccional_max_mes: r.nivel_transaccional_max_mes ? Number(r.nivel_transaccional_max_mes) : null,
+        ingreso_mensual_est: r.ingreso_mensual_est ? Number(r.ingreso_mensual_est) : null,
         notas: String(r.notas || '').trim() || null,
       }
     })
@@ -216,7 +216,7 @@ export default function CargaMasivaClientes({ tenants, etiquetaCliente = 'client
                           </td>
                           <td className="py-2 px-3">{String(r.pep || '').toUpperCase() === 'SI' ? '🔴 SÍ' : 'NO'}</td>
                           <td className="py-2 px-3 text-right font-mono">
-                            {r.nivel_transaccional_max_mes ? Number(r.nivel_transaccional_max_mes).toLocaleString() : '—'}
+                            {r.ingreso_mensual_est ? Number(r.ingreso_mensual_est).toLocaleString() : '—'}
                           </td>
                           <td className="py-2 px-3">
                             {errs

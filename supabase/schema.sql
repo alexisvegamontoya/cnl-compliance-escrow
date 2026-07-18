@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS clientes (
   primer_apellido               TEXT,
   segundo_apellido              TEXT,
   nombre_empresa                TEXT,
-  nivel_transaccional_max_mes   NUMERIC,
+  ingreso_mensual_est           NUMERIC,   -- Ingreso mensual estimado en USD (análisis transaccional SICVECA)
   calificacion_riesgo           TEXT,
   notas                         TEXT,
   activo                        BOOLEAN DEFAULT TRUE,

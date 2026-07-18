@@ -146,10 +146,18 @@ export default function Informes() {
   })
   clientes.forEach(cl => {
     const data = porCliente[cl.numero_identificacion]
-    if (!data || !cl.nivel_transaccional_max_mes) return
-    const total = data.ingresos + data.salidas
-    if (total > Number(cl.nivel_transaccional_max_mes)) {
-      alertasBase.push({ nivel: 'alto', desc: `${cl.nombre_empresa || cl.nombre_cliente} — transaccional USD ${total.toLocaleString()} supera límite mensual`, detalle: `Límite del cliente: USD ${Number(cl.nivel_transaccional_max_mes).toLocaleString()}. Actualice el expediente de debida diligencia.` })
+    if (!data || !cl.ingreso_mensual_est) return
+    const ingresoEst = Number(cl.ingreso_mensual_est)
+    const totalMes = data.ingresos + data.salidas
+    const ratio = ingresoEst > 0 ? totalMes / ingresoEst : 0
+    // Alerta si el volumen transaccional supera el ingreso mensual estimado
+    if (totalMes > ingresoEst) {
+      const nivelAlerta = ratio >= 3 ? 'alto' : 'medio'
+      alertasBase.push({
+        nivel: nivelAlerta,
+        desc: `${cl.nombre_empresa || cl.nombre_cliente} — volumen USD ${totalMes.toLocaleString()} es ${ratio.toFixed(1)}x su ingreso mensual estimado`,
+        detalle: `Ingreso mensual estimado del cliente: USD ${ingresoEst.toLocaleString()}. Volumen transaccional del período: USD ${totalMes.toLocaleString()}. Evalúe si corresponde a su perfil económico y actualice el expediente de debida diligencia.`,
+      })
     }
   })
   txns.filter(t => !t.fecha_transaccion).forEach(t => {
@@ -475,8 +483,8 @@ export default function Informes() {
                     {clientesAnalisis.map(c => {
                       const neto = c.ingresos - c.salidas
                       const clienteDB = clientes.find(cl => cl.numero_identificacion === c.id)
-                      const superaLimite = clienteDB?.nivel_transaccional_max_mes &&
-                        (c.ingresos + c.salidas) > Number(clienteDB.nivel_transaccional_max_mes)
+                      const superaLimite = clienteDB?.ingreso_mensual_est &&
+                        (c.ingresos + c.salidas) > Number(clienteDB.ingreso_mensual_est)
                       const obs = []
                       if (c.txns.length > 2) obs.push('Operación frecuente')
                       if (superaLimite) obs.push('Supera límite mensual')

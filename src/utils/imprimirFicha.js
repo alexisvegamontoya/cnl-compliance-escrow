@@ -298,9 +298,9 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
         ${!cliente.aparece_en_listas ? '✅' : '❌'} Sin coincidencias en listas
       </div>
     </div>
-    ${cliente.nivel_transaccional_max_mes
+    ${cliente.ingreso_mensual_est
       ? `<p style="font-size:10px;color:#6b7280">
-           Nivel transaccional máximo mensual: <strong>USD ${Number(cliente.nivel_transaccional_max_mes).toLocaleString('es-CR')}</strong>
+           Ingreso mensual estimado: <strong>USD ${Number(cliente.ingreso_mensual_est).toLocaleString('es-CR')}</strong>
          </p>`
       : ''}
     ${cliente.notas

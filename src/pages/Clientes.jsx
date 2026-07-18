@@ -35,7 +35,7 @@ const EMPTY = {
   fecha_termino_relacion: '',
   pep: false,
   calificacion_riesgo: '',
-  nivel_transaccional_max_mes: '',
+  ingreso_mensual_est: '',
   kyc_actualizado: false,
   legal_actualizado: false,
   ingresos_actualizados: false,
@@ -191,7 +191,7 @@ export default function Clientes() {
       fecha_termino_relacion: form.fecha_termino_relacion || null,
       pep: form.pep,
       calificacion_riesgo: form.calificacion_riesgo || null,
-      nivel_transaccional_max_mes: form.nivel_transaccional_max_mes ? Number(form.nivel_transaccional_max_mes) : null,
+      ingreso_mensual_est: form.ingreso_mensual_est ? Number(form.ingreso_mensual_est) : null,
       kyc_actualizado: form.kyc_actualizado,
       legal_actualizado: form.legal_actualizado,
       ingresos_actualizados: form.ingresos_actualizados,
@@ -311,7 +311,7 @@ export default function Clientes() {
                   'calificacion_riesgo','nivel_riesgo_actual','estado_calificacion','fecha_ultima_calificacion',
                   'estado_dd',
                   'kyc_actualizado','legal_actualizado','ingresos_actualizados',
-                  'nivel_transaccional_max_mes',
+                  'ingreso_mensual_est',
                   'activo','notas',
                 ],
                 headers: {
@@ -347,7 +347,7 @@ export default function Clientes() {
                   kyc_actualizado:           'KYC Actualizado',
                   legal_actualizado:         'Doc. Legal OK',
                   ingresos_actualizados:     'Ingresos Actualizados',
-                  nivel_transaccional_max_mes: 'Nivel Transaccional M├íx/Mes',
+                  ingreso_mensual_est: 'Ingreso Mensual Est. (USD)',
                   activo:                    'Activo',
                   notas:                     'Notas',
                 },
@@ -512,11 +512,11 @@ export default function Clientes() {
                 </select>
               </div>
               <div>
-                <label className="label">Nivel transaccional m├íximo mensual (USD)</label>
+                <label className="label">Ingreso mensual estimado (USD)</label>
                 <input type="number" className="input-field" min="0" step="0.01"
-                  placeholder="Para monitoreo de anomal├¡as"
-                  value={form.nivel_transaccional_max_mes}
-                  onChange={e => set('nivel_transaccional_max_mes', e.target.value)} />
+                  placeholder="Para análisis transaccional SICVECA"
+                  value={form.ingreso_mensual_est}
+                  onChange={e => set('ingreso_mensual_est', e.target.value)} />
               </div>
               <div className="col-span-2">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -646,10 +646,10 @@ export default function Clientes() {
                       {c.actividad_economica && (
                         <span className="text-xs">{c.actividad_economica}</span>
                       )}
-                      {c.nivel_transaccional_max_mes && (
+                      {c.ingreso_mensual_est && (
                         <div className="text-center">
-                          <p className="font-medium text-gray-900 text-xs">USD {Number(c.nivel_transaccional_max_mes).toLocaleString()}</p>
-                          <p className="text-xs text-gray-400">L├¡mite/mes</p>
+                          <p className="font-medium text-gray-900 text-xs">USD {Number(c.ingreso_mensual_est).toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">Ingreso/mes</p>
                         </div>
                       )}
                     </div>

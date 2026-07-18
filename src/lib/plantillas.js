@@ -164,7 +164,7 @@ export function descargarPlantillaClientes() {
     'fecha_vinculacion',
     'pep',
     'calificacion_riesgo',
-    'nivel_transaccional_max_mes',
+    'ingreso_mensual_est',
     'notas',
   ]
 
@@ -177,7 +177,7 @@ export function descargarPlantillaClientes() {
     ['• tipo_identificacion: 1=Física CR, 2=Jurídica CR, 3=DIMEX, 4=Ent.Financiera Ext., 5=Pasaporte, 6=Empresa Ext., 13=Fideicomiso'],
     ['• pep: SI o NO (Persona Expuesta Políticamente)'],
     ['• calificacion_riesgo: alto, medio o bajo'],
-    ['• nivel_transaccional_max_mes: monto máximo mensual estimado en USD'],
+    ['• ingreso_mensual_est: monto máximo mensual estimado en USD'],
     ['• fecha_vinculacion: formato YYYY-MM-DD (ej: 2022-01-15)'],
     ['• Si el cliente es persona física use: nombre_cliente, primer_apellido, segundo_apellido'],
     ['• Si es persona jurídica use: nombre_empresa'],
