@@ -216,11 +216,13 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
 
     for (let i = 0; i < payloads.length; i += LOTE) {
       const lote = payloads.slice(i, i + LOTE)
-      const { error } = await supabase.from('clientes').insert(lote)
+      const { error } = await supabase.from('clientes')
+        .upsert(lote, { onConflict: 'tenant_id,numero_identificacion' })
       if (error) {
-        // Insertar uno por uno para identificar cuáles fallan
+        // Upsert uno por uno para identificar cuáles fallan
         for (let j = 0; j < lote.length; j++) {
-          const { error: e2 } = await supabase.from('clientes').insert(lote[j])
+          const { error: e2 } = await supabase.from('clientes')
+            .upsert(lote[j], { onConflict: 'tenant_id,numero_identificacion' })
           if (e2) fallidos.push({ fila: i + j + 1, razon: e2.message })
           else ok++
         }
@@ -429,7 +431,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
             <div className="space-y-4 py-4 text-center">
               <p className="text-5xl">{resultado.fallidos.length === 0 ? '✅' : '⚠️'}</p>
               <p className="text-lg font-bold text-gray-900">
-                {resultado.ok} cliente{resultado.ok !== 1 ? 's' : ''} importado{resultado.ok !== 1 ? 's' : ''} correctamente
+                {resultado.ok} cliente{resultado.ok !== 1 ? 's' : ''} importado{resultado.ok !== 1 ? 's' : ''} o actualizado{resultado.ok !== 1 ? 's' : ''} correctamente
               </p>
               {resultado.fallidos.length > 0 && (
                 <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1">
@@ -446,7 +448,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
           {paso === 'inicio' && (
-            <p className="text-xs text-gray-400">La tercera fila de la plantilla (instrucciones) se ignora automáticamente</p>
+            <p className="text-xs text-gray-400">Si un cliente ya existe (misma cédula y sujeto obligado), sus datos se actualizan. No se crean duplicados.</p>
           )}
           {paso === 'preview' && (
             <>
