@@ -1,7 +1,9 @@
 import * as XLSX from 'xlsx'
+import { ACTIVIDADES_APNFD, TIPOS_INGRESO, TIPOS_SALIDA, MOTIVO_CREDITO } from './catalogos'
 
 // ─── Plantilla de Transacciones ──────────────────────────────────────────────
-export function descargarPlantillaTransacciones() {
+// claseDato: número de clase SUGEF (ej: 47). Si se omite, muestra todos los códigos.
+export function descargarPlantillaTransacciones(claseDato) {
   const headers = [
     'numero_identificacion',
     'tipo_identificacion',
@@ -72,60 +74,61 @@ export function descargarPlantillaTransacciones() {
   XLSX.utils.book_append_sheet(wb, ws, 'Transacciones')
 
   // Hoja de catálogos de referencia
+  // Filtrar códigos de ingreso/salida según la clase del sujeto obligado
+  const claseIdx = claseDato ? (Number(claseDato) - 39) : null  // 40→1, 47→8, etc.
+  const actividadInfo = claseDato ? ACTIVIDADES_APNFD.find(a => a.clase_dato === Number(claseDato)) : null
+  const umbralUSD = actividadInfo?.monto_min_usd || 10000
+
+  const ingresosValidos = claseIdx
+    ? TIPOS_INGRESO.filter(t => t.codigo !== 0 && (t.clases.includes(0) || t.clases.includes(claseIdx)))
+    : TIPOS_INGRESO.filter(t => t.codigo !== 0)
+  const salidasValidas = claseIdx
+    ? TIPOS_SALIDA.filter(t => t.codigo !== 0 && (t.clases.includes(0) || t.clases.includes(claseIdx)))
+    : TIPOS_SALIDA.filter(t => t.codigo !== 0)
+
+  const titulo = actividadInfo
+    ? `CATÁLOGO DE REFERENCIA — Clase ${claseDato} ${actividadInfo.nombre} SUGEF`
+    : 'CATÁLOGO DE REFERENCIA — SUGEF APNFD'
+
   const catData = [
-    ['CATÁLOGO DE REFERENCIA — Clase 47 Facilidades Crediticias SUGEF'],
+    [titulo],
+    [actividadInfo ? `Umbral de reporte: US$${umbralUSD.toLocaleString()} o equivalente en CRC` : ''],
     [''],
-    ['TIPO_INGRESO (cuando tipo_movimiento = 1) — clase 47'],
+    ['TIPO_INGRESO (tipo_movimiento = 1 — Ingreso)'],
     ['Código', 'Descripción'],
-    [37, 'Pago de intereses'],
-    [38, 'Pago de cuota (principal + intereses)'],
-    [39, 'Pago de principal'],
-    [40, 'Cancelación anticipada'],
-    [41, 'Abono extraordinario'],
-    [42, 'Gastos de formalización'],
-    [43, 'Comisión de formalización'],
-    [56, 'Prima'],
-    [0,  'No aplica (usar cuando tipo_movimiento = 2)'],
+    ...ingresosValidos.map(t => [t.codigo, t.descripcion]),
     [''],
-    ['TIPO_SALIDA (cuando tipo_movimiento = 2)'],
+    ['TIPO_SALIDA (tipo_movimiento = 2 — Salida)'],
     ['Código', 'Descripción'],
-    [33, 'Desembolso de crédito'],
-    [34, 'Reintegro por saldo a favor del deudor'],
-    [0,  'No aplica (usar cuando tipo_movimiento = 1)'],
+    ...salidasValidas.map(t => [t.codigo, t.descripcion]),
     [''],
     ['TIPO_MOVIMIENTO'],
     ['Código', 'Descripción'],
-    [1, 'Ingreso (pago del cliente hacia la entidad)'],
-    [2, 'Salida (desembolso de la entidad hacia el cliente)'],
+    [1, 'Ingreso (cliente paga a la entidad)'],
+    [2, 'Salida (entidad desembolsa al cliente)'],
+    [''],
+    ['TIPO_OPERACION — asignada automáticamente por el sistema'],
+    ['Código', 'Descripción', 'Cuándo aplica'],
+    [1, 'Operación única',    `Monto individual >= US$${umbralUSD.toLocaleString()}`],
+    [2, 'Operación múltiple', `Monto individual < US$${umbralUSD.toLocaleString()} pero suma del mes >= umbral`],
     [''],
     ['TIPO_REPORTE'],
     ['Código', 'Descripción'],
     [1, 'Efectivo'],
-    [2, 'APNFD (Actividad No Financiera Designada)'],
-    [3, 'Ambos'],
+    [2, 'APNFD (otros medios de pago)'],
+    [3, 'Efectivo y otros medios de pago'],
     [''],
-    ['TIPO_OPERACION'],
-    ['Código', 'Descripción'],
-    [1, 'Única'],
-    [2, 'Múltiple'],
-    [''],
-    ['MOTIVO_CREDITO (Tipo_Motivo_Crédito SUGEF — clase 47)'],
-    ['Código', 'Descripción'],
-    [0, 'N/A (no aplica)'],
-    [1, 'Crédito personal'],
-    [2, 'Crédito vivienda'],
-    [3, 'Crédito consumo'],
-    [4, 'Crédito vehículo'],
-    [5, 'Crédito salud'],
-    [7, 'Crédito empresarial'],
-    [8, 'Servicios exequiales'],
-    [''],
+    ...(claseDato === 47 ? [
+      ['MOTIVO_CREDITO (solo clase 47 Facilidades Crediticias)'],
+      ['Código', 'Descripción'],
+      ...MOTIVO_CREDITO.map(m => [m.codigo, m.descripcion]),
+      [''],
+    ] : []),
     ['TIPO_MONEDA_MOVIMIENTO'],
     ['Código', 'Descripción'],
     [1, 'Colones (CRC)'],
     [2, 'Dólares (USD)'],
     [3, 'Euros (EUR)'],
-    [4, 'Otra moneda'],
     [''],
     ['TIPO_IDENTIFICACION'],
     ['Código', 'Descripción'],
@@ -133,8 +136,8 @@ export function descargarPlantillaTransacciones() {
     [2,  'Cédula jurídica costarricense'],
     [3,  'DIMEX (residentes extranjeros)'],
     [4,  'Entidad financiera extranjera'],
-    [5,  'Pasaporte'],
-    [6,  'Empresa extranjera'],
+    [5,  'Pasaporte / otra identificación extranjera'],
+    [6,  'Empresa extranjera no financiera'],
     [13, 'Fideicomiso'],
   ]
   const wsCat = XLSX.utils.aoa_to_sheet(catData)

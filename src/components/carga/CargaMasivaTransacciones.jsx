@@ -156,7 +156,7 @@ export default function CargaMasivaTransacciones({ onImportado }) {
               <p className="text-xs text-brand-600 mt-0.5">Complete la plantilla con las transacciones y luego cárguela aquí.</p>
             </div>
             <button
-              onClick={descargarPlantillaTransacciones}
+              onClick={() => descargarPlantillaTransacciones(tenantSeleccionado?.clase_dato)}
               className="btn-secondary text-sm flex-shrink-0"
             >
               ⬇ Descargar plantilla
