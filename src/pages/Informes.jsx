@@ -208,8 +208,13 @@ export default function Informes() {
         {generado && tabActiva === 'transaccional' && (
           <div className="flex gap-2 flex-wrap items-center">
             {guardado && <span className="text-xs text-green-600 font-medium">✅ Guardado</span>}
-            <a href={generarMailto()} className="btn-secondary text-sm">📧 Enviar por correo</a>
-            <button onClick={imprimir} className="btn-primary text-sm">🖨️ Descargar PDF</button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex gap-2">
+                <button onClick={imprimir} className="btn-primary text-sm">🖨️ Descargar PDF</button>
+                <a href={generarMailto()} className="btn-secondary text-sm">📧 Redactar correo</a>
+              </div>
+              <p className="text-xs text-gray-400">Descargue el PDF primero y adjúntelo al correo manualmente</p>
+            </div>
           </div>
         )}
       </div>
@@ -596,10 +601,22 @@ export default function Informes() {
 
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #informe-pdf { display: block !important; }
-          .card { border: 1px solid #e5e7eb; box-shadow: none; break-inside: avoid; margin-bottom: 1rem; }
-          button, a { display: none !important; }
+          body * { visibility: hidden; }
+          #informe-pdf, #informe-pdf * { visibility: visible; }
+          #informe-pdf {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%;
+            padding: 1.5rem;
+          }
+          #informe-pdf .card {
+            border: 1px solid #e5e7eb !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+            margin-bottom: 1rem;
+          }
+          #informe-pdf button,
+          #informe-pdf a { display: none !important; }
         }
       `}</style>
       </>}
