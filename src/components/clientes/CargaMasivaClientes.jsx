@@ -130,7 +130,10 @@ function normalizarFila(fila, tenantId) {
     fecha_vinculacion:  fila.fecha_vinculacion || new Date().toISOString().slice(0, 10),
     proposito_relacion: (fila.proposito_relacion || '').trim() || null,
     origen_fondos:      (fila.origen_fondos || '').trim() || null,
-    ingreso_mensual_est: fila.ingreso_mensual_est ? Number(fila.ingreso_mensual_est) : null,
+    ingreso_mensual_est: (() => {
+      const v = parseFloat(String(fila.ingreso_mensual_est || '').replace(/,/g, '').trim())
+      return isNaN(v) ? null : v
+    })(),
     notas:   (fila.notas || '').trim() || null,
     activo:  true,
     estado_dd:          'pendiente',
