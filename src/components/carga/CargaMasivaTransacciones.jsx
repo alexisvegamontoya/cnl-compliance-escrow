@@ -16,8 +16,15 @@ function normalizarFecha(val) {
   if (!val) return null
   if (val instanceof Date) return val.toISOString().split('T')[0]
   const s = String(val).trim()
+  // YYYY-MM-DD — ya correcto
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  return s || null
+  // DD/MM/YYYY  (ej: 15/07/2025)
+  const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`
+  // DD-MM-YYYY  (ej: 15-07-2025)
+  const m2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`
+  return null
 }
 
 export default function CargaMasivaTransacciones({ onImportado }) {
