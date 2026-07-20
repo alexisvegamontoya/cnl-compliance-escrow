@@ -35,3 +35,6 @@ Thumbs.db
 # Datos pesados — no versionar
 Pep y padron sugef/
 scripts/data/
+
+# Excel generados con datos de clientes - no versionar
+scripts/*.xlsx
