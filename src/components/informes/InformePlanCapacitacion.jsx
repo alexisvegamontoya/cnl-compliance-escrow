@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
+import { imprimirDocumento, esc, escMultilinea, fechaLarga } from '../../utils/imprimirDocumento'
 
 const anioActual = new Date().getFullYear()
 
@@ -14,6 +15,23 @@ const TEMAS_DEFAULT = [
   { tema: 'Actualización normativa SUGEF y cambios regulatorios', horas: 1, publico: 'Oficial de Cumplimiento, Junta Directiva', trimestre: 4, modalidad: 'Presencial', obligatorio: false },
   { tema: 'Evaluación de Riesgos LC/FT/FPADM', horas: 2, publico: 'Oficial de Cumplimiento', trimestre: 4, modalidad: 'Virtual', obligatorio: false },
 ]
+
+const BASE_LEGAL = [
+  'Ley 7786 — Ley sobre Estupefacientes, Sustancias Psicotrópicas, Drogas de Uso No Autorizado, Actividades Conexas, Legitimación de Capitales y Financiamiento al Terrorismo',
+  'Acuerdo SUGEF 11-18 — Reglamento para la Gestión del Riesgo de LC/FT/FPADM',
+  'Acuerdo SUGEF 13-19 — Reglamento sobre Programas de Cumplimiento para Sujetos Obligados No Financieros',
+  'Recomendaciones del GAFI — Capacitación continua del personal',
+]
+
+const introDefault = (entidad) =>
+  `El presente Plan de Capacitación fue elaborado con el objetivo de garantizar que el personal de ${entidad} cuente con el conocimiento y las herramientas necesarias para prevenir el uso de los servicios de la entidad en actividades de Legitimación de Capitales, Financiamiento al Terrorismo y Financiamiento a la Proliferación de Armas de Destrucción Masiva (LC/FT/FPADM).
+
+Este plan cumple con lo establecido en la Ley 7786 y el Acuerdo SUGEF 11-18 en lo referente a capacitación continua en materia ALA/CFT.`
+
+const PRESUPUESTO_DEFAULT = `• Plataforma CNL Compliance (capacitaciones incluidas): ₡[monto]
+• Materiales y recursos adicionales: ₡[monto]
+• Participación en eventos o talleres externos: ₡[monto]
+• TOTAL estimado: ₡[monto]`
 
 const MODALIDADES = ['Virtual', 'Presencial', 'Híbrida', 'E-learning']
 const PUBLICOS = ['Todo el personal', 'Personal de atención al cliente', 'Oficial de Cumplimiento', 'Gerencia', 'Oficial de Cumplimiento, Gerencia', 'Junta Directiva', 'Oficial de Cumplimiento, Junta Directiva']
@@ -48,6 +66,112 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
   const totalHoras = temas.reduce((s, t) => s + Number(t.horas || 0), 0)
   const porTrimestre = [1, 2, 3, 4].map(tr => temas.filter(t => Number(t.trimestre) === tr))
 
+  const textoIntro       = intro.trim() || introDefault(tenant?.nombre || 'la entidad')
+  const textoPresupuesto = presupuesto.trim() || PRESUPUESTO_DEFAULT
+
+  const imprimir = () => {
+    const filas = temas.map(t => `
+      <tr>
+        <td>${esc(t.tema) || '—'}</td>
+        <td class="centro">${esc(t.horas)}</td>
+        <td>${esc(t.publico)}</td>
+        <td class="centro">T${esc(t.trimestre)}</td>
+        <td>${esc(t.modalidad)}</td>
+        <td class="centro">${t.obligatorio ? 'Sí' : 'No'}</td>
+      </tr>`).join('')
+
+    const resumenTrimestres = [1, 2, 3, 4].map(tr => {
+      const grupo = porTrimestre[tr - 1]
+      const horas = grupo.reduce((s, t) => s + Number(t.horas || 0), 0)
+      return `<div class="stat">
+        <div class="val">${grupo.length}</div>
+        <div class="lbl">${['I', 'II', 'III', 'IV'][tr - 1]} Trimestre · ${horas} ${horas === 1 ? 'hora' : 'horas'}</div>
+      </div>`
+    }).join('')
+
+    const cuerpo = `
+      <div class="portada">
+        <div class="confidencial">Documento para Aprobación — Junta Directiva</div>
+        <h1>PLAN DE CAPACITACIÓN ${anio}</h1>
+        <h2>Prevención LC/FT/FPADM</h2>
+        <div class="meta-grid">
+          <div class="meta-item"><div class="lbl">Entidad</div><div class="val">${esc(tenant?.nombre || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Responsable</div><div class="val">${esc(profile?.nombre || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Total horas planificadas</div><div class="val">${totalHoras} horas</div></div>
+          <div class="meta-item"><div class="lbl">Proveedor principal</div><div class="val">${esc(proveedor || '—')}</div></div>
+        </div>
+      </div>
+
+      <section class="bloque">
+        <h3>I. Justificación</h3>
+        <div class="texto">${escMultilinea(textoIntro)}</div>
+      </section>
+
+      <section class="bloque">
+        <h3>II. Resumen por Trimestre</h3>
+        <div class="stats c4">${resumenTrimestres}</div>
+      </section>
+
+      <section class="bloque">
+        <h3>III. Detalle de Actividades de Capacitación</h3>
+        <table class="datos">
+          <thead>
+            <tr>
+              <th>Tema / Contenido</th>
+              <th class="centro" style="width:8%">Horas</th>
+              <th style="width:24%">Público objetivo</th>
+              <th class="centro" style="width:9%">Trimestre</th>
+              <th style="width:12%">Modalidad</th>
+              <th class="centro" style="width:10%">Obligatorio</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filas}
+            <tr class="total">
+              <td>TOTAL</td>
+              <td class="centro">${totalHoras}</td>
+              <td colspan="4"></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="bloque">
+        <h3>IV. Presupuesto Estimado</h3>
+        <div class="texto">${escMultilinea(textoPresupuesto)}</div>
+      </section>
+
+      <section class="bloque">
+        <h3>V. Base Legal</h3>
+        <ul class="legal">${BASE_LEGAL.map(b => `<li>${esc(b)}</li>`).join('')}</ul>
+      </section>
+
+      <div class="firmas">
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="nombre">${esc(profile?.nombre || '—')}</div>
+          <div class="cargo">Oficial de Cumplimiento ALA/CFT</div>
+        </div>
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="nombre">Aprobado por Junta Directiva</div>
+          <div class="cargo">Representante Legal</div>
+          <div class="fecha">Fecha: ________________________</div>
+        </div>
+      </div>
+
+      <div class="pie">
+        ${esc(tenant?.nombre || '')} · Plan de Capacitación ${anio} · Documento confidencial<br>
+        Elaborado el ${esc(fechaLarga())}
+      </div>`
+
+    imprimirDocumento({
+      titulo: `Plan de Capacitación ${anio}`,
+      subtitulo: 'Prevención LC/FT/FPADM',
+      cuerpo, tenant, profile,
+    })
+  }
+
   return (
     <div className="p-6 max-w-6xl space-y-6">
       <div className="flex items-center justify-between">
@@ -55,7 +179,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
           <h1 className="text-2xl font-bold text-gray-900">Plan de Capacitación — Cumplimiento ALA/CFT</h1>
           <p className="text-gray-500 text-sm mt-1">Período {anio} · Para aprobación de Junta Directiva</p>
         </div>
-        <button onClick={() => window.print()} className="btn-primary text-sm print:hidden">🖨️ Imprimir / PDF</button>
+        <button onClick={imprimir} className="btn-primary text-sm print:hidden">🖨️ Imprimir / PDF</button>
       </div>
 
       {/* Portada */}
@@ -84,7 +208,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
           className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
           value={intro}
           onChange={e => setIntro(e.target.value)}
-          placeholder={`El presente Plan de Capacitación fue elaborado con el objetivo de garantizar que el personal de ${tenant?.nombre || 'la entidad'} cuente con el conocimiento y las herramientas necesarias para prevenir el uso de los servicios de la entidad en actividades de Legitimación de Capitales, Financiamiento al Terrorismo y Financiamiento a la Proliferación de Armas de Destrucción Masiva (LC/FT/FPADM).\n\nEste plan cumple con lo establecido en la Ley 7786 y el Acuerdo SUGEF 11-18 en lo referente a capacitación continua en materia ALA/CFT.`}
+          placeholder={introDefault(tenant?.nombre || 'la entidad')}
         />
       </section>
 
@@ -180,7 +304,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
           className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[80px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
           value={presupuesto}
           onChange={e => setPresupuesto(e.target.value)}
-          placeholder={`• Plataforma CNL Compliance (capacitaciones incluidas): ₡[monto]\n• Materiales y recursos adicionales: ₡[monto]\n• Participación en eventos o talleres externos: ₡[monto]\n• TOTAL estimado: ₡[monto]`}
+          placeholder={PRESUPUESTO_DEFAULT}
         />
       </section>
 
@@ -188,10 +312,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
       <section className="card space-y-2 bg-gray-50 text-sm text-gray-600">
         <h3 className="font-bold text-[#0e0e6e] border-b pb-1 text-sm">V. Base Legal</h3>
         <ul className="list-disc list-inside space-y-1 text-xs">
-          <li>Ley 7786 — Ley sobre Estupefacientes, Sustancias Psicotrópicas, Drogas de Uso No Autorizado, Actividades Conexas, Legitimación de Capitales y Financiamiento al Terrorismo</li>
-          <li>Acuerdo SUGEF 11-18 — Reglamento para la Gestión del Riesgo de LC/FT/FPADM</li>
-          <li>Acuerdo SUGEF 13-19 — Reglamento sobre Programas de Cumplimiento para Sujetos Obligados No Financieros</li>
-          <li>Recomendaciones del GAFI — Capacitación continua del personal</li>
+          {BASE_LEGAL.map(b => <li key={b}>{b}</li>)}
         </ul>
       </section>
 
@@ -215,17 +336,6 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
         {guardado && <p className="text-xs mt-1 text-green-600">✅ Plan registrado en el sistema</p>}
       </div>
 
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          .max-w-6xl { display: block !important; max-width: 100% !important; }
-          .card { border: 1px solid #e5e7eb; box-shadow: none; break-inside: avoid; margin-bottom: 1rem; }
-          button { display: none !important; }
-          textarea, input, select { border: none !important; background: transparent; }
-          .print\\:hidden { display: none !important; }
-          .print\\:border-0 { border: none !important; }
-        }
-      `}</style>
     </div>
   )
 }

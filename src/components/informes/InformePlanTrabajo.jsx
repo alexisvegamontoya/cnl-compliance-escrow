@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
+import { imprimirDocumento, esc, escMultilinea, fechaLarga } from '../../utils/imprimirDocumento'
 
 const anioActual = new Date().getFullYear()
 
@@ -58,6 +59,15 @@ const ACTIVIDADES_DEFAULT = [
 
 const TRIMESTRES = ['I Trimestre', 'II Trimestre', 'III Trimestre', 'IV Trimestre']
 
+const justificacionDefault = (entidad, anio) =>
+  `El presente Plan de Trabajo fue elaborado por el Oficial de Cumplimiento de ${entidad} para el período ${anio}, con el fin de establecer las actividades prioritarias en materia de prevención de Legitimación de Capitales, Financiamiento al Terrorismo y Financiamiento a la Proliferación de Armas de Destrucción Masiva (LC/FT/FPADM), en cumplimiento de la Ley 7786 y normativa SUGEF aplicable.`
+
+const RECURSOS_DEFAULT = `Para la ejecución del presente plan se requiere:
+• Acceso al sistema CNL Compliance para gestión documental y monitoreo transaccional
+• Tiempo estimado: [X] horas mensuales dedicadas al área de cumplimiento
+• Presupuesto para capacitación: [indicar monto estimado]
+• Acceso a bases de datos de listas internacionales y consultas SUGEF`
+
 export default function InformePlanTrabajo({ tenantEfectivo }) {
   const { tenant: tenantPropio, profile } = useAuth()
   const tenant = tenantEfectivo || tenantPropio
@@ -109,12 +119,81 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
     setPlanRows(rows => rows.filter((_, i) => i !== idx))
   }
 
-  // Group for display
-  const grouped = planRows.reduce((acc, row, idx) => {
-    if (!acc[row.area]) acc[row.area] = []
-    acc[row.area].push({ ...row, idx })
-    return acc
-  }, {})
+  const textoJustificacion = justificacion.trim() || justificacionDefault(tenant?.nombre || 'la entidad', anio)
+  const textoRecursos      = recursos.trim() || RECURSOS_DEFAULT
+
+  const imprimir = () => {
+    const filas = planRows.map(r => `
+      <tr>
+        <td>${esc(r.area)}</td>
+        <td>${esc(r.actividad)}</td>
+        <td>${esc(r.responsable)}</td>
+        ${r.trimestres.map(v => `<td class="centro">${v ? '✔' : '—'}</td>`).join('')}
+        <td>${esc(r.observaciones) || '—'}</td>
+      </tr>`).join('')
+
+    const cuerpo = `
+      <div class="portada">
+        <div class="confidencial">Documento para Aprobación — Junta Directiva</div>
+        <h1>PLAN DE TRABAJO ${anio}</h1>
+        <h2>Área de Cumplimiento ALA/CFT/FPADM</h2>
+        <div class="meta-grid cols-3">
+          <div class="meta-item"><div class="lbl">Entidad</div><div class="val">${esc(tenant?.nombre || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Responsable</div><div class="val">${esc(profile?.nombre || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Fecha de elaboración</div><div class="val">${esc(fechaLarga())}</div></div>
+        </div>
+      </div>
+
+      <section class="bloque">
+        <h3>I. Justificación</h3>
+        <div class="texto">${escMultilinea(textoJustificacion)}</div>
+      </section>
+
+      <section class="bloque">
+        <h3>II. Actividades Planificadas ${anio}</h3>
+        <table class="datos">
+          <thead>
+            <tr>
+              <th style="width:14%">Área</th>
+              <th>Actividad</th>
+              <th style="width:15%">Responsable</th>
+              ${TRIMESTRES.map(t => `<th class="centro" style="width:7%">${esc(t)}</th>`).join('')}
+              <th style="width:15%">Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </section>
+
+      <section class="bloque">
+        <h3>III. Recursos Requeridos</h3>
+        <div class="texto">${escMultilinea(textoRecursos)}</div>
+      </section>
+
+      <div class="firmas">
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="nombre">${esc(profile?.nombre || '—')}</div>
+          <div class="cargo">Oficial de Cumplimiento ALA/CFT</div>
+        </div>
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="nombre">Representante Legal / Junta Directiva</div>
+          <div class="cargo">Aprobación</div>
+          <div class="fecha">Fecha de aprobación: ______________</div>
+        </div>
+      </div>
+
+      <div class="pie">
+        ${esc(tenant?.nombre || '')} · Plan de Trabajo ${anio} · Documento confidencial
+      </div>`
+
+    imprimirDocumento({
+      titulo: `Plan de Trabajo ${anio}`,
+      subtitulo: 'Área de Cumplimiento ALA/CFT/FPADM',
+      cuerpo, tenant, profile, orientacion: 'landscape',
+    })
+  }
 
   return (
     <div className="p-6 max-w-6xl space-y-6">
@@ -123,7 +202,7 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
           <h1 className="text-2xl font-bold text-gray-900">Plan de Trabajo — Oficial de Cumplimiento</h1>
           <p className="text-gray-500 text-sm mt-1">Período {anio} · Para aprobación de Junta Directiva</p>
         </div>
-        <button onClick={() => window.print()} className="btn-primary text-sm print:hidden">
+        <button onClick={imprimir} className="btn-primary text-sm print:hidden">
           🖨️ Imprimir / PDF
         </button>
       </div>
@@ -150,7 +229,7 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
           className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
           value={justificacion}
           onChange={e => setJustificacion(e.target.value)}
-          placeholder={`El presente Plan de Trabajo fue elaborado por el Oficial de Cumplimiento de ${tenant?.nombre || 'la entidad'} para el período ${anio}, con el fin de establecer las actividades prioritarias en materia de prevención de Legitimación de Capitales, Financiamiento al Terrorismo y Financiamiento a la Proliferación de Armas de Destrucción Masiva (LC/FT/FPADM), en cumplimiento de la Ley 7786 y normativa SUGEF aplicable.`}
+          placeholder={justificacionDefault(tenant?.nombre || 'la entidad', anio)}
         />
       </section>
 
@@ -215,7 +294,7 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
           className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
           value={recursos}
           onChange={e => setRecursos(e.target.value)}
-          placeholder={`Para la ejecución del presente plan se requiere:\n• Acceso al sistema CNL Compliance para gestión documental y monitoreo transaccional\n• Tiempo estimado: [X] horas mensuales dedicadas al área de cumplimiento\n• Presupuesto para capacitación: [indicar monto estimado]\n• Acceso a bases de datos de listas internacionales y consultas SUGEF`}
+          placeholder={RECURSOS_DEFAULT}
         />
       </section>
 
@@ -239,18 +318,6 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
         {guardado && <p className="text-xs mt-1 text-green-600">✅ Plan registrado en el sistema</p>}
       </div>
 
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          .max-w-6xl { display: block !important; max-width: 100% !important; }
-          .card { border: 1px solid #e5e7eb; box-shadow: none; break-inside: avoid; margin-bottom: 1rem; }
-          button { display: none !important; }
-          textarea { border: none !important; resize: none; min-height: unset; }
-          input { border: none !important; background: transparent; }
-          .print\\:hidden { display: none !important; }
-          .print\\:border-0 { border: none !important; }
-        }
-      `}</style>
     </div>
   )
 }

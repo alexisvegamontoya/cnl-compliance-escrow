@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import PanelPeriodicidad from '../components/informes/PanelPeriodicidad'
+import { imprimirNodo } from '../utils/imprimirDocumento'
 import {
   CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
@@ -1128,7 +1129,7 @@ export default function CalificacionRiesgo() {
                     {saving ? 'Guardando…' : '💾 Guardar calificación'}
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => imprimirNodo('reporte-cal', { titulo: `Calificación de Riesgo — ${nombreCliente}` })}
                     disabled={!clienteId || !calificacionFinal}
                     className="w-full text-sm py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
                   >
@@ -1203,23 +1204,7 @@ export default function CalificacionRiesgo() {
         </div>
       )}
 
-      {/* ── Print CSS + reporte imprimible ──────────────────────────────── */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #reporte-cal {
-            visibility: visible !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 28px 32px !important;
-          }
-          #reporte-cal * { visibility: visible !important; }
-          @page { margin: 15mm; size: A4 portrait; }
-        }
-      `}</style>
+      {/* ── Reporte imprimible (oculto; se copia a una ventana nueva) ────── */}
       <ReporteImprimible
         clienteActual={clienteActual}
         nombreCliente={nombreCliente}

@@ -1,8 +1,20 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
+import { imprimirDocumento, esc, escMultilinea, fechaLarga } from '../../utils/imprimirDocumento'
 
 const anioActual = new Date().getFullYear()
+
+const introDefault = (entidad, anio) =>
+  `El presente informe tiene por objeto rendir cuenta a la Junta Directiva de ${entidad} sobre las labores desarrolladas por el Oficial de Cumplimiento durante el período comprendido del 1 de enero al 31 de diciembre de ${anio}, en cumplimiento de las disposiciones establecidas en la Ley 7786 y sus reformas, así como los Acuerdos SUGEF vigentes en materia de prevención de Legitimación de Capitales, Financiamiento al Terrorismo y Financiamiento a la Proliferación de Armas de Destrucción Masiva (LC/FT/FPADM).`
+
+const conclusionesDefault = (anio) =>
+  `Con base en las labores desarrolladas durante el período ${anio}, el suscrito Oficial de Cumplimiento concluye que la entidad ha mantenido los controles necesarios para prevenir el uso de sus servicios en actividades de LC/FT/FPADM.
+
+Se recomienda a la Junta Directiva:
+1. Continuar apoyando las iniciativas de cumplimiento y los recursos asignados al área.
+2. Aprobar el Plan de Trabajo y el Plan de Capacitación para el año ${anio + 1}.
+3. Mantener actualizados los expedientes de debida diligencia de clientes de alto riesgo.`
 
 async function registrarInforme(tenantId, anio, profileId, profileNombre, resumen) {
   try {
@@ -89,6 +101,156 @@ export default function InformeLaborales({ tenantEfectivo }) {
   const fmtUSD = n => Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })
   const fmtFecha = f => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'
 
+  const textoIntro        = intro.trim() || introDefault(tenant?.nombre || 'la entidad', anio)
+  const textoConclusiones = conclusiones.trim() || conclusionesDefault(anio)
+
+  const imprimir = () => {
+    if (!datos) return
+
+    const stat = (val, lbl, color = '') =>
+      `<div class="stat"><div class="val ${color}">${esc(val)}</div><div class="lbl">${esc(lbl)}</div></div>`
+
+    const seccionNormativa = datos.normativas.length > 0
+      ? `<table class="datos">
+           <thead><tr><th>Documento</th><th style="width:20%">Tipo</th><th style="width:22%">Fecha aprobación</th><th class="centro" style="width:10%">Versión</th></tr></thead>
+           <tbody>${datos.normativas.map(n => `
+             <tr>
+               <td>${esc(n.nombre)}</td>
+               <td>${esc(n.tipo_documento) || '—'}</td>
+               <td>${esc(fmtFecha(n.fecha_aprobacion))}</td>
+               <td class="centro">${esc(n.version || '1.0')}</td>
+             </tr>`).join('')}</tbody>
+         </table>`
+      : `<p class="vacio">No se registraron aprobaciones de normativa interna durante ${anio}.</p>`
+
+    const seccionRos = datos.ros.length > 0
+      ? `<div class="texto"><p>Durante el período ${anio} se elaboraron <strong>${datos.ros.length}</strong> ${datos.ros.length === 1 ? 'Reporte de Operación Sospechosa' : 'Reportes de Operaciones Sospechosas'} y se remitieron a la Unidad de Inteligencia Financiera (UIF) del ICD.</p></div>
+         <table class="datos" style="margin-top:8px">
+           <thead><tr><th class="centro" style="width:10%">N° ROS</th><th>Cliente</th><th style="width:24%">Fecha</th><th style="width:16%">Estado</th></tr></thead>
+           <tbody>${datos.ros.map((r, i) => `
+             <tr>
+               <td class="centro">${String(i + 1).padStart(3, '0')}</td>
+               <td>${esc(r.nombre_sujeto || r.numero_identificacion || '—')}</td>
+               <td>${esc(fmtFecha(r.created_at?.substring(0, 10)))}</td>
+               <td>${esc(r.estado || 'elaborado')}</td>
+             </tr>`).join('')}</tbody>
+         </table>`
+      : `<div class="texto"><p>Durante el período ${anio} no se identificaron operaciones que ameritaran la presentación de un Reporte de Operación Sospechosa ante la Unidad de Inteligencia Financiera del ICD.</p></div>`
+
+    const seccionCapacitacion = datos.capacitacion
+      ? `<div class="aviso ok">
+           <strong>Capacitación anual completada.</strong>
+           ${datos.fechaCapacitacion ? ` Fecha de realización: ${esc(fmtFecha(datos.fechaCapacitacion))}.` : ''}
+           El personal de la entidad recibió capacitación en materia de prevención de LC/FT/FPADM según lo establecido en el Acuerdo SUGEF 11-18.
+         </div>`
+      : `<div class="aviso warn">No se registró capacitación anual completada en el sistema durante el período ${anio}.</div>`
+
+    const cuerpo = `
+      <div class="portada">
+        <div class="confidencial">Confidencial — Uso exclusivo Junta Directiva</div>
+        <h1>INFORME DE LABORES</h1>
+        <h2>Oficial de Cumplimiento ALA/CFT</h2>
+        <div class="periodo">Período: 1 de enero al 31 de diciembre de ${anio}</div>
+        <div class="meta-grid">
+          <div class="meta-item"><div class="lbl">Entidad</div><div class="val">${esc(tenant?.nombre || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Actividad APNFD</div><div class="val">${esc(tenant?.actividad_apnfd || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Oficial de Cumplimiento</div><div class="val">${esc(profile?.nombre || '—')}</div></div>
+          <div class="meta-item"><div class="lbl">Fecha de elaboración</div><div class="val">${esc(fechaLarga())}</div></div>
+        </div>
+      </div>
+
+      <section class="bloque">
+        <h3>I. Introducción</h3>
+        <div class="texto">${escMultilinea(textoIntro)}</div>
+      </section>
+
+      <section class="bloque">
+        <h3>II. Normativa Interna Aprobada en el Período</h3>
+        ${seccionNormativa}
+      </section>
+
+      <section class="bloque">
+        <h3>III. Monitoreo Transaccional SICVECA</h3>
+        <div class="stats c4">
+          ${stat(datos.txns.length, 'Total transacciones')}
+          ${stat('USD ' + fmtUSD(datos.totalMonto), 'Monto total reportado')}
+          ${stat(datos.periodosConMov, 'Meses con movimiento', 'verde')}
+          ${stat(datos.periodosSinMov, 'Meses sin movimiento', 'naranja')}
+        </div>
+        <div class="texto"><p>Durante el período ${anio}, se realizó el monitoreo mensual de transacciones en el sistema SICVECA, reportando ${datos.periodosConMov} ${datos.periodosConMov === 1 ? 'mes' : 'meses'} con actividad transaccional y ${datos.periodosSinMov} ${datos.periodosSinMov === 1 ? 'mes' : 'meses'} sin movimiento, totalizando ${datos.txns.length} transacciones por un monto de USD ${fmtUSD(datos.totalMonto)}.</p></div>
+      </section>
+
+      <section class="bloque">
+        <h3>IV. Debida Diligencia de Clientes</h3>
+        <div class="stats c3">
+          ${stat(datos.dds.length, 'Expedientes gestionados')}
+          ${stat(datos.dds.filter(d => d.nivel_riesgo === 'alto').length, 'Alto riesgo', 'rojo')}
+          ${stat(datos.dds.filter(d => d.nivel_riesgo === 'medio').length, 'Riesgo medio', 'naranja')}
+        </div>
+        ${datos.dds.length === 0 ? `<p class="vacio">No se registraron expedientes de debida diligencia durante ${anio}.</p>` : ''}
+      </section>
+
+      <section class="bloque">
+        <h3>V. Reportes de Operaciones Sospechosas (ROS)</h3>
+        ${seccionRos}
+      </section>
+
+      <section class="bloque">
+        <h3>VI. Atención de Denuncias — Canal Confidencial</h3>
+        <div class="stats c3">
+          ${stat(datos.denuncias.length, 'Denuncias recibidas')}
+          ${stat(datos.denuncias.filter(d => d.estado === 'en_proceso').length, 'En proceso')}
+          ${stat(datos.denuncias.filter(d => d.estado === 'resuelta' || d.estado === 'cerrada').length, 'Resueltas', 'verde')}
+        </div>
+        ${datos.denuncias.length === 0 ? `<div class="texto"><p>No se recibieron denuncias a través del canal confidencial durante el período ${anio}.</p></div>` : ''}
+      </section>
+
+      <section class="bloque">
+        <h3>VII. Calificación de Riesgo de Clientes</h3>
+        <div class="stats c3">
+          ${stat(datos.calificaciones.length, 'Calificaciones realizadas')}
+          ${stat(datos.calificaciones.filter(c => c.nivel_riesgo === 'Alto').length, 'Riesgo alto', 'rojo')}
+          ${stat(datos.calificaciones.filter(c => c.nivel_riesgo !== 'Alto').length, 'Riesgo bajo/medio', 'verde')}
+        </div>
+      </section>
+
+      <section class="bloque">
+        <h3>VIII. Capacitación en Materia ALA/CFT</h3>
+        ${seccionCapacitacion}
+      </section>
+
+      <section class="bloque">
+        <h3>IX. Conclusiones y Recomendaciones</h3>
+        <div class="texto">${escMultilinea(textoConclusiones)}</div>
+      </section>
+
+      <div class="firmas">
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="nombre">${esc(profile?.nombre || '—')}</div>
+          <div class="cargo">Oficial de Cumplimiento ALA/CFT</div>
+          <div class="fecha">${esc(tenant?.nombre || '')}</div>
+        </div>
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="nombre">Recibido por Junta Directiva</div>
+          <div class="cargo">Representante Legal</div>
+          <div class="fecha">Fecha: ________________________</div>
+        </div>
+      </div>
+
+      <div class="pie">
+        Informe elaborado el ${esc(fechaLarga())} · CNL Craniley Compliance Services<br>
+        Documento confidencial — Uso exclusivo de Junta Directiva
+      </div>`
+
+    imprimirDocumento({
+      titulo: `Informe de Labores ${anio}`,
+      subtitulo: 'Oficial de Cumplimiento ALA/CFT',
+      cuerpo, tenant, profile,
+    })
+  }
+
   return (
     <div className="p-6 max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
@@ -97,7 +259,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
           <p className="text-gray-500 text-sm mt-1">Dirigido a Junta Directiva · Formato profesional ALA/CFT</p>
         </div>
         {generado && (
-          <button onClick={() => window.print()} className="btn-primary text-sm">🖨️ Imprimir / PDF</button>
+          <button onClick={imprimir} className="btn-primary text-sm print:hidden">🖨️ Imprimir / PDF</button>
         )}
       </div>
 
@@ -149,7 +311,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
               className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[120px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
               value={intro}
               onChange={e => setIntro(e.target.value)}
-              placeholder={`El presente informe tiene por objeto rendir cuenta a la Junta Directiva de ${tenant?.nombre} sobre las labores desarrolladas por el Oficial de Cumplimiento durante el período comprendido del 1 de enero al 31 de diciembre de ${anio}, en cumplimiento de las disposiciones establecidas en la Ley 7786 y sus reformas, así como los Acuerdos SUGEF vigentes en materia de prevención de Legitimación de Capitales, Financiamiento al Terrorismo y Financiamiento a la Proliferación de Armas de Destrucción Masiva (LC/FT/FPADM).`}
+              placeholder={introDefault(tenant?.nombre || 'la entidad', anio)}
             />
           </section>
 
@@ -324,7 +486,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
               className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[150px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
               value={conclusiones}
               onChange={e => setConclusiones(e.target.value)}
-              placeholder={`Con base en las labores desarrolladas durante el período ${anio}, el suscrito Oficial de Cumplimiento concluye que la entidad ha mantenido los controles necesarios para prevenir el uso de sus servicios en actividades de LC/FT/FPADM.\n\nSe recomienda a la Junta Directiva:\n1. Continuar apoyando las iniciativas de cumplimiento y los recursos asignados al área.\n2. Aprobar el Plan de Trabajo y el Plan de Capacitación para el año ${anio + 1}.\n3. Mantener actualizados los expedientes de debida diligencia de clientes de alto riesgo.`}
+              placeholder={conclusionesDefault(anio)}
             />
           </section>
 
@@ -340,16 +502,6 @@ export default function InformeLaborales({ tenantEfectivo }) {
         </div>
       )}
 
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          #informe-labores { display: block !important; }
-          .card { border: 1px solid #e5e7eb; box-shadow: none; break-inside: avoid; margin-bottom: 1rem; }
-          button, select, textarea { display: none !important; }
-          textarea { display: block !important; border: none !important; resize: none; }
-        }
-        @media print { textarea { display: block !important; } }
-      `}</style>
     </div>
   )
 }
