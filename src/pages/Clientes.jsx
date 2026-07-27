@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { TIPO_IDENTIFICACION, getEtiquetaCliente } from '../lib/catalogos'
-import CargaMasivaClientes from '../components/carga/CargaMasivaClientes'
+import CargaMasivaClientesSicveca from '../components/carga/CargaMasivaClientesSicveca'
 import { exportarExcel } from '../lib/exportExcel'
 import { logAudit } from '../lib/auditLog'
 import { alertaListasCliente } from '../lib/emailAlertas'
@@ -582,7 +582,7 @@ export default function Clientes() {
       )}
 
       {/* Carga masiva */}
-      <CargaMasivaClientes
+      <CargaMasivaClientesSicveca
         tenants={tenants}
         etiquetaCliente={etiqueta}
         onImportado={load}

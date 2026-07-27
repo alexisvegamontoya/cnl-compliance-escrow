@@ -130,7 +130,11 @@ Escribe en español formal costarricense. Máximo 600 palabras totales.`
     if (!claudeRes.ok) {
       const err = await claudeRes.text()
       let msg = 'Error al generar perfil con Claude.'
-      try { msg = JSON.parse(err)?.error?.message || msg } catch {}
+      try {
+        msg = JSON.parse(err)?.error?.message || msg
+      } catch {
+        // La respuesta de error no era JSON: se usa el mensaje genérico
+      }
       return res.status(502).json({ error: msg })
     }
 

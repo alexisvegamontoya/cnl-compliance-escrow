@@ -29,7 +29,9 @@ function leerEnv(nombre) {
       const contenido = readFileSync(path.join(rootDir, archivo), 'utf-8')
       const match = contenido.match(new RegExp(`^${nombre}=(.+)$`, 'm'))
       if (match) return match[1].trim()
-    } catch {}
+    } catch {
+      // El archivo .env no existe o no se puede leer: se prueba el siguiente
+    }
   }
   return null
 }

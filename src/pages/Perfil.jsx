@@ -3,6 +3,30 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 
+/**
+ * QR de inscripción MFA. Supabase lo devuelve como data URI o como SVG en
+ * crudo según la versión del SDK; se aceptan solo esas dos formas y se
+ * descarta cualquier marcado con scripts o manejadores de eventos.
+ */
+function QrMfa({ valor }) {
+  const qr = String(valor || '').trim()
+  if (!qr) return null
+
+  if (qr.startsWith('data:image/')) {
+    return <img src={qr} alt="Código QR para configurar la verificación en dos pasos" className="w-44 h-44" />
+  }
+
+  const esSvgLimpio =
+    qr.startsWith('<svg') &&
+    !/<script/i.test(qr) &&
+    !/\son\w+\s*=/i.test(qr)
+
+  if (!esSvgLimpio) {
+    return <p className="text-xs text-red-600">No se pudo mostrar el código QR. Use el código manual.</p>
+  }
+  return <div dangerouslySetInnerHTML={{ __html: qr }} />
+}
+
 export default function Perfil() {
   const { profile, session, tenant } = useAuth()
   const [searchParams] = useSearchParams()
@@ -396,8 +420,9 @@ export default function Perfil() {
 
                 {/* QR Code */}
                 <div className="flex flex-col items-center gap-3">
-                  <div className="border-2 border-gray-200 rounded-xl p-3 bg-white"
-                    dangerouslySetInnerHTML={{ __html: enrollData.totp.qr_code }} />
+                  <div className="border-2 border-gray-200 rounded-xl p-3 bg-white">
+                    <QrMfa valor={enrollData.totp.qr_code} />
+                  </div>
                   <div className="text-center">
                     <p className="text-xs text-gray-500">¿No puede escanear? Use este código manual:</p>
                     <p className="font-mono text-sm font-bold text-gray-800 mt-1 tracking-widest bg-gray-100 px-3 py-1.5 rounded-lg">

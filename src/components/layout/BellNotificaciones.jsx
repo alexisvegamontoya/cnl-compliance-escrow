@@ -32,9 +32,23 @@ export default function BellNotificaciones() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  /**
+   * url_accion viene de la base de datos, así que solo se acepta una ruta
+   * interna. Una cadena como "//sitio.com" o "/\sitio.com" saca al usuario de
+   * la plataforma (open redirect, GHSA-wrjc-x8rr-h8h6 en react-router 6).
+   */
+  function rutaInternaSegura(url) {
+    if (typeof url !== 'string') return null
+    const limpia = url.trim()
+    if (!limpia.startsWith('/')) return null
+    if (limpia.startsWith('//') || limpia.startsWith('/\\')) return null
+    return limpia
+  }
+
   function handleNotifClick(n) {
     marcarLeida(n.id)
-    if (n.url_accion) navigate(n.url_accion)
+    const destino = rutaInternaSegura(n.url_accion)
+    if (destino) navigate(destino)
     setOpen(false)
   }
 

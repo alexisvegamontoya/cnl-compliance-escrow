@@ -1,30 +1,52 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import Login from './components/auth/Login'
-import SetPassword from './pages/SetPassword'
-import MFAGate from './components/auth/MFAGate'
-import StatusPage from './pages/StatusPage'
 import Sidebar from './components/layout/Sidebar'
-import Dashboard from './pages/Dashboard'
-import Transacciones from './pages/Transacciones'
-import GenerarXML from './pages/GenerarXML'
-import Clientes from './pages/Clientes'
-import GestionClientes from './pages/GestionClientes'
-import SujetosObligados from './pages/admin/SujetosObligados'
-import Usuarios from './pages/admin/Usuarios'
-import Informes from './pages/Informes'
-import Ros from './pages/Ros'
-import Normativa from './pages/Normativa'
-import CalificacionRiesgo from './pages/CalificacionRiesgo'
-import ComplianceDashboard from './pages/ComplianceDashboard'
-import CanalDenuncias from './pages/CanalDenuncias'
-import Perfil from './pages/Perfil'
-import AuditLog from './pages/admin/AuditLog'
-import ConsultaPEP from './pages/ConsultaPEP'
-import DebilidaDiligencia from './pages/DebilidaDiligencia'
-import ModuloIA from './pages/ModuloIA'
-import CambiarClaveObligatoria from './pages/CambiarClaveObligatoria'
+
+// Cada pantalla se descarga la primera vez que se entra a ella, no al arrancar.
+// Así el bundle inicial no arrastra librerías que solo usan algunos módulos
+// (xlsx en carga masiva y exportaciones, recharts en los dashboards).
+const SetPassword             = lazy(() => import('./pages/SetPassword'))
+const MFAGate                 = lazy(() => import('./components/auth/MFAGate'))
+const StatusPage              = lazy(() => import('./pages/StatusPage'))
+const CambiarClaveObligatoria = lazy(() => import('./pages/CambiarClaveObligatoria'))
+const Dashboard               = lazy(() => import('./pages/Dashboard'))
+const Transacciones           = lazy(() => import('./pages/Transacciones'))
+const GenerarXML              = lazy(() => import('./pages/GenerarXML'))
+const Clientes                = lazy(() => import('./pages/Clientes'))
+const GestionClientes         = lazy(() => import('./pages/GestionClientes'))
+const SujetosObligados        = lazy(() => import('./pages/admin/SujetosObligados'))
+const Usuarios                = lazy(() => import('./pages/admin/Usuarios'))
+const Informes                = lazy(() => import('./pages/Informes'))
+const Ros                     = lazy(() => import('./pages/Ros'))
+const Normativa               = lazy(() => import('./pages/Normativa'))
+const CalificacionRiesgo      = lazy(() => import('./pages/CalificacionRiesgo'))
+const ComplianceDashboard     = lazy(() => import('./pages/ComplianceDashboard'))
+const CanalDenuncias          = lazy(() => import('./pages/CanalDenuncias'))
+const Perfil                  = lazy(() => import('./pages/Perfil'))
+const AuditLog                = lazy(() => import('./pages/admin/AuditLog'))
+const ConsultaPEP             = lazy(() => import('./pages/ConsultaPEP'))
+const DebilidaDiligencia      = lazy(() => import('./pages/DebilidaDiligencia'))
+const ModuloIA                = lazy(() => import('./pages/ModuloIA'))
+
+/** Indicador mientras se descarga el módulo de una sección (dentro del layout). */
+function CargandoSeccion() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="text-gray-400">Cargando sección…</div>
+    </div>
+  )
+}
+
+/** Indicador para las pantallas que se muestran fuera del layout. */
+function CargandoPantalla() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-gray-400 text-lg">Cargando…</div>
+    </div>
+  )
+}
 
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -57,7 +79,10 @@ function Layout({ children }) {
         </header>
 
         <main className="flex-1 overflow-auto bg-gray-50">
-          {children}
+          {/* El sidebar se mantiene visible mientras carga la sección */}
+          <Suspense fallback={<CargandoSeccion />}>
+            {children}
+          </Suspense>
         </main>
       </div>
     </div>
@@ -202,7 +227,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <Suspense fallback={<CargandoPantalla />}>
+          <AppRoutes />
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   )

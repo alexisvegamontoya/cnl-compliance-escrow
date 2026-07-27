@@ -114,7 +114,7 @@ const CATEGORIAS = [
 
 function CitaHighlight({ texto }) {
   // Resalta referencias a artículos, leyes y acuerdos
-  const partes = texto.split(/(Art(?:ículo)?\.?\s*\d+[\w\s\-bis]*|Ley\s+\d+|Acuerdo\s+SUGEF\s+[\d\-]+|Capítulo\s+[IVXivx]+)/g)
+  const partes = texto.split(/(Art(?:ículo)?\.?\s*\d+[\w\s\-bis]*|Ley\s+\d+|Acuerdo\s+SUGEF\s+[\d-]+|Capítulo\s+[IVXivx]+)/g)
   return (
     <>
       {partes.map((parte, i) =>

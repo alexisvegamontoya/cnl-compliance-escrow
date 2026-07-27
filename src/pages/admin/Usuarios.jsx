@@ -470,7 +470,11 @@ export default function Usuarios() {
       })
       const text = await res.text()
       let json = {}
-      try { json = JSON.parse(text) } catch (_) {}
+      try {
+        json = JSON.parse(text)
+      } catch {
+        // Respuesta sin cuerpo JSON: se conserva el objeto vacío
+      }
       if (!res.ok) {
         setError({ tipo: 'operativo', mensaje: json.error || `Error ${res.status} al eliminar usuario` })
       } else {

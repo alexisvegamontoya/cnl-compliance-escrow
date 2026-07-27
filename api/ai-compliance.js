@@ -177,7 +177,9 @@ export default async function handler(req, res) {
       try {
         const errJson = JSON.parse(err)
         if (errJson?.error?.message) errMsg = errJson.error.message
-      } catch {}
+      } catch {
+        // La respuesta de error no era JSON: se usa el mensaje genérico
+      }
       return res.status(502).json({ error: errMsg })
     }
 

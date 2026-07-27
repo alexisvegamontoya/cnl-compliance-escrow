@@ -202,7 +202,7 @@ export default function Ros() {
           <button
             onClick={() => {
               exportarExcel({
-                data: ros,
+                data: reportes,
                 columnas: ['fecha_elaboracion','nombre_reportado','numero_identificacion','actividad_economica_cliente','monto_total_operacion','moneda','descripcion_operacion_sospechosa','estado'],
                 headers: {
                   fecha_elaboracion: 'Fecha', nombre_reportado: 'Nombre Reportado', numero_identificacion: 'N° ID',
@@ -212,7 +212,7 @@ export default function Ros() {
                 nombreArchivo: 'ros_cnl',
                 nombreHoja: 'ROS',
               })
-              logAudit({ accion: 'exportar', tabla: 'ros', descripcion: `Exportación Excel de ${ros.length} ROS` })
+              logAudit({ accion: 'exportar', tabla: 'ros', descripcion: `Exportación Excel de ${reportes.length} ROS` })
             }}
             className="btn-secondary flex items-center gap-1.5 text-sm"
           >

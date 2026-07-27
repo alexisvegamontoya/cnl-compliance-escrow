@@ -1,3 +1,13 @@
+/**
+ * CargaMasivaClientesSicveca.jsx
+ * Importador de clientes para el módulo SICVECA (pantalla "Clientes").
+ * Valida los campos del formato SICVECA: tipo_identificacion numérico y
+ * calificacion_riesgo alto/medio/bajo.
+ *
+ * No confundir con components/clientes/CargaMasivaClientes.jsx, que es el
+ * importador del expediente completo (Gestión de Clientes) e incluye el
+ * checklist documental. Son formatos de archivo distintos.
+ */
 import { useState, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
