@@ -12,20 +12,17 @@
  *   { email, nombre, password, tenants: [{ tenant_id, rol }] }
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://akczzwsfggzcfqyytyho.supabase.co'
+import { requireSuperAdmin, SUPABASE_URL } from './_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada.' })
-  }
+  const auth = await requireSuperAdmin(req, res)
+  if (!auth.ok) return
 
+  const supabaseAdmin = auth.admin
   const { email, nombre, password, tenants } = req.body || {}
 
   if (!email || !nombre || !password) {
@@ -37,10 +34,6 @@ export default async function handler(req, res) {
   if (password.length < 6) {
     return res.status(400).json({ error: 'La contraseña provisional debe tener al menos 6 caracteres.' })
   }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
 
   try {
     // 1. Crear usuario con contraseña provisional y flag de cambio obligatorio

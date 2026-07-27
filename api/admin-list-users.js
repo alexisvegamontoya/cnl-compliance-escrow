@@ -2,20 +2,20 @@
  * GET /api/admin-list-users
  * Retorna TODOS los usuarios de Auth + sus perfiles + sus membresías.
  * Usa SUPABASE_SERVICE_ROLE_KEY para bypasear RLS y leer auth.users.
- * Solo debe llamarse desde el frontend cuando isSuperAdmin === true.
+ * Exige sesión de superadministrador (ver _auth.js).
  */
 
-const SUPABASE_URL = 'https://akczzwsfggzcfqyytyho.supabase.co'
+import { requireSuperAdmin, SUPABASE_URL } from './_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método no permitido' })
   }
 
+  const auth = await requireSuperAdmin(req, res)
+  if (!auth.ok) return
+
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada.' })
-  }
 
   const headers = {
     'apikey': serviceKey,

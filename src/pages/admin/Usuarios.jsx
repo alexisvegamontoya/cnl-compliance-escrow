@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/apiFetch'
 import { useAuth } from '../../lib/AuthContext'
 import ErrorBanner from '../../components/ui/ErrorBanner'
 import { clasificarError } from '../../lib/errorHandler'
@@ -71,9 +72,8 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
         tenants:  tenantsSeleccionados.map(tid => ({ tenant_id: tid, rol: sel[tid] })),
       }
 
-      const res = await fetch('/api/admin-invite-user', {
+      const res = await apiFetch('/api/admin-invite-user', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       })
 
@@ -410,7 +410,7 @@ export default function Usuarios() {
     if (isSuperAdmin) {
       // Superadmin: usar endpoint de servidor que bypasea RLS
       try {
-        const res = await fetch('/api/admin-list-users')
+        const res = await apiFetch('/api/admin-list-users')
         const json = await res.json()
         if (res.ok) {
           setUsuarios(json.usuarios || [])
@@ -464,9 +464,8 @@ export default function Usuarios() {
     setSaving(u.id)
     setError(null)
     try {
-      const res = await fetch('/api/admin-delete-user', {
+      const res = await apiFetch('/api/admin-delete-user', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: u.id }),
       })
       const text = await res.text()

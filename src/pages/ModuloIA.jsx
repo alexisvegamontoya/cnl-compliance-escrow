@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { apiFetch } from '../lib/apiFetch'
 
 const CATEGORIAS = [
   {
@@ -152,9 +153,8 @@ export default function ModuloIA() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/ai-compliance', {
+      const res = await apiFetch('/api/ai-compliance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ consulta: q, categoria: categoria?.label }),
       })
       const data = await res.json()

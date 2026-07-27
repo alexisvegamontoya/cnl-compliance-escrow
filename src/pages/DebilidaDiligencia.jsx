@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { apiFetch } from '../lib/apiFetch'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
 import { CHECKLIST_DOCUMENTAL as CHECKLIST, normalizarChecklist } from '../lib/checklistDocumental'
@@ -534,9 +535,8 @@ export default function DebilidaDiligencia() {
       const actividad     = tipo === 'F' ? datos.ocupacion : datos.actividad_ciiu
       const paisEntidad   = tipo === 'F' ? datos.pais_residencia : datos.pais_constitucion
 
-      const res = await fetch('/api/dd-profile', {
+      const res = await apiFetch('/api/dd-profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo, nombre: nombreEntidad, actividad, pais: paisEntidad,
           participantes: participantes.map(p => ({ nombre: p.nombre, rol: p.rol })),

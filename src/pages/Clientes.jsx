@@ -226,8 +226,9 @@ export default function Clientes() {
   }
 
   async function eliminar(id) {
-    if (!confirm('┬┐Eliminar este cliente?')) return
-    await supabase.from('clientes').delete().eq('id', id)
+    if (!confirm('¿Eliminar este cliente?')) return
+    const { error: eBorrar } = await supabase.from('clientes').delete().eq('id', id)
+    if (eBorrar) { setError(eBorrar.message || 'No se pudo eliminar el cliente.'); return }
     load()
   }
 

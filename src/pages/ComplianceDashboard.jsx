@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
 import { calcularCumplimientoGlobal } from '../lib/checklistDocumental'
+import ErrorBanner from '../components/ui/ErrorBanner'
 
 // ─── Pesos de cada ítem ───────────────────────────────────────────────────────
 const PESOS = { i1: 25, i2: 7, i3: 20, i4: 15, i5: 5, i6: 8, i7: 15, i8: 5 }
@@ -164,6 +165,7 @@ export default function ComplianceDashboard() {
   const [transacciones, setTransacciones] = useState([])
   const [informes, setInformes]         = useState([])
   const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState(null)
   const [saving, setSaving]             = useState(false)
 
   // Items manuales
@@ -175,14 +177,15 @@ export default function ComplianceDashboard() {
   const load = useCallback(async () => {
     if (!tenant) return
     setLoading(true)
+    setError(null)
     const tid = tenant.id
 
     const [
-      { data: cls },
-      { data: norm },
-      { data: txns },
-      { data: inf },
-      { data: seg },
+      { data: cls, error: eCls },
+      { data: norm, error: eNorm },
+      { data: txns, error: eTxns },
+      { data: inf, error: eInf },
+      { data: seg, error: eSeg },
     ] = await Promise.all([
       supabase.from('clientes')
         .select('id,pep,tipo_persona,calificacion_riesgo,nivel_riesgo_actual,estado_calificacion,estado_dd,estado_listas,kyc_actualizado,legal_actualizado,ingresos_actualizados,fecha_ultima_calificacion,aparece_en_listas,fecha_termino_relacion,activo,nombre_cliente,primer_apellido,nombre_empresa,numero_identificacion,cedula_juridica,checklist_documental,actividad_eco_nombre,actividad_economica,profesion_nombre,pais_ubicacion,pais_residencia,pais_nacimiento,pais_constitucion,fecha_nacimiento,fecha_constitucion,direccion_exacta,telefono,correo_electronico,fecha_vinculacion,proposito_relacion,origen_fondos,ingreso_mensual_est')
@@ -193,12 +196,17 @@ export default function ComplianceDashboard() {
       supabase.from('transacciones')
         .select('periodo').eq('tenant_id', tid)
         .order('periodo', { ascending: false }).limit(1),
-      supabase.from('informes')
-        .select('created_at').eq('tenant_id', tid)
-        .order('created_at', { ascending: false }).limit(1),
+      supabase.from('informes_generados')
+        .select('fecha_generacion').eq('tenant_id', tid)
+        .order('fecha_generacion', { ascending: false }).limit(1),
       supabase.from('compliance_seguimiento')
         .select('*').eq('tenant_id', tid).maybeSingle(),
     ])
+
+    // Si una consulta falla, el ítem que alimenta quedaría en cero sin explicación.
+    // Se reporta en pantalla en vez de calcular sobre datos incompletos.
+    const fallo = [eCls, eNorm, eTxns, eInf, eSeg].find(e => e && e.code !== 'PGRST116')
+    if (fallo) setError(fallo)
 
     setClientes(cls || [])
     setNormativa(norm || [])
@@ -228,7 +236,8 @@ export default function ComplianceDashboard() {
   async function guardarSeguimiento() {
     if (!tenant) return
     setSaving(true)
-    await supabase.from('compliance_seguimiento').upsert({
+    setError(null)
+    const { error: eGuardar } = await supabase.from('compliance_seguimiento').upsert({
       tenant_id: tenant.id,
       capacitacion_completa: fCapacitacion.completa,
       fecha_capacitacion: fCapacitacion.fecha || null,
@@ -240,6 +249,12 @@ export default function ComplianceDashboard() {
       fecha_plan_capacitacion: fInformes.plan_capacitacion || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
+
+    if (eGuardar) {
+      setError(eGuardar)
+      setSaving(false)
+      return
+    }
     await load()
     setSaving(false)
   }
@@ -310,7 +325,7 @@ export default function ComplianceDashboard() {
   const pendientesI6 = []
   let scoreI6 = 0
   if (informes.length > 0) {
-    const meses = mesesDesde(informes[0].created_at)
+    const meses = mesesDesde(informes[0].fecha_generacion)
     if (meses <= 6) scoreI6 = 100
     else if (meses <= 12) { scoreI6 = 50; pendientesI6.push(`Informe generado hace ${meses} meses (recomendado: máx 6)`) }
     else { scoreI6 = 0; pendientesI6.push(`Informe de monitoreo desactualizado (${meses} meses) — generar nuevo informe`) }
@@ -387,6 +402,8 @@ export default function ComplianceDashboard() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="p-6 max-w-6xl space-y-6">
+
+      <ErrorBanner error={error} onClose={() => setError(null)} />
 
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
@@ -586,8 +603,8 @@ export default function ComplianceDashboard() {
             {/* Ítem 6 */}
             <ItemCard {...items[5]}>
               <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
-                {informes[0]?.created_at
-                  ? <p>Último informe: <strong>{new Date(informes[0].created_at).toLocaleDateString('es-CR')}</strong> ({mesesDesde(informes[0].created_at)} meses atrás)</p>
+                {informes[0]?.fecha_generacion
+                  ? <p>Último informe: <strong>{new Date(informes[0].fecha_generacion).toLocaleDateString('es-CR')}</strong> ({mesesDesde(informes[0].fecha_generacion)} meses atrás)</p>
                   : <p>No hay informes generados.</p>}
                 <p className="text-gray-400">≤6 meses = 100% · 6–12 meses = 50% · más de 12 meses = 0%</p>
                 <p className="text-gray-400">Para generar un informe, vaya a <strong>Módulo 1 → Informes</strong>.</p>

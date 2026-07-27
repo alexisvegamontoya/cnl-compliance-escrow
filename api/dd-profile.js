@@ -7,8 +7,14 @@
  *   TAVILY_API_KEY    — nueva: obtener en https://tavily.com (gratuito 1000 búsquedas/mes)
  */
 
+import { requireSesion } from './_auth.js'
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  // Consume ANTHROPIC_API_KEY y TAVILY_API_KEY: exige sesión
+  const auth = await requireSesion(req, res)
+  if (!auth.ok) return
 
   const { tipo, nombre, actividad, pais, participantes, resultados_listas } = req.body || {}
 

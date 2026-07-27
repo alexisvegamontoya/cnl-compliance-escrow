@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { apiFetch } from '../lib/apiFetch'
 import { useAuth } from '../lib/AuthContext'
 
 // ── Configuración de categorías ───────────────────────────────────────────────
@@ -171,7 +172,7 @@ export default function Dashboard() {
     setSincronizando(true)
     setSyncError('')
     try {
-      const res  = await fetch('/api/feed-sync', { method: 'POST' })
+      const res  = await apiFetch('/api/feed-sync', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
         setSyncError(data.error || 'Error desconocido al sincronizar.')

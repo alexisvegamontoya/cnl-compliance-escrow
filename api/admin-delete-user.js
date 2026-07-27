@@ -2,24 +2,30 @@
  * DELETE /api/admin-delete-user
  * Elimina un usuario de Supabase Auth y sus registros asociados.
  * Requiere SUPABASE_SERVICE_ROLE_KEY en Vercel env vars.
+ * Exige sesión de superadministrador (ver _auth.js).
  * Body: { userId: string }
  */
 
-const SUPABASE_URL = 'https://akczzwsfggzcfqyytyho.supabase.co'
+import { requireSuperAdmin, SUPABASE_URL } from './_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Método no permitido' })
   }
 
+  const auth = await requireSuperAdmin(req, res)
+  if (!auth.ok) return
+
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada.' })
-  }
 
   const { userId } = req.body || {}
   if (!userId) {
     return res.status(400).json({ error: 'Se requiere userId.' })
+  }
+
+  // Un superadmin no puede eliminarse a sí mismo: dejaría la plataforma sin acceso
+  if (userId === auth.user.id) {
+    return res.status(400).json({ error: 'No puede eliminar su propio usuario.' })
   }
 
   try {

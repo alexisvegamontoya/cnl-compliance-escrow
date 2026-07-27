@@ -10,9 +10,10 @@
  *   ANTHROPIC_API_KEY        — ya configurada
  *   SUPABASE_SERVICE_ROLE_KEY — agregar en Vercel Settings → Environment Variables
  *                              (encontrar en Supabase → Project Settings → API → service_role)
+ *   CRON_SECRET               — token que envía el cron de Vercel para autenticarse
  */
 
-const SUPABASE_URL = 'https://akczzwsfggzcfqyytyho.supabase.co'
+import { requireCronOSesion, SUPABASE_URL } from './_auth.js'
 
 // Búsquedas temáticas ALA/CFT para Costa Rica
 const SEARCHES = [
@@ -30,6 +31,10 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  // Lo dispara el cron de Vercel (CRON_SECRET) o un usuario con sesión desde el panel
+  const auth = await requireCronOSesion(req, res)
+  if (!auth.ok) return
 
   const tavilyKey    = process.env.TAVILY_API_KEY
   const anthropicKey = process.env.ANTHROPIC_API_KEY

@@ -18,6 +18,7 @@ import {
 } from '../lib/checklistDocumental'
 import { exportarExcel } from '../lib/exportExcel'
 import { imprimirFichaCliente } from '../utils/imprimirFicha'
+import ErrorBanner from '../components/ui/ErrorBanner'
 
 const InformeClienteCompleto = lazy(() => import('../components/clientes/InformeClienteCompleto'))
 
@@ -131,6 +132,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   const [filtroDd, setFiltroDd]       = useState('')
   const [filtroTenant, setFiltroTenant] = useState('')   // solo superadmin
   const [tenants, setTenants]         = useState([])     // solo superadmin
+  const [error, setError]             = useState(null)
 
   // Cargar lista de tenants para superadmin
   useEffect(() => {
@@ -151,8 +153,8 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
     if (filtroTipo)   q = q.eq('tipo_persona', filtroTipo)
     if (filtroRiesgo) q = q.eq('nivel_riesgo_actual', filtroRiesgo)
     if (filtroDd)     q = q.eq('estado_dd', filtroDd)
-    const { data, error } = await q
-    if (error) console.error('Error cargando clientes:', error)
+    const { data, error: eCargar } = await q
+    setError(eCargar || null)
     setClientes(data || [])
     setLoading(false)
   }, [tenant?.id, isSuperAdmin, filtroTenant, filtroTipo, filtroRiesgo, filtroDd])
@@ -162,7 +164,8 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   async function eliminar(e, id) {
     e.stopPropagation()
     if (!confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
-    await supabase.from('clientes').delete().eq('id', id)
+    const { error: eBorrar } = await supabase.from('clientes').delete().eq('id', id)
+    if (eBorrar) { setError(eBorrar); return }
     cargar()
   }
 
@@ -187,6 +190,8 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
 
   return (
     <div className="p-6 space-y-4 max-w-7xl mx-auto">
+      <ErrorBanner error={error} onClose={() => setError(null)} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

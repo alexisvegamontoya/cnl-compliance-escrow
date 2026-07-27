@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/apiFetch'
 import { useAuth } from '../../lib/AuthContext'
 import {
   CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
@@ -871,9 +872,8 @@ function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelCha
       const nombreEntidad = nombreCompleto(cliente)
       const actividad = cliente.actividad_eco_nombre || cliente.profesion_nombre || cliente.actividad_economica || ''
       const pais = cliente.pais_ubicacion || cliente.pais_nacimiento || 'Costa Rica'
-      const res = await fetch('/api/dd-profile', {
+      const res = await apiFetch('/api/dd-profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo, nombre: nombreEntidad, actividad, pais,
           participantes: personas.map(p => ({ nombre: p.nombre, rol: p.tipo_relacion })),

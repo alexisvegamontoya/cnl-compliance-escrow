@@ -1,7 +1,10 @@
 /**
  * Vercel Serverless Function — Módulo IA Compliance
  * La API key de Anthropic NUNCA sale al frontend.
+ * Exige sesión de usuario (ver _auth.js).
  */
+
+import { requireSesion } from './_auth.js'
 
 const SYSTEM_PROMPT = `Eres un asistente especializado en cumplimiento ALA/CFT (Anti Lavado de Activos y Contra el Financiamiento del Terrorismo) para sujetos obligados ante SUGEF en Costa Rica.
 
@@ -126,7 +129,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { consulta, categoria } = req.body
+  // Consume la ANTHROPIC_API_KEY: exige sesión para que no sea un endpoint abierto
+  const auth = await requireSesion(req, res)
+  if (!auth.ok) return
+
+  const { consulta, categoria } = req.body || {}
 
   if (!consulta || consulta.trim().length < 5) {
     return res.status(400).json({ error: 'Consulta muy corta.' })
