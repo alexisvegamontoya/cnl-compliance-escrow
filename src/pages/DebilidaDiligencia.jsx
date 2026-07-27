@@ -2,48 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
+import { CHECKLIST_DOCUMENTAL as CHECKLIST, normalizarChecklist } from '../lib/checklistDocumental'
+import ChecklistDocumental from '../components/clientes/ChecklistDocumental'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTES
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ROLES = ['Representante Legal', 'Socio/Accionista', 'Beneficiario Final', 'Apoderado', 'Junta Directiva']
-
-const CHECKLIST = {
-  base: [
-    { id: 'id_vigente',    label: 'Copia de identificación vigente (cédula / DIMEX / pasaporte)', required: true },
-    { id: 'domicilio',     label: 'Comprobante de domicilio (no mayor a 3 meses)', required: true },
-    { id: 'comp_ingreso',  label: 'Comprobante de ingreso (colilla CCSS, carta patronal o declaración)', required: true },
-    { id: 'kyc_firmado',   label: 'Formulario de vinculación firmado por el cliente', required: true },
-    { id: 'proposito',     label: 'Declaración de propósito de la relación comercial', required: true },
-    { id: 'origen_fondos', label: 'Declaración de origen de fondos', required: true },
-    { id: 'pep_check',     label: 'Verificación PEP (persona expuesta políticamente)', required: true },
-    { id: 'listas_ok',     label: 'Verificación en listas internacionales (OFAC, ONU, UE)', required: true },
-    { id: 'ccss_estado',   label: 'Verificación estado CCSS (mora patronal, si aplica)', required: false },
-    { id: 'sugef_check',   label: 'Verificación SUGEF (si es sujeto obligado, Art. 15/15bis/15ter)', required: false },
-  ],
-  pj: [
-    { id: 'personeria',  label: 'Certificación de personería jurídica (≤30 días)', required: true },
-    { id: 'acta',        label: 'Acta constitutiva / estatutos', required: true },
-    { id: 'nomina',      label: 'Nómina de socios y % de participación', required: true },
-    { id: 'id_socios',   label: 'Identificación de todos los socios ≥10%', required: true },
-    { id: 'bene_final',  label: 'Identificación del Beneficiario Final', required: true },
-    { id: 'estados_fin', label: 'Estados financieros (si aplica por monto)', required: false },
-  ],
-  pep: [
-    { id: 'aprobacion_jd',   label: 'Aprobación de la Junta Directiva o nivel superior', required: true },
-    { id: 'decl_jurada_pep', label: 'Declaración jurada de cargo y origen de fondos', required: true },
-    { id: 'monitoreo_ref',   label: 'Monitoreo reforzado activado', required: true },
-    { id: 'revision_anual',  label: 'Revisión anual programada', required: true },
-  ],
-}
-
-const ESTADOS_CHECKLIST = [
-  { value: 'pendiente',     label: '⏳ Pendiente' },
-  { value: 'disponible',    label: '✅ Disponible' },
-  { value: 'no_disponible', label: '❌ No disponible' },
-  { value: 'no_aplica',     label: '➖ No aplica' },
-]
 
 const NIVELES = {
   bajo:     { label: '🟢 BAJO',     desc: 'DDC estándar — riesgo bajo', color: 'green',  years: 3 },
@@ -399,7 +365,7 @@ export default function DebilidaDiligencia() {
   useEffect(() => {
     if (!tenantEfectivoId) { setClientesDB([]); return }
     supabase.from('clientes')
-      .select('id, nombre_cliente, primer_apellido, segundo_apellido, nombre_empresa, numero_identificacion, cedula_juridica, tipo_identificacion, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_nacimiento, fecha_constitucion, profesion_nombre, actividad_eco_nombre, actividad_economica, proposito_relacion, pep, sugef_estado')
+      .select('id, nombre_cliente, primer_apellido, segundo_apellido, nombre_empresa, numero_identificacion, cedula_juridica, tipo_identificacion, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_nacimiento, fecha_constitucion, profesion_nombre, actividad_eco_nombre, actividad_economica, proposito_relacion, pep, sugef_estado, checklist_documental')
       .eq('tenant_id', tenantEfectivoId)
       .eq('activo', true)
       .order('nombre_cliente', { nullsFirst: false })
@@ -441,6 +407,10 @@ export default function DebilidaDiligencia() {
           proposito_pj:      c.proposito_relacion || '',
         }))
       }
+
+      // Precargar el checklist documental que ya tenga registrado el cliente,
+      // de modo que la debida diligencia lo actualice en vez de empezar en blanco
+      setChecklist(normalizarChecklist(c.checklist_documental))
 
       // Cargar personas relacionadas como participantes
       const { data: personas } = await supabase
@@ -614,12 +584,17 @@ export default function DebilidaDiligencia() {
         const hayAlerta = Object.values(resultadosListas).some(r => r.nivel === 'ALERTA')
         const hayRevisar = Object.values(resultadosListas).some(r => r.nivel === 'REVISAR')
         const hayPEPResult = Object.values(resultadosListas).some(r => r.esPEP)
+        const hoy = new Date().toISOString().substring(0, 10)
         await supabase.from('clientes').update({
           estado_dd:              'completado',
           pep:                    hayPEPResult,
           aparece_en_listas:      hayAlerta,
           estado_listas:          hayAlerta ? 'alerta' : hayRevisar ? 'revisar' : 'verificado',
-          fecha_debida_diligencia: new Date().toISOString().substring(0, 10),
+          fecha_debida_diligencia: hoy,
+          // El checklist de la DD es el mismo del expediente del cliente:
+          // se refleja en «Documentación presentada» al consultar el cliente
+          checklist_documental:     normalizarChecklist(checklist),
+          checklist_actualizado_en: hoy,
         }).eq('id', clienteSelId)
       }
 
@@ -1100,76 +1075,23 @@ export default function DebilidaDiligencia() {
       {paso === 4 && (
         <div className="space-y-4">
 
-          {/* Checklist tabla */}
-          <div className="card overflow-hidden p-0">
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          {/* Checklist tabla — mismo catálogo que «Documentación presentada» del cliente */}
+          <div className="card space-y-3">
+            <div>
               <p className="font-semibold text-gray-900">📋 Checklist de Debida Diligencia — SUGEF 13-19</p>
-              <span className="text-xs text-gray-500">
-                {[...CHECKLIST.base, ...(tipo === 'J' ? CHECKLIST.pj : []), ...(hayPEP ? CHECKLIST.pep : [])].filter(it => {
-                  const e = checklist[it.id]?.estado || checklist[it.id]
-                  return e === 'disponible' || e === true
-                }).length}/{[...CHECKLIST.base, ...(tipo === 'J' ? CHECKLIST.pj : []), ...(hayPEP ? CHECKLIST.pep : [])].length} completados
-              </span>
+              {clienteSelId && (
+                <p className="text-xs text-brand-600 mt-0.5">
+                  Al guardar el expediente, este checklist se actualiza en la ficha del cliente
+                  («Documentación presentada») y recalcula su calificación de cumplimiento.
+                </p>
+              )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-8">#</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Documento / Verificación</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-14">Req.</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 w-44">Estado</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">Notas / Referencia</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {[
-                    { titulo: 'Base — Todos los clientes', items: CHECKLIST.base },
-                    ...(tipo === 'J' ? [{ titulo: 'Persona Jurídica — Art. 30 SUGEF 13-19', items: CHECKLIST.pj }] : []),
-                    ...(hayPEP ? [{ titulo: '🏛️ PEP — DDC Ampliada — Art. 38', items: CHECKLIST.pep }] : []),
-                  ].flatMap((grupo, gi) => [
-                    <tr key={`h-${gi}`} className="bg-gray-50">
-                      <td colSpan={5} className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider">{grupo.titulo}</td>
-                    </tr>,
-                    ...grupo.items.map((item, idx) => {
-                      const estado = checklist[item.id]?.estado || (checklist[item.id] === true ? 'disponible' : 'pendiente')
-                      const nota   = checklist[item.id]?.nota || ''
-                      const rowBg  = estado === 'disponible' ? 'bg-green-50' : estado === 'no_disponible' ? 'bg-red-50' : ''
-                      const setItem = (campo, val) => setChecklist(prev => ({
-                        ...prev, [item.id]: { ...(prev[item.id] || {}), [campo]: val }
-                      }))
-                      return (
-                        <tr key={item.id} className={`${rowBg} transition-colors`}>
-                          <td className="px-3 py-2 text-gray-400 text-xs">{idx + 1}</td>
-                          <td className="px-3 py-2 text-sm text-gray-700">{item.label}</td>
-                          <td className="px-3 py-2">
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${item.required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-                              {item.required ? 'Obl' : 'Opt'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <select value={estado} onChange={e => setItem('estado', e.target.value)}
-                              className={`w-full text-xs border rounded px-2 py-1.5 focus:outline-none ${
-                                estado === 'disponible'    ? 'border-green-300 bg-green-50 text-green-700' :
-                                estado === 'no_disponible' ? 'border-red-300 bg-red-50 text-red-700' :
-                                estado === 'no_aplica'     ? 'border-gray-200 bg-gray-50 text-gray-500' :
-                                                             'border-amber-200 bg-amber-50 text-amber-700'
-                              }`}>
-                              {ESTADOS_CHECKLIST.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2">
-                            <input type="text" value={nota} placeholder="Observaciones..."
-                              onChange={e => setItem('nota', e.target.value)}
-                              className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-brand-400" />
-                          </td>
-                        </tr>
-                      )
-                    }),
-                  ])}
-                </tbody>
-              </table>
-            </div>
+            <ChecklistDocumental
+              checklist={checklist}
+              onChange={setChecklist}
+              tipoPersona={tipo === 'J' ? 'juridica' : 'fisica'}
+              esPEP={hayPEP}
+            />
           </div>
 
           {/* Notas al checklist */}

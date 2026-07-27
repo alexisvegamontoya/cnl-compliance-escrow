@@ -3,12 +3,19 @@
  * Módulo completo de gestión de clientes (separado de SICVECA).
  * Vistas: lista | perfil | form
  */
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
+import ChecklistDocumental from '../components/clientes/ChecklistDocumental'
+import SemaforoCumplimiento, { SemaforoGlobalClientes } from '../components/clientes/SemaforoCumplimiento'
+import {
+  calcularCumplimientoCliente,
+  calcularCumplimientoGlobal,
+  normalizarChecklist,
+} from '../lib/checklistDocumental'
 import { exportarExcel } from '../lib/exportExcel'
 import { imprimirFichaCliente } from '../utils/imprimirFicha'
 
@@ -170,6 +177,14 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
     )
   })
 
+  // Calificación global de cumplimiento de la cartera consultada
+  const globalCumplimiento = useMemo(() => calcularCumplimientoGlobal(clientes), [clientes])
+
+  // Nombre del sujeto obligado consultado
+  const nombreSujeto = isSuperAdmin
+    ? (filtroTenant ? tenants.find(t => t.id === filtroTenant)?.nombre : 'Todos los sujetos obligados')
+    : tenant?.nombre
+
   return (
     <div className="p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
@@ -183,15 +198,21 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => exportarExcel({
-              data: filtrados.map(c => ({
-                ...c,
-                pep:               c.pep               ? 'Sí' : 'No',
-                aparece_en_listas: c.aparece_en_listas ? 'Sí' : 'No',
-                kyc_actualizado:   c.kyc_actualizado   ? 'Sí' : 'No',
-                legal_actualizado: c.legal_actualizado ? 'Sí' : 'No',
-                ingresos_actualizados: c.ingresos_actualizados ? 'Sí' : 'No',
-                activo:            c.activo            ? 'Sí' : 'No',
-              })),
+              data: filtrados.map(c => {
+                const cal = calcularCumplimientoCliente(c)
+                return {
+                  ...c,
+                  pep:               c.pep               ? 'Sí' : 'No',
+                  aparece_en_listas: c.aparece_en_listas ? 'Sí' : 'No',
+                  kyc_actualizado:   c.kyc_actualizado   ? 'Sí' : 'No',
+                  legal_actualizado: c.legal_actualizado ? 'Sí' : 'No',
+                  ingresos_actualizados: c.ingresos_actualizados ? 'Sí' : 'No',
+                  activo:            c.activo            ? 'Sí' : 'No',
+                  documentos_recibidos:      `${cal.documentacion.ok}/${cal.documentacion.evaluables}`,
+                  calificacion_cumplimiento: cal.score,
+                  semaforo_cumplimiento:     cal.semaforo.label,
+                }
+              }),
               columnas: [
                 'numero_identificacion','cedula_juridica','tipo_identificacion',
                 'nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa',
@@ -205,6 +226,8 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 'nivel_riesgo_actual','estado_calificacion',
                 'estado_dd',
                 'kyc_actualizado','legal_actualizado','ingresos_actualizados',
+                'documentos_recibidos','checklist_actualizado_en',
+                'calificacion_cumplimiento','semaforo_cumplimiento',
                 'activo','notas',
               ],
               headers: {
@@ -235,6 +258,10 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 kyc_actualizado:       'KYC Actualizado',
                 legal_actualizado:     'Doc. Legal OK',
                 ingresos_actualizados: 'Ingresos Actualizados',
+                documentos_recibidos:      'Documentos Recibidos',
+                checklist_actualizado_en:  'Checklist Actualizado',
+                calificacion_cumplimiento: 'Calificación Cumplimiento (1-100)',
+                semaforo_cumplimiento:     'Semáforo Cumplimiento',
                 activo:                'Activo',
                 notas:                 'Notas',
               },
@@ -302,6 +329,15 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
         </div>
       </div>
 
+      {/* Calificación global de cumplimiento de la cartera */}
+      {!loading && clientes.length > 0 && (
+        <SemaforoGlobalClientes
+          global={globalCumplimiento}
+          nombreSujeto={nombreSujeto}
+          onVerCliente={onSelect}
+        />
+      )}
+
       {/* Tabla */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">Cargando clientes…</div>
@@ -323,11 +359,14 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Riesgo</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">DD</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Listas</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide" title="Calificación de cumplimiento (1-100)">Cumpl.</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtrados.map(c => (
+              {filtrados.map(c => {
+                const cal = calcularCumplimientoCliente(c)
+                return (
                 <tr key={c.id} onClick={() => onSelect(c)}
                   className="hover:bg-brand-50 cursor-pointer transition-colors">
                   <td className="px-4 py-3">
@@ -350,6 +389,14 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                   <td className="px-4 py-3"><NivelBadge nivel={c.nivel_riesgo_actual} /></td>
                   <td className="px-4 py-3"><EstadoBadge estado={c.estado_dd} /></td>
                   <td className="px-4 py-3"><EstadoBadge estado={c.estado_listas} /></td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: cal.semaforo.color + '1f', color: cal.semaforo.color }}
+                      title={cal.semaforo.label}>
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cal.semaforo.color }} />
+                      {cal.score}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
                       <button className="text-brand-600 hover:text-brand-800 text-xs font-medium">Ver →</button>
@@ -361,7 +408,8 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
           </div>
@@ -372,7 +420,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
 }
 
 // ─── Perfil del cliente ──────────────────────────────────────────────────────
-function PerfilCliente({ cliente, onEditar, onVolver }) {
+function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
   const navigate = useNavigate()
   const { tenant, profile } = useAuth()
   const [tab, setTab] = useState('datos')
@@ -382,6 +430,38 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
   const [histCal, setHistCal]   = useState([])
   const [loading, setLoading]   = useState(false)
   const [mostrarInforme, setMostrarInforme] = useState(false)
+
+  // ── Documentación presentada (checklist compartido con Debida Diligencia) ──
+  const [checklist, setChecklist]     = useState(() => normalizarChecklist(cliente.checklist_documental))
+  const [guardandoDoc, setGuardandoDoc] = useState(false)
+  const [docGuardado, setDocGuardado] = useState(false)
+  const [errorDoc, setErrorDoc]       = useState('')
+
+  useEffect(() => {
+    setChecklist(normalizarChecklist(cliente.checklist_documental))
+    setDocGuardado(false)
+    setErrorDoc('')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cliente.id])
+
+  const calificacion = useMemo(
+    () => calcularCumplimientoCliente(cliente, { checklist }),
+    [cliente, checklist]
+  )
+
+  async function guardarChecklist() {
+    setGuardandoDoc(true)
+    setErrorDoc('')
+    const hoy = new Date().toISOString().slice(0, 10)
+    const { error } = await supabase.from('clientes').update({
+      checklist_documental:     checklist,
+      checklist_actualizado_en: hoy,
+    }).eq('id', cliente.id)
+    setGuardandoDoc(false)
+    if (error) { setErrorDoc(error.message); return }
+    setDocGuardado(true)
+    onActualizado?.({ ...cliente, checklist_documental: checklist, checklist_actualizado_en: hoy })
+  }
 
   const nombre = nombre_completo(cliente)
 
@@ -656,6 +736,49 @@ function PerfilCliente({ cliente, onEditar, onVolver }) {
           </div>
         </div>
       )}
+
+      {/* ── DOCUMENTACIÓN PRESENTADA ─────────────────────────────────────── */}
+      <div className="card space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap border-b pb-2">
+          <div>
+            <p className="text-base font-bold text-gray-800">📄 Documentación presentada</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Es el mismo checklist que se completa en la Debida Diligencia: lo que se marque aquí
+              se refleja allá y viceversa.
+              {cliente.checklist_actualizado_en && (
+                <> · Última actualización: <strong>{cliente.checklist_actualizado_en}</strong></>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {docGuardado && <span className="text-xs font-medium text-green-600">✓ Guardado</span>}
+            <button onClick={guardarChecklist} disabled={guardandoDoc}
+              className="px-3 py-1.5 text-xs font-semibold bg-brand-700 text-white rounded-lg hover:bg-brand-800 disabled:opacity-50 transition-colors">
+              {guardandoDoc ? 'Guardando…' : '💾 Guardar documentación'}
+            </button>
+          </div>
+        </div>
+
+        {errorDoc && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
+            ⚠ No se pudo guardar: {errorDoc}
+          </div>
+        )}
+
+        <ChecklistDocumental
+          checklist={checklist}
+          onChange={c => { setChecklist(c); setDocGuardado(false) }}
+          tipoPersona={cliente.tipo_persona}
+          esPEP={!!cliente.pep}
+        />
+      </div>
+
+      {/* ── CALIFICACIÓN DE CUMPLIMIENTO DEL CLIENTE ─────────────────────── */}
+      <SemaforoCumplimiento
+        calificacion={calificacion}
+        titulo={`Calificación de cumplimiento — ${nombre}`}
+        subtitulo="Ponderación: documentación presentada 60% · información del expediente 25% · gestiones de cumplimiento 15%"
+      />
     </div>
   )
 }
@@ -776,6 +899,7 @@ export default function GestionClientes() {
           cliente={clienteActual}
           onEditar={handleEditar}
           onVolver={() => setVista('lista')}
+          onActualizado={setClienteActual}
         />
       )}
       {vista === 'form' && (

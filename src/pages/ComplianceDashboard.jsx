@@ -5,6 +5,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
+import { calcularCumplimientoGlobal } from '../lib/checklistDocumental'
 
 // ─── Pesos de cada ítem ───────────────────────────────────────────────────────
 const PESOS = { i1: 25, i2: 7, i3: 20, i4: 15, i5: 5, i6: 8, i7: 15, i8: 5 }
@@ -184,7 +185,7 @@ export default function ComplianceDashboard() {
       { data: seg },
     ] = await Promise.all([
       supabase.from('clientes')
-        .select('id,pep,calificacion_riesgo,kyc_actualizado,legal_actualizado,ingresos_actualizados,fecha_ultima_calificacion,aparece_en_listas,fecha_termino_relacion,nombre_cliente,primer_apellido,nombre_empresa,numero_identificacion')
+        .select('id,pep,tipo_persona,calificacion_riesgo,nivel_riesgo_actual,estado_calificacion,estado_dd,estado_listas,kyc_actualizado,legal_actualizado,ingresos_actualizados,fecha_ultima_calificacion,aparece_en_listas,fecha_termino_relacion,activo,nombre_cliente,primer_apellido,nombre_empresa,numero_identificacion,cedula_juridica,checklist_documental,actividad_eco_nombre,actividad_economica,profesion_nombre,pais_ubicacion,pais_residencia,pais_nacimiento,pais_constitucion,fecha_nacimiento,fecha_constitucion,direccion_exacta,telefono,correo_electronico,fecha_vinculacion,proposito_relacion,origen_fondos,ingreso_mensual_est')
         .eq('tenant_id', tid),
       supabase.from('normativa')
         .select('id,fecha_aprobacion_jd,fecha_vigencia,tipo,nombre')
@@ -246,23 +247,23 @@ export default function ComplianceDashboard() {
   // ── Cálculos ───────────────────────────────────────────────────────────────
   const tipoSujeto = Number(tenant?.tipo_sujeto) || 1
 
-  // Ítem 1: clientes activos con información completa
-  const clientesActivos = clientes.filter(c => !c.fecha_termino_relacion)
-  function clienteCompleto(c) {
-    return !!(c.calificacion_riesgo && c.kyc_actualizado && c.legal_actualizado && c.ingresos_actualizados && c.fecha_ultima_calificacion)
-  }
-  const clientesCompletos = clientesActivos.filter(clienteCompleto)
-  const scoreI1 = clientesActivos.length === 0 ? 100 : (clientesCompletos.length / clientesActivos.length) * 100
-  const pendientesI1 = clientesActivos.filter(c => !clienteCompleto(c)).slice(0, 10).map(c => {
-    const nombre = c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`.trim() || c.numero_identificacion
-    const faltan = []
-    if (!c.calificacion_riesgo) faltan.push('calificación de riesgo')
-    if (!c.kyc_actualizado) faltan.push('KYC')
-    if (!c.legal_actualizado) faltan.push('info legal')
-    if (!c.ingresos_actualizados) faltan.push('info ingresos')
-    if (!c.fecha_ultima_calificacion) faltan.push('fecha calificación')
-    return `${nombre}: falta ${faltan.join(', ')}`
-  })
+  // Ítem 1: actualización de la información de clientes.
+  // Es la calificación GLOBAL de la cartera — promedio de la calificación de
+  // cumplimiento de cada cliente (documentación 60% · expediente 25% · gestiones 15%),
+  // la misma que se muestra al consultar los clientes del sujeto obligado.
+  const globalClientes  = calcularCumplimientoGlobal(clientes)
+  const clientesActivos = clientes.filter(c => c.activo !== false && !c.fecha_termino_relacion)
+  const clientesCompletos = globalClientes.detalle.filter(d => d.score >= 80)
+  const scoreI1 = globalClientes.score
+  const pendientesI1 = globalClientes.detalle
+    .filter(d => d.score < 100)
+    .slice(0, 10)
+    .map(d => {
+      const c = d.cliente
+      const nombre = c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`.trim() || c.numero_identificacion
+      const top = d.faltantes.slice(0, 3).join(' · ')
+      return `${nombre} (${d.score}/100): ${top}${d.faltantes.length > 3 ? ` …y ${d.faltantes.length - 3} más` : ''}`
+    })
 
   // Ítem 2: capacitación manual
   const scoreI2 = fCapacitacion.completa ? 100 : 0
@@ -488,11 +489,33 @@ export default function ComplianceDashboard() {
 
             {/* Ítem 1 */}
             <ItemCard {...items[0]}>
-              <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
-                <p>Clientes activos: <strong>{clientesActivos.length}</strong> · Con información completa: <strong className="text-green-600">{clientesCompletos.length}</strong></p>
-                <p className="text-gray-400">Campos: calificación de riesgo, KYC actualizado, info legal, info ingresos, fecha de última calificación.</p>
-                {pendientesI1.length > 10 && (
-                  <p className="text-orange-500">Mostrando 10 de {clientesActivos.filter(c => !clienteCompleto(c)).length} clientes incompletos.</p>
+              <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-2">
+                <p>
+                  Clientes activos: <strong>{clientesActivos.length}</strong> ·
+                  Calificación global de la cartera: <strong style={{ color: colorPct(scoreI1) }}>{scoreI1}/100</strong>
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Adecuado (≥80)', n: globalClientes.distribucion.verde,    color: 'text-green-600' },
+                    { label: 'Parcial (50-79)', n: globalClientes.distribucion.amarillo, color: 'text-yellow-600' },
+                    { label: 'Crítico (<50)',   n: globalClientes.distribucion.rojo,     color: 'text-red-600' },
+                  ].map(f => (
+                    <div key={f.label} className="bg-white rounded-lg border border-gray-200 px-2 py-1.5 text-center">
+                      <p className={`text-base font-bold ${f.color}`}>{f.n}</p>
+                      <p className="text-gray-400">{f.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-gray-400">
+                  Calificación por cliente = documentación presentada (checklist) 60% ·
+                  información del expediente 25% · gestiones de cumplimiento (DD, listas, calificación de riesgo) 15%.
+                  Es la misma calificación que aparece al consultar cada cliente en <strong>Gestión de Clientes</strong>.
+                </p>
+                {globalClientes.detalle.filter(d => d.score < 100).length > 10 && (
+                  <p className="text-orange-500">
+                    Mostrando 10 de {globalClientes.detalle.filter(d => d.score < 100).length} clientes con pendientes
+                    · {clientesCompletos.length} con cumplimiento adecuado.
+                  </p>
                 )}
               </div>
             </ItemCard>

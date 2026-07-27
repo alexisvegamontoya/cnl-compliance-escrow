@@ -13,6 +13,8 @@ import {
   PAISES_RIESGO,
 } from '../../lib/metodologiaRiesgo'
 import EstructuraEmpresa from './EstructuraEmpresa'
+import ChecklistDocumental from './ChecklistDocumental'
+import { normalizarChecklist, resumenChecklist, itemsChecklist } from '../../lib/checklistDocumental'
 
 const PAISES = PAISES_RIESGO.map(p => p.pais).sort()
 const PAISES_ALL = [...new Set([
@@ -98,7 +100,8 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
   const [form, setForm]               = useState(clienteInicial || (tipoPers === 'fisica' ? EMPTY_FISICA : EMPTY_JURIDICA))
   const [personas, setPersonas]       = useState([])
   const [loadingPersonas, setLoadingPersonas] = useState(false)
-  const [tab, setTab]                 = useState('datos') // datos | estructura | adicional
+  const [checklist, setChecklist]     = useState(() => normalizarChecklist(clienteInicial?.checklist_documental))
+  const [tab, setTab]                 = useState('datos') // datos | estructura | documentacion | adicional
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState('')
   const [padronInfo, setPadronInfo]       = useState(null)
@@ -222,6 +225,12 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       CAMPOS_PERMITIDOS.forEach(k => {
         if (form[k] !== undefined) payload[k] = form[k]
       })
+
+      // Documentación presentada — mismo checklist de la Debida Diligencia
+      payload.checklist_documental = checklist
+      if (Object.keys(checklist).length > 0) {
+        payload.checklist_actualizado_en = new Date().toISOString().slice(0, 10)
+      }
       payload.tipo_persona    = tipoPers
       payload.tenant_id       = isSuperAdmin ? (tenantDestino || tenant?.id) : tenant?.id
       payload.nombre_cliente  = tipoPers === 'fisica'   ? (form.nombre_cliente || '') : ''
@@ -288,9 +297,12 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
     }
   }
 
+  const resumenDoc = resumenChecklist(checklist, itemsChecklist({ tipoPersona: tipoPers, esPEP: !!form.pep }))
+
   const TABS = [
     { id: 'datos', label: '📋 Datos principales' },
     ...(tipoPers === 'juridica' ? [{ id: 'estructura', label: '🏢 Estructura' }] : []),
+    { id: 'documentacion', label: `📄 Documentación (${resumenDoc.ok}/${resumenDoc.evaluables})` },
     { id: 'adicional', label: '📝 Información adicional' },
   ]
 
@@ -590,6 +602,25 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
           ) : (
             <EstructuraEmpresa personas={personas} onChange={setPersonas} />
           )}
+        </div>
+      )}
+
+      {/* ── TAB: DOCUMENTACIÓN PRESENTADA ── */}
+      {tab === 'documentacion' && (
+        <div className="card space-y-3">
+          <div className="border-b pb-2">
+            <p className="text-sm font-bold text-gray-700">📄 Documentación presentada</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Marque los documentos que el cliente ya entregó. Es el mismo checklist que se completa
+              en la Debida Diligencia y el que más pesa en la calificación de cumplimiento del cliente.
+            </p>
+          </div>
+          <ChecklistDocumental
+            checklist={checklist}
+            onChange={setChecklist}
+            tipoPersona={tipoPers}
+            esPEP={!!form.pep}
+          />
         </div>
       )}
 

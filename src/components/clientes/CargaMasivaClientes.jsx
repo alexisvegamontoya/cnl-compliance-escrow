@@ -14,6 +14,12 @@ import {
   CANTONES_CR,
   PAISES_RIESGO,
 } from '../../lib/metodologiaRiesgo'
+import {
+  COLUMNAS_DOCUMENTOS,
+  TODOS_LOS_DOCUMENTOS,
+  TITULOS_GRUPO,
+  checklistDesdeFilaExcel,
+} from '../../lib/checklistDocumental'
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 // Identificación normalizada (sin guiones/espacios) para hacer match entre hojas
@@ -82,6 +88,8 @@ const COLUMNAS = [
   { key: 'origen_fondos',        grupo: 'Perfil',    ejemplo: 'Salario / planilla',     req: false, nota: 'Salario / planilla | Negocio propio | Venta de bienes | Inversiones | Herencia | Remesas | Pensión | Préstamo | Otro' },
   { key: 'ingreso_mensual_est',  grupo: 'Perfil',    ejemplo: '2500',                   req: false, nota: 'Monto en USD (solo números)' },
   { key: 'notas',                grupo: 'Perfil',    ejemplo: 'Cliente referido por...',req: false, nota: 'Uso interno del oficial de cumplimiento' },
+  // Documentación presentada (checklist SUGEF 13-19) — SI / NO / NA
+  ...COLUMNAS_DOCUMENTOS.map(c => ({ ...c, grupo: 'Documentos' })),
 ].map(c => ({ ...c, label: c.key }))
 
 // ─── Columnas de la hoja "Estructura" ────────────────────────────────────────
@@ -184,7 +192,21 @@ function generarPlantilla() {
   wsPaises['!cols'] = [{ wch: 30 }, { wch: 12 }]
   XLSX.utils.book_append_sheet(wb, wsPaises, 'Países')
 
-  // Hoja 7: Instrucciones
+  // Hoja 7: Documentos (checklist de documentación presentada)
+  const wsDocs = XLSX.utils.aoa_to_sheet([
+    ['columna', 'documento / verificación', 'aplica a', 'obligatorio', 'valores aceptados'],
+    ...TODOS_LOS_DOCUMENTOS.map(d => [
+      `doc_${d.id}`,
+      d.label,
+      TITULOS_GRUPO[d.grupo],
+      d.required ? 'Sí' : 'No',
+      'SI | NO | NA',
+    ]),
+  ])
+  wsDocs['!cols'] = [{ wch: 24 }, { wch: 62 }, { wch: 34 }, { wch: 12 }, { wch: 16 }]
+  XLSX.utils.book_append_sheet(wb, wsDocs, 'Documentos')
+
+  // Hoja 8: Instrucciones
   const wsInstr = XLSX.utils.aoa_to_sheet([
     ['PLANTILLA DE CARGA MASIVA DE CLIENTES — CNL Compliance'],
     [''],
@@ -204,7 +226,22 @@ function generarPlantilla() {
     ['  · Marque es_beneficiario_final = SI en la persona física última de cada cadena.'],
     ['  · Al importar, la estructura registrada en el archivo REEMPLAZA la estructura que el cliente tuviera guardada.'],
     [''],
-    ['Hojas de referencia: Actividades, Provincias, Cantones y Países contienen los valores aceptados.'],
+    ['Documentación presentada — columnas "doc_..." de la hoja "Clientes"'],
+    ['  · Indique con SI / NO / NA si el cliente ya entregó cada documento del checklist de debida diligencia.'],
+    ['      SI = documento disponible en el expediente'],
+    ['      NO = documento pendiente o no disponible'],
+    ['      NA = no aplica para este cliente (sale del cálculo)'],
+    ['      vacío = pendiente (no modifica lo ya registrado como "no aplica")'],
+    ['  · Es el MISMO checklist que se completa en el módulo de Debida Diligencia y el que se muestra al'],
+    ['    consultar al cliente en la sección "Documentación presentada".'],
+    ['  · Las columnas doc_personeria, doc_acta, doc_nomina, doc_id_socios, doc_bene_final y doc_estados_fin'],
+    ['    solo aplican a clientes con tipo_persona = juridica.'],
+    ['  · Las columnas doc_aprobacion_jd, doc_decl_jurada_pep, doc_monitoreo_ref y doc_revision_anual'],
+    ['    solo aplican a clientes marcados como PEP.'],
+    ['  · Este checklist es el componente de mayor peso (60%) en la calificación de cumplimiento del cliente.'],
+    ['  · Ver la hoja "Documentos" para el detalle de cada columna.'],
+    [''],
+    ['Hojas de referencia: Documentos, Actividades, Provincias, Cantones y Países contienen los valores aceptados.'],
   ])
   wsInstr['!cols'] = [{ wch: 120 }]
   XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucciones')
@@ -213,10 +250,13 @@ function generarPlantilla() {
 }
 
 // ─── Normalizar fila de Excel a payload Supabase ─────────────────────────────
-function normalizarFila(fila, tenantId) {
+function normalizarFila(fila, tenantId, previo = {}) {
   const tipo = sinTildes(fila.tipo_persona) === 'juridica' ? 'juridica' : 'fisica'
   const actNombre = txt(fila.actividad_economica)
   const actObj = ACTIVIDADES_PROFESIONES.find(a => sinTildes(a.label) === sinTildes(actNombre))
+  // Las columnas doc_* vacías no borran lo que el cliente ya tuviera registrado
+  const docsExcel = checklistDesdeFilaExcel(fila)
+  const checklist = { ...(previo.checklist || {}), ...docsExcel }
 
   return {
     tenant_id: tenantId,
@@ -256,6 +296,11 @@ function normalizarFila(fila, tenantId) {
     estado_dd:          'pendiente',
     estado_listas:      'pendiente',
     estado_calificacion:'pendiente',
+    // Documentación presentada (columnas doc_*) — mismo checklist de la debida diligencia
+    checklist_documental:     checklist,
+    checklist_actualizado_en: Object.keys(docsExcel).length > 0
+      ? new Date().toISOString().slice(0, 10)
+      : (previo.fecha || null),
   }
 }
 
@@ -469,7 +514,24 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
     if (!tenantEfectivo?.id) return
     setPaso('cargando')
 
-    const payloads = filas.map(f => normalizarFila(f, tenantEfectivo.id))
+    // Checklist ya registrado de los clientes que se van a actualizar:
+    // las columnas doc_* del Excel se fusionan sobre él, nunca lo reemplazan por completo
+    const previos = new Map()
+    const identificaciones = filas.map(f => txt(f.numero_identificacion)).filter(Boolean)
+    for (let i = 0; i < identificaciones.length; i += 200) {
+      const { data } = await supabase.from('clientes')
+        .select('numero_identificacion, checklist_documental, checklist_actualizado_en')
+        .eq('tenant_id', tenantEfectivo.id)
+        .in('numero_identificacion', identificaciones.slice(i, i + 200))
+      ;(data || []).forEach(r => previos.set(normId(r.numero_identificacion), {
+        checklist: r.checklist_documental || {},
+        fecha:     r.checklist_actualizado_en || null,
+      }))
+    }
+
+    const payloads = filas.map(f =>
+      normalizarFila(f, tenantEfectivo.id, previos.get(normId(f.numero_identificacion)) || {})
+    )
     const LOTE = 50
     let ok = 0
     const fallidos = []
@@ -612,7 +674,12 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                 <p className="text-xs text-blue-700">
                   La plantilla contiene <strong>todos los campos del expediente del cliente</strong> (persona física y jurídica) en la hoja
                   «Clientes», y una hoja «Estructura» para registrar representantes legales, junta directiva, socios/accionistas
-                  y beneficiarios finales. Incluye además hojas de referencia con actividades económicas, provincias, cantones y países.
+                  y beneficiarios finales. Incluye además hojas de referencia con documentos, actividades económicas, provincias, cantones y países.
+                </p>
+                <p className="text-xs text-blue-700">
+                  Las <strong>{COLUMNAS_DOCUMENTOS.length} columnas <code>doc_…</code></strong> al final de la hoja «Clientes» permiten indicar
+                  con <strong>SI / NO / NA</strong> qué documentos del checklist ya presentó el cliente. Es el mismo checklist de la
+                  Debida Diligencia y pesa un 60% en la calificación de cumplimiento del cliente.
                 </p>
                 <p className="text-xs text-blue-700">
                   La fila 2 es un ejemplo y la fila con corchetes [ ] son instrucciones; elimínelas antes de cargar si lo desea,
@@ -797,6 +864,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                       <th className="px-3 py-2 text-left text-gray-500">País</th>
                       <th className="px-3 py-2 text-left text-gray-500">Correo</th>
                       <th className="px-3 py-2 text-left text-gray-500">Estructura</th>
+                      <th className="px-3 py-2 text-left text-gray-500" title="Documentos marcados como disponibles en las columnas doc_*">Docs</th>
                       <th className="px-3 py-2 text-left text-gray-500 whitespace-nowrap">
                         Ingreso mensual (USD) <span className="text-brand-500" title="Editable">✎</span>
                       </th>
@@ -810,6 +878,8 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                         ? f.nombre_empresa
                         : [f.nombre_cliente, f.primer_apellido, f.segundo_apellido].filter(Boolean).join(' ')
                       const nPersonas = personasPorCliente[normId(f.numero_identificacion)] || 0
+                      const docs = checklistDesdeFilaExcel(f)
+                      const docsOk = Object.values(docs).filter(d => d.estado === 'disponible').length
                       return (
                         <tr key={i} className={tieneError ? 'bg-red-50' : 'hover:bg-gray-50'}>
                           <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
@@ -828,6 +898,11 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                               ? <span className="text-brand-700">👥 {nPersonas}</span>
                               : <span className="text-gray-300">—</span>}
                           </td>
+                          <td className="px-3 py-1.5 whitespace-nowrap">
+                            {Object.keys(docs).length > 0
+                              ? <span className="text-green-700">📄 {docsOk}/{Object.keys(docs).length}</span>
+                              : <span className="text-gray-300">—</span>}
+                          </td>
                           <td className="px-3 py-1.5">
                             <input
                               type="number"
@@ -843,7 +918,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                       )
                     })}
                     {filas.length > 100 && (
-                      <tr><td colSpan={9} className="px-3 py-2 text-center text-gray-400">
+                      <tr><td colSpan={10} className="px-3 py-2 text-center text-gray-400">
                         … y {filas.length - 100} filas más (no editables aquí; use «Aplicar a todas» o corrija el Excel)
                       </td></tr>
                     )}
