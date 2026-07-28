@@ -1,0 +1,33 @@
+# Archivos que no deben subirse al desplegar con `vercel --prod`.
+# El CLI sube el directorio completo y NO respeta .gitignore: sin este archivo
+# se intentan subir los 3 GB de padrones locales y la subida falla con
+# "Request Entity Too Large".
+
+# Dependencias y build — Vercel los genera en su propio servidor
+node_modules
+dist
+dist-ssr
+
+# Datos locales pesados (padrones SUGEF/PEP y descargas de trabajo)
+Pep y padron sugef/
+scripts/data/
+scripts/*.xlsx
+files.zip
+
+# Secretos — Vercel usa sus propias variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Historial y herramientas
+.git
+.github
+.vscode
+.idea
+
+# Documentación y migraciones: no hacen falta en el runtime
+sql/
+supabase/
+*.sql
+SETUP.md
+push-cambios.bat
