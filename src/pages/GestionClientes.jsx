@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
+import CopiarClienteModal from '../components/clientes/CopiarClienteModal'
 import ChecklistDocumental from '../components/clientes/ChecklistDocumental'
 import SemaforoCumplimiento, { SemaforoGlobalClientes } from '../components/clientes/SemaforoCumplimiento'
 import {
@@ -122,7 +123,11 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Buscar…',
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
-  const { tenant, isSuperAdmin } = useAuth()
+  const { tenant, isSuperAdmin, tenantsDisponibles } = useAuth()
+
+  // Copiar a otro sujeto obligado: solo tiene sentido con más de uno disponible
+  const puedeCopiar = (tenantsDisponibles?.length || 0) > 1
+  const [clienteACopiar, setClienteACopiar] = useState(null)
 
   const [clientes, setClientes]       = useState([])
   const [loading, setLoading]         = useState(true)
@@ -191,6 +196,14 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   return (
     <div className="p-6 space-y-4 max-w-7xl mx-auto">
       <ErrorBanner error={error} onClose={() => setError(null)} />
+
+      {clienteACopiar && (
+        <CopiarClienteModal
+          cliente={clienteACopiar}
+          onClose={() => setClienteACopiar(null)}
+          onCopiado={cargar}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -405,6 +418,14 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
                       <button className="text-brand-600 hover:text-brand-800 text-xs font-medium">Ver →</button>
+                      {puedeCopiar && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setClienteACopiar(c) }}
+                          title="Copiar a otro sujeto obligado"
+                          className="text-gray-500 hover:text-brand-700 text-xs font-medium">
+                          Copiar
+                        </button>
+                      )}
                       <button
                         onClick={e => eliminar(e, c.id)}
                         className="text-red-500 hover:text-red-700 text-xs font-medium">
@@ -427,7 +448,9 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
 // ─── Perfil del cliente ──────────────────────────────────────────────────────
 function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
   const navigate = useNavigate()
-  const { tenant, profile } = useAuth()
+  const { tenant, profile, tenantsDisponibles } = useAuth()
+  const puedeCopiar = (tenantsDisponibles?.length || 0) > 1
+  const [mostrarCopiar, setMostrarCopiar] = useState(false)
   const [tab, setTab] = useState('datos')
   const [personas, setPersonas] = useState([])
   const [histDD, setHistDD]     = useState([])
@@ -513,6 +536,13 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
 
   return (
     <div className="p-6 space-y-4 max-w-5xl mx-auto">
+      {mostrarCopiar && (
+        <CopiarClienteModal
+          cliente={cliente}
+          onClose={() => setMostrarCopiar(false)}
+        />
+      )}
+
       {mostrarInforme && (
         <Suspense fallback={
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -562,6 +592,13 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                 🖨️ Imprimir ficha
               </button>
+              {puedeCopiar && (
+                <button onClick={() => setMostrarCopiar(true)}
+                  title="Copiar este cliente a otro sujeto obligado"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                  📑 Copiar a otro S.O.
+                </button>
+              )}
               <button onClick={onEditar} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">
                 ✏ Editar
               </button>
