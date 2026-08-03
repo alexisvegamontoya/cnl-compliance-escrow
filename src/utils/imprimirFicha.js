@@ -14,7 +14,7 @@ const TIPO_ID_LABEL = {
 }
 
 const RIESGO_LABEL = { alto: 'ALTO', medio: 'MEDIO', bajo: 'BAJO' }
-const RIESGO_COLOR = { alto: '#dc2626', medio: '#d97706', bajo: '#16a34a' }
+const RIESGO_COLOR = { alto: '#c31b26', medio: '#a87813', bajo: '#1f6d45' }
 
 function fechaLarga(iso) {
   if (!iso) return '—'
@@ -106,7 +106,7 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
     body {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 11px;
-      color: #1a1a1a;
+      color: #14141a;
       background: #fff;
       padding: 20px 30px;
     }
@@ -115,7 +115,7 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 2px solid #2563eb;
+      border-bottom: 2px solid #34438c;
       padding-bottom: 14px;
       margin-bottom: 16px;
     }
@@ -123,40 +123,40 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
     .logo-img { height: 60px; width: auto; object-fit: contain; }
     .logo-inicial {
       width: 60px; height: 60px; border-radius: 10px;
-      background: #2563eb; color: #fff;
+      background: #34438c; color: #fff;
       font-size: 28px; font-weight: bold;
       display: flex; align-items: center; justify-content: center;
     }
-    .tenant-nombre { font-size: 15px; font-weight: bold; color: #1e3a8a; }
-    .tenant-cedula { font-size: 10px; color: #6b7280; margin-top: 2px; }
-    .header-right { text-align: right; font-size: 10px; color: #6b7280; }
+    .tenant-nombre { font-size: 15px; font-weight: bold; color: #1a2348; }
+    .tenant-cedula { font-size: 10px; color: #6b6b76; margin-top: 2px; }
+    .header-right { text-align: right; font-size: 10px; color: #6b6b76; }
     .header-right .titulo-doc {
-      font-size: 12px; font-weight: bold; color: #1a1a1a; margin-bottom: 4px;
+      font-size: 12px; font-weight: bold; color: #14141a; margin-bottom: 4px;
     }
     /* ── Secciones ── */
     .seccion { margin-bottom: 14px; }
     .seccion h2 {
       font-size: 10px; font-weight: bold; text-transform: uppercase;
-      letter-spacing: 0.05em; color: #6b7280;
-      border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin-bottom: 8px;
+      letter-spacing: 0.05em; color: #6b6b76;
+      border-bottom: 1px solid #e4e4ea; padding-bottom: 4px; margin-bottom: 8px;
     }
     .seccion h3 {
       font-size: 10px; font-weight: bold; text-transform: uppercase;
-      letter-spacing: 0.05em; color: #374151; margin-bottom: 6px;
+      letter-spacing: 0.05em; color: #45454f; margin-bottom: 6px;
     }
     /* ── Tabla de datos ── */
     table.datos { width: 100%; border-collapse: collapse; }
     table.datos td { padding: 3px 6px; vertical-align: top; }
-    table.datos .lbl { width: 38%; color: #6b7280; }
-    table.datos .val { font-weight: 500; color: #111827; }
+    table.datos .lbl { width: 38%; color: #6b6b76; }
+    table.datos .val { font-weight: 500; color: #14141a; }
     /* ── Tabla de personas ── */
     table.tabla-personas {
       width: 100%; border-collapse: collapse; font-size: 10px;
     }
     table.tabla-personas th, table.tabla-personas td {
-      border: 1px solid #e5e7eb; padding: 4px 8px; text-align: left;
+      border: 1px solid #e4e4ea; padding: 4px 8px; text-align: left;
     }
-    table.tabla-personas th { background: #f3f4f6; font-weight: 600; }
+    table.tabla-personas th { background: #ededf1; font-weight: 600; }
     /* ── Badges de estado ── */
     .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
     .badge {
@@ -164,9 +164,9 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
       padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;
       border: 1px solid;
     }
-    .badge-pep    { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
-    .badge-listas { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
-    .badge-ok     { background: #f0fdf4; color: #15803d; border-color: #86efac; }
+    .badge-pep    { background: #faefd3; color: #7f5a10; border-color: #e5c888; }
+    .badge-listas { background: #fdf3f3; color: #86111a; border-color: #ec969b; }
+    .badge-ok     { background: #eff7f1; color: #1a5738; border-color: #82c29c; }
     .riesgo-box {
       display: inline-block; padding: 4px 14px; border-radius: 6px;
       font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 10px;
@@ -177,26 +177,26 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
     }
     .cump-item {
       display: flex; align-items: center; gap: 6px;
-      border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 8px;
+      border: 1px solid #e4e4ea; border-radius: 6px; padding: 4px 8px;
       font-size: 10px;
     }
-    .cump-item.ok  { background: #f0fdf4; border-color: #bbf7d0; }
-    .cump-item.nok { background: #fef2f2; border-color: #fecaca; }
+    .cump-item.ok  { background: #eff7f1; border-color: #b4dbc3; }
+    .cump-item.nok { background: #fdf3f3; border-color: #f5c2c5; }
     /* ── Declaración ── */
     .declaracion {
-      border: 1px solid #d1d5db; border-radius: 6px;
+      border: 1px solid #cfcfd7; border-radius: 6px;
       padding: 10px 12px; margin-bottom: 12px;
-      font-size: 10px; line-height: 1.6; color: #374151;
+      font-size: 10px; line-height: 1.6; color: #45454f;
     }
     .declaracion h4 {
       font-size: 10px; font-weight: bold; text-transform: uppercase;
-      color: #374151; margin-bottom: 6px;
+      color: #45454f; margin-bottom: 6px;
     }
     /* ── Advertencia SUGEF ── */
     .advertencia {
-      border: 1px solid #fca5a5; border-radius: 6px;
+      border: 1px solid #ec969b; border-radius: 6px;
       padding: 8px 12px; margin-bottom: 16px;
-      background: #fff7f7; font-size: 9.5px; line-height: 1.5; color: #7f1d1d;
+      background: #fdf3f3; font-size: 9.5px; line-height: 1.5; color: #4e0b10;
     }
     .advertencia strong { display: block; margin-bottom: 4px; font-size: 10px; }
     /* ── Firmas ── */
@@ -206,14 +206,14 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
     }
     .firma-bloque { text-align: center; }
     .firma-linea {
-      border-top: 1px solid #374151; margin-top: 40px; padding-top: 5px;
+      border-top: 1px solid #45454f; margin-top: 40px; padding-top: 5px;
     }
     .firma-nombre { font-weight: 600; font-size: 10px; margin-bottom: 2px; }
-    .firma-rol    { font-size: 9px; color: #6b7280; }
+    .firma-rol    { font-size: 9px; color: #6b6b76; }
     /* ── Pie de página ── */
     .footer {
-      margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 8px;
-      font-size: 9px; color: #9ca3af; text-align: center;
+      margin-top: 16px; border-top: 1px solid #e4e4ea; padding-top: 8px;
+      font-size: 9px; color: #9a9aa4; text-align: center;
     }
     @media print {
       body { padding: 10px 15px; }
@@ -280,10 +280,10 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
         : '<span class="badge badge-ok">✓ No aparece en listas</span>'}
     </div>
     ${cliente.calificacion_riesgo
-      ? `<div class="riesgo-box" style="background:${RIESGO_COLOR[cliente.calificacion_riesgo] || '#374151'}">
+      ? `<div class="riesgo-box" style="background:${RIESGO_COLOR[cliente.calificacion_riesgo] || '#45454f'}">
            RIESGO ${RIESGO_LABEL[cliente.calificacion_riesgo] || cliente.calificacion_riesgo.toUpperCase()}
          </div>`
-      : '<p style="font-size:10px;color:#6b7280;margin-bottom:10px">Sin calificación de riesgo asignada</p>'}
+      : '<p style="font-size:10px;color:#6b6b76;margin-bottom:10px">Sin calificación de riesgo asignada</p>'}
     <div class="cumplimiento-grid">
       <div class="cump-item ${cliente.kyc_actualizado ? 'ok' : 'nok'}">
         ${cliente.kyc_actualizado ? '✅' : '❌'} Formulario KYC actualizado
@@ -299,12 +299,12 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
       </div>
     </div>
     ${cliente.ingreso_mensual_est
-      ? `<p style="font-size:10px;color:#6b7280">
+      ? `<p style="font-size:10px;color:#6b6b76">
            Ingreso mensual estimado: <strong>USD ${Number(cliente.ingreso_mensual_est).toLocaleString('es-CR')}</strong>
          </p>`
       : ''}
     ${cliente.notas
-      ? `<p style="font-size:10px;color:#374151;margin-top:6px;padding:6px 8px;background:#f9fafb;border-radius:4px;border:1px solid #e5e7eb">
+      ? `<p style="font-size:10px;color:#45454f;margin-top:6px;padding:6px 8px;background:#f7f7f9;border-radius:4px;border:1px solid #e4e4ea">
            <strong>Notas:</strong> ${cliente.notas}
          </p>`
       : ''}

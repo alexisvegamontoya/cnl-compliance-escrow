@@ -53,77 +53,77 @@ export function documentoHTML({ titulo, subtitulo = '', cuerpo, tenant, profile,
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 11px; color: #1a1a1a; background: #fff;
+      font-size: 11px; color: #14141a; background: #fff;
       padding: 20px 30px;
     }
     .header {
       display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 2px solid #0e0e6e; padding-bottom: 14px; margin-bottom: 18px;
+      border-bottom: 2px solid #0a1247; padding-bottom: 14px; margin-bottom: 18px;
     }
     .header-left { display: flex; align-items: center; gap: 14px; }
     .logo-img { height: 58px; width: auto; object-fit: contain; }
     .logo-inicial {
       width: 58px; height: 58px; border-radius: 10px;
-      background: #0e0e6e; color: #fff; font-size: 26px; font-weight: bold;
+      background: #0a1247; color: #fff; font-size: 26px; font-weight: bold;
       display: flex; align-items: center; justify-content: center;
     }
-    .tenant-nombre { font-size: 15px; font-weight: bold; color: #0e0e6e; }
-    .tenant-cedula { font-size: 10px; color: #6b7280; margin-top: 2px; }
-    .header-right { text-align: right; font-size: 10px; color: #6b7280; }
-    .header-right .titulo-doc { font-size: 12px; font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
+    .tenant-nombre { font-size: 15px; font-weight: bold; color: #0a1247; }
+    .tenant-cedula { font-size: 10px; color: #6b6b76; margin-top: 2px; }
+    .header-right { text-align: right; font-size: 10px; color: #6b6b76; }
+    .header-right .titulo-doc { font-size: 12px; font-weight: bold; color: #14141a; margin-bottom: 4px; }
 
     .portada {
-      border: 2px solid #0e0e6e; border-radius: 8px; background: #f5f7ff;
+      border: 2px solid #0a1247; border-radius: 8px; background: #f2f3f8;
       padding: 18px; margin-bottom: 18px; text-align: center;
       page-break-inside: avoid;
     }
     .portada .confidencial {
       font-size: 9px; text-transform: uppercase; letter-spacing: .12em;
-      color: #0e0e6e; font-weight: bold;
+      color: #0a1247; font-weight: bold;
     }
-    .portada h1 { font-size: 20px; color: #0e0e6e; margin: 8px 0 4px; }
-    .portada h2 { font-size: 13px; color: #374151; font-weight: 600; }
-    .portada .periodo { font-size: 11px; color: #6b7280; margin-top: 4px; }
+    .portada h1 { font-size: 20px; color: #0a1247; margin: 8px 0 4px; }
+    .portada h2 { font-size: 13px; color: #45454f; font-weight: 600; }
+    .portada .periodo { font-size: 11px; color: #6b6b76; margin-top: 4px; }
     .meta-grid {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
       margin-top: 14px; text-align: left;
     }
     .meta-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-    .meta-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 7px 9px; }
-    .meta-item .lbl { font-size: 8.5px; color: #9ca3af; text-transform: uppercase; letter-spacing: .04em; }
-    .meta-item .val { font-size: 10.5px; font-weight: bold; color: #111827; margin-top: 2px; }
+    .meta-item { background: #fff; border: 1px solid #e4e4ea; border-radius: 6px; padding: 7px 9px; }
+    .meta-item .lbl { font-size: 8.5px; color: #9a9aa4; text-transform: uppercase; letter-spacing: .04em; }
+    .meta-item .val { font-size: 10.5px; font-weight: bold; color: #14141a; margin-top: 2px; }
 
     section.bloque { margin-bottom: 16px; page-break-inside: avoid; }
     section.bloque > h3 {
-      font-size: 12px; font-weight: bold; color: #0e0e6e;
-      border-bottom: 1px solid #d1d5db; padding-bottom: 5px; margin-bottom: 9px;
+      font-size: 12px; font-weight: bold; color: #0a1247;
+      border-bottom: 1px solid #cfcfd7; padding-bottom: 5px; margin-bottom: 9px;
     }
-    .texto { font-size: 10.5px; line-height: 1.65; color: #374151; text-align: justify; }
+    .texto { font-size: 10.5px; line-height: 1.65; color: #45454f; text-align: justify; }
     .texto p + p { margin-top: 7px; }
-    .vacio { font-size: 10.5px; color: #9ca3af; font-style: italic; }
+    .vacio { font-size: 10.5px; color: #9a9aa4; font-style: italic; }
 
     table.datos { width: 100%; border-collapse: collapse; font-size: 9.5px; }
-    table.datos th, table.datos td { border: 1px solid #e5e7eb; padding: 5px 7px; text-align: left; vertical-align: top; }
-    table.datos th { background: #eef1fb; color: #0e0e6e; font-weight: bold; }
-    table.datos tr:nth-child(even) td { background: #fafafa; }
+    table.datos th, table.datos td { border: 1px solid #e4e4ea; padding: 5px 7px; text-align: left; vertical-align: top; }
+    table.datos th { background: #eef2fc; color: #0a1247; font-weight: bold; }
+    table.datos tr:nth-child(even) td { background: #f7f7f9; }
     table.datos td.centro, table.datos th.centro { text-align: center; }
-    table.datos tr.total td { background: #eef1fb; font-weight: bold; color: #0e0e6e; }
+    table.datos tr.total td { background: #eef2fc; font-weight: bold; color: #0a1247; }
 
     .stats { display: grid; gap: 8px; margin-bottom: 9px; }
     .stats.c3 { grid-template-columns: repeat(3, 1fr); }
     .stats.c4 { grid-template-columns: repeat(4, 1fr); }
-    .stat { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; }
-    .stat .val { font-size: 15px; font-weight: bold; color: #0e0e6e; }
-    .stat .val.rojo { color: #dc2626; }
-    .stat .val.naranja { color: #d97706; }
-    .stat .val.verde { color: #15803d; }
-    .stat .lbl { font-size: 9px; color: #6b7280; margin-top: 2px; }
+    .stat { background: #f7f7f9; border: 1px solid #e4e4ea; border-radius: 6px; padding: 8px 10px; }
+    .stat .val { font-size: 15px; font-weight: bold; color: #0a1247; }
+    .stat .val.rojo { color: #c31b26; }
+    .stat .val.naranja { color: #a87813; }
+    .stat .val.verde { color: #1a5738; }
+    .stat .lbl { font-size: 9px; color: #6b6b76; margin-top: 2px; }
 
     .aviso { border-radius: 6px; padding: 9px 12px; font-size: 10.5px; line-height: 1.55; }
-    .aviso.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-    .aviso.warn { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .aviso.ok { background: #eff7f1; border: 1px solid #b4dbc3; color: #15442c; }
+    .aviso.warn { background: #fdf4ec; border: 1px solid #f2c9a2; color: #62310e; }
 
-    ul.legal { list-style: disc; padding-left: 18px; font-size: 9.5px; line-height: 1.6; color: #4b5563; }
+    ul.legal { list-style: disc; padding-left: 18px; font-size: 9.5px; line-height: 1.6; color: #55555f; }
     ul.legal li { margin-bottom: 3px; }
 
     .firmas {
@@ -131,14 +131,14 @@ export function documentoHTML({ titulo, subtitulo = '', cuerpo, tenant, profile,
       margin-top: 26px; page-break-inside: avoid;
     }
     .firma { text-align: center; }
-    .firma .linea { border-top: 1px solid #374151; margin-top: 46px; padding-top: 6px; }
-    .firma .nombre { font-size: 11px; font-weight: bold; color: #111827; }
-    .firma .cargo { font-size: 9.5px; color: #6b7280; margin-top: 2px; }
-    .firma .fecha { font-size: 9px; color: #9ca3af; margin-top: 4px; }
+    .firma .linea { border-top: 1px solid #45454f; margin-top: 46px; padding-top: 6px; }
+    .firma .nombre { font-size: 11px; font-weight: bold; color: #14141a; }
+    .firma .cargo { font-size: 9.5px; color: #6b6b76; margin-top: 2px; }
+    .firma .fecha { font-size: 9px; color: #9a9aa4; margin-top: 4px; }
 
     .pie {
-      margin-top: 22px; padding-top: 10px; border-top: 1px solid #e5e7eb;
-      text-align: center; font-size: 9px; color: #9ca3af; line-height: 1.5;
+      margin-top: 22px; padding-top: 10px; border-top: 1px solid #e4e4ea;
+      text-align: center; font-size: 9px; color: #9a9aa4; line-height: 1.5;
     }
 
     @page { size: A4 ${orientacion}; margin: 1.2cm; }
@@ -200,7 +200,7 @@ export function imprimirNodo(idElemento, { titulo = 'Documento', orientacion = '
   <style>
     * { box-sizing: border-box; }
     body {
-      font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111;
+      font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #14141a;
       background: #fff; margin: 0 auto; padding: 0; max-width: ${anchoMax};
     }
     img { max-width: 100%; }

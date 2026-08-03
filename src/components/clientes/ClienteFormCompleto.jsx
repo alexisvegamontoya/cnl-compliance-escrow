@@ -310,14 +310,14 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
     <div className="space-y-4">
       {/* Selector de sujeto obligado (solo superadmin) */}
       {isSuperAdmin && (
-        <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center gap-3">
-          <span className="text-purple-600 text-lg">🏢</span>
+        <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center gap-3">
+          <span className="text-brand-600 text-lg">🏢</span>
           <div className="flex-1">
-            <label className="text-xs font-semibold text-purple-700 uppercase tracking-wide">
+            <label className="text-xs font-semibold text-brand-700 uppercase tracking-wide">
               Sujeto Obligado destino
             </label>
             <select
-              className="mt-1 w-full text-sm border border-purple-300 rounded-lg px-2 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="mt-1 w-full text-sm border border-brand-300 rounded-lg px-2 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-400"
               value={tenantDestino}
               onChange={e => setTenantDestino(e.target.value)}
             >
@@ -330,7 +330,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
             </select>
           </div>
           {tenantDestino && tenants.find(t => t.id === tenantDestino) && (
-            <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded-full whitespace-nowrap">
+            <span className="text-xs bg-brand-600 text-white px-2 py-1 rounded-full whitespace-nowrap">
               ✓ {tenants.find(t => t.id === tenantDestino)?.nombre}
             </span>
           )}

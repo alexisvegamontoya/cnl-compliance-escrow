@@ -375,7 +375,7 @@ export default function Clientes() {
             { label: 'Riesgo alto', val: resumen.alto, color: 'text-red-600', bg: 'bg-red-50', filter: 'alto' },
             { label: 'Riesgo medio', val: resumen.medio, color: 'text-yellow-600', bg: 'bg-yellow-50', filter: 'medio' },
             { label: 'Riesgo bajo', val: resumen.bajo, color: 'text-green-600', bg: 'bg-green-50', filter: 'bajo' },
-            { label: 'PEPs', val: resumen.pep, color: 'text-purple-600', bg: 'bg-purple-50', filter: null },
+            { label: 'PEPs', val: resumen.pep, color: 'text-dorado-700', bg: 'bg-dorado-50', filter: null },
           ].map(r => (
             <button key={r.label}
               onClick={() => r.filter !== null ? setFiltroRiesgo(r.filter === filtroRiesgo ? '' : r.filter) : null}
@@ -631,7 +631,7 @@ export default function Clientes() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-gray-900 truncate">{nombre}</p>
                         {c.pep && (
-                          <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded">PEP</span>
+                          <span className="px-1.5 py-0.5 bg-dorado-100 text-dorado-800 text-xs font-bold rounded">PEP</span>
                         )}
                         {riesgo && (
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${riesgo.color}`}>

@@ -70,7 +70,7 @@ export default function SetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0e0e6e]"
+    <div className="min-h-screen flex items-center justify-center bg-[#0a1247]"
       style={{
         backgroundImage: 'url(/bg-login.jpg)',
         backgroundSize: 'cover',
@@ -147,7 +147,7 @@ export default function SetPassword() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-white text-[#0e0e6e] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50 mt-2"
+              className="w-full bg-white text-[#0a1247] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50 mt-2"
             >
               {loading ? 'Activando cuenta…' : 'Activar mi cuenta'}
             </button>

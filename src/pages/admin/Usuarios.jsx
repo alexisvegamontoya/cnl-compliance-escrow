@@ -568,7 +568,7 @@ export default function Usuarios() {
                         {esYo && <span className="ml-1 text-xs text-brand-400">(tú)</span>}
                       </p>
                       {u.rol === 'superadmin' && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
                           Super Admin
                         </span>
                       )}

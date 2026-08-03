@@ -13,11 +13,11 @@ const PESOS = { i1: 25, i2: 7, i3: 20, i4: 15, i5: 5, i6: 8, i7: 15, i8: 5 }
 
 // ─── Colores por score ────────────────────────────────────────────────────────
 function colorPct(p) {
-  if (p >= 80) return '#16a34a'
-  if (p >= 60) return '#65a30d'
-  if (p >= 40) return '#ca8a04'
-  if (p >= 20) return '#ea580c'
-  return '#dc2626'
+  if (p >= 80) return '#1f6d45'
+  if (p >= 60) return '#2a8655'
+  if (p >= 40) return '#c89116'
+  if (p >= 20) return '#c2661c'
+  return '#c31b26'
 }
 
 // ─── Meses transcurridos desde una fecha ──────────────────────────────────────
@@ -32,11 +32,11 @@ function mesesDesde(fecha) {
 function Velocimetro({ pct }) {
   const cx = 160, cy = 145, r = 110
   const segmentos = [
-    { desde: 0,  hasta: 20,  color: '#dc2626' },
-    { desde: 20, hasta: 40,  color: '#ea580c' },
-    { desde: 40, hasta: 60,  color: '#ca8a04' },
-    { desde: 60, hasta: 80,  color: '#65a30d' },
-    { desde: 80, hasta: 100, color: '#16a34a' },
+    { desde: 0,  hasta: 20,  color: '#c31b26' },
+    { desde: 20, hasta: 40,  color: '#c2661c' },
+    { desde: 40, hasta: 60,  color: '#c89116' },
+    { desde: 60, hasta: 80,  color: '#2a8655' },
+    { desde: 80, hasta: 100, color: '#1f6d45' },
   ]
 
   function polarToXY(deg, radius) {
@@ -68,13 +68,13 @@ function Velocimetro({ pct }) {
         const deg = 180 - (v / 100) * 180
         const [lx, ly] = polarToXY(deg, 122)
         return <text key={v} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
-          fontSize="9" fill="#6b7280" fontWeight="600">{v}</text>
+          fontSize="9" fill="#6b6b76" fontWeight="600">{v}</text>
       })}
-      <circle cx={cx} cy={cy} r={14} fill="#f9fafb" stroke="#e5e7eb" strokeWidth="1.5" />
-      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r={14} fill="#f7f7f9" stroke="#e4e4ea" strokeWidth="1.5" />
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#2a2a32" strokeWidth="3" strokeLinecap="round" />
       <text x={cx} y={cy + 28} textAnchor="middle" fontSize="22" fontWeight="700"
         fill={colorPct(pct)}>{Math.round(pct)}%</text>
-      <text x={cx} y={cy + 44} textAnchor="middle" fontSize="9" fill="#6b7280">CUMPLIMIENTO GLOBAL</text>
+      <text x={cx} y={cy + 44} textAnchor="middle" fontSize="9" fill="#6b6b76">CUMPLIMIENTO GLOBAL</text>
     </svg>
   )
 }
@@ -473,7 +473,7 @@ export default function ComplianceDashboard() {
                   <PolarGrid />
                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
-                  <Radar name="Cumplimiento" dataKey="value" stroke="#0e0e6e" fill="#0e0e6e" fillOpacity={0.25} />
+                  <Radar name="Cumplimiento" dataKey="value" stroke="#0a1247" fill="#0a1247" fillOpacity={0.25} />
                 </RadarChart>
               </ResponsiveContainer>
             </div>

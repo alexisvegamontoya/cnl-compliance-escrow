@@ -375,10 +375,10 @@ function getValorMostrado(respuestas, criterio) {
 }
 
 function colorValor(v) {
-  if (v == null) return '#6b7280'
-  if (Number(v) <= 1) return '#16a34a'
-  if (Number(v) <= 2) return '#d97706'
-  return '#dc2626'
+  if (v == null) return '#6b6b76'
+  if (Number(v) <= 1) return '#1f6d45'
+  if (Number(v) <= 2) return '#a87813'
+  return '#c31b26'
 }
 
 function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
@@ -388,32 +388,32 @@ function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
   return (
     <div style={{ marginBottom: '14px', breakInside: 'avoid' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#0e0e6e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#0a1247', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {titulo}
         </div>
-        <div style={{ fontSize: '10px', color: '#6b7280' }}>
+        <div style={{ fontSize: '10px', color: '#6b6b76' }}>
           Score: <strong style={{ fontFamily: 'monospace', color: colorValor(scoreF) }}>{scoreF != null ? scoreF.toFixed(3) : '—'}</strong>
           {pesoLabel && <span style={{ marginLeft: '8px' }}>Peso: <strong>{pesoLabel}</strong></span>}
         </div>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#e8eaf6' }}>
-            <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', width: '50%' }}>Criterio</th>
-            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Peso</th>
-            <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Respuesta seleccionada</th>
-            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '8%' }}>Score</th>
+          <tr style={{ backgroundColor: '#e2e4f0' }}>
+            <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#45454f', width: '50%' }}>Criterio</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#45454f', width: '8%' }}>Peso</th>
+            <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#45454f' }}>Respuesta seleccionada</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#45454f', width: '8%' }}>Score</th>
           </tr>
         </thead>
         <tbody>
           {criterios.map((c, i) => {
             const { texto, valor } = getValorMostrado(respuestas, c)
             return (
-              <tr key={c.key} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
-                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#374151' }}>{c.label}</td>
-                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', color: '#6b7280' }}>{(c.peso * 100).toFixed(0)}%</td>
-                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', color: '#4b5563' }}>{texto}</td>
-                <td style={{ padding: '4px 8px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: colorValor(valor) }}>
+              <tr key={c.key} style={{ backgroundColor: i % 2 === 0 ? '#f7f7f9' : 'white' }}>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #ededf1', color: '#45454f' }}>{c.label}</td>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #ededf1', textAlign: 'center', color: '#6b6b76' }}>{(c.peso * 100).toFixed(0)}%</td>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #ededf1', color: '#55555f' }}>{texto}</td>
+                <td style={{ padding: '4px 8px', borderBottom: '1px solid #ededf1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: colorValor(valor) }}>
                   {valor != null && valor !== '' ? Number(valor).toFixed(1) : '—'}
                 </td>
               </tr>
@@ -430,8 +430,8 @@ function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
 // ------------------------------------
 function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
   if (!clienteActual) return null
-  const nivelColor = calificacionFinal === 'alto' ? '#dc2626' : calificacionFinal === 'medio' ? '#d97706' : '#16a34a'
-  const nivelBg    = calificacionFinal === 'alto' ? '#fef2f2' : calificacionFinal === 'medio' ? '#fffbeb' : '#f0fdf4'
+  const nivelColor = calificacionFinal === 'alto' ? '#c31b26' : calificacionFinal === 'medio' ? '#a87813' : '#1f6d45'
+  const nivelBg    = calificacionFinal === 'alto' ? '#fdf3f3' : calificacionFinal === 'medio' ? '#fdf8ec' : '#eff7f1'
 
   const pesosFisica   = { cli: '60%', geo: '40%', prod: 'N/A', can: 'N/A' }
   const pesosJuridica = { cli: '50%', geo: '15%', prod: '20%', can: '15%' }
@@ -442,14 +442,14 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
   const criteriosCan  = CRITERIOS_CANALES[tipoPersona]  || []
 
   return (
-    <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#111', maxWidth: '780px', margin: '0 auto' }}>
+    <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#14141a', maxWidth: '780px', margin: '0 auto' }}>
       {/* Encabezado */}
-      <div style={{ borderBottom: '3px solid #0e0e6e', paddingBottom: '10px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div style={{ borderBottom: '3px solid #0a1247', paddingBottom: '10px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0e0e6e' }}>CNL CRANILEY COMPLIANCE</div>
-          <div style={{ fontSize: '13px', color: '#374151', marginTop: '2px' }}>Calificación de Riesgo de Cliente — ALA/CFT/FPADM</div>
+          <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0a1247' }}>CNL CRANILEY COMPLIANCE</div>
+          <div style={{ fontSize: '13px', color: '#45454f', marginTop: '2px' }}>Calificación de Riesgo de Cliente — ALA/CFT/FPADM</div>
         </div>
-        <div style={{ fontSize: '10px', color: '#6b7280', textAlign: 'right' }}>
+        <div style={{ fontSize: '10px', color: '#6b6b76', textAlign: 'right' }}>
           <div>Fecha: {fecha}</div>
           <div>Metodología N06 · Acuerdo SUGEF 13-19</div>
         </div>
@@ -459,15 +459,15 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px', fontSize: '11px' }}>
         <tbody>
           <tr>
-            <td style={{ color: '#6b7280', width: '110px', padding: '2px 0' }}>Cliente:</td>
+            <td style={{ color: '#6b6b76', width: '110px', padding: '2px 0' }}>Cliente:</td>
             <td style={{ fontWeight: 'bold', padding: '2px 8px 2px 0' }}>{nombreCliente}</td>
-            <td style={{ color: '#6b7280', width: '110px', padding: '2px 0' }}>Identificación:</td>
+            <td style={{ color: '#6b6b76', width: '110px', padding: '2px 0' }}>Identificación:</td>
             <td style={{ padding: '2px 0' }}>{clienteActual?.numero_identificacion || '—'}</td>
           </tr>
           <tr>
-            <td style={{ color: '#6b7280', padding: '2px 0' }}>Tipo persona:</td>
+            <td style={{ color: '#6b6b76', padding: '2px 0' }}>Tipo persona:</td>
             <td style={{ padding: '2px 8px 2px 0' }}>{tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'}</td>
-            <td style={{ color: '#6b7280', padding: '2px 0' }}>Score total:</td>
+            <td style={{ color: '#6b6b76', padding: '2px 0' }}>Score total:</td>
             <td style={{ fontWeight: 'bold', fontFamily: 'monospace', padding: '2px 0', color: colorValor(scoreTotal) }}>
               {scoreTotal != null ? scoreTotal.toFixed(3) : '—'}
             </td>
@@ -481,22 +481,22 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
           CALIFICACIÓN: {(calificacionFinal || '').toUpperCase()}
         </div>
         {calificacionManual && calificacionManual !== calificacionAuto && (
-          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '3px' }}>
+          <div style={{ fontSize: '10px', color: '#6b6b76', marginTop: '3px' }}>
             Calificación automática: {(calificacionAuto || '').toUpperCase()} — Ajustada manualmente por el oficial de cumplimiento
           </div>
         )}
         {listasNivel === 'COINCIDENCIA' && (
-          <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 'bold', marginTop: '4px' }}>
+          <div style={{ fontSize: '10px', color: '#c31b26', fontWeight: 'bold', marginTop: '4px' }}>
             ⚠ ALERTA: Cliente identificado en listas internacionales de sanciones ALA/CFT — DDC reforzada requerida (Art. 24 SUGEF 13-19)
           </div>
         )}
         {listasNivel === 'REVISAR' && (
-          <div style={{ fontSize: '10px', color: '#d97706', marginTop: '4px' }}>
+          <div style={{ fontSize: '10px', color: '#a87813', marginTop: '4px' }}>
             ⚠ REVISAR: Posible coincidencia en listas internacionales — verificar manualmente
           </div>
         )}
         {listasNivel === 'SIN_COINCIDENCIA' && (
-          <div style={{ fontSize: '10px', color: '#16a34a', marginTop: '4px' }}>
+          <div style={{ fontSize: '10px', color: '#1f6d45', marginTop: '4px' }}>
             ✓ Sin coincidencias en listas ALA/CFT (OFAC · ONU · INTERPOL · ICD CR PEP · GAFI · GAFILAT)
           </div>
         )}
@@ -505,7 +505,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
       {/* Resumen de scores por factor */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '18px', fontSize: '11px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#0e0e6e', color: 'white' }}>
+          <tr style={{ backgroundColor: '#0a1247', color: 'white' }}>
             <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>Factor de riesgo</th>
             <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Score</th>
             <th style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 600 }}>Peso</th>
@@ -521,17 +521,17 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
           ].map((f, i) => {
             const contrib = f.score != null && f.pesoPct > 0 ? (f.score * f.pesoPct).toFixed(3) : '—'
             return (
-              <tr key={f.label} style={{ backgroundColor: i % 2 === 0 ? '#f9fafb' : 'white' }}>
-                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb' }}>{f.label}</td>
-                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: colorValor(f.score) }}>
+              <tr key={f.label} style={{ backgroundColor: i % 2 === 0 ? '#f7f7f9' : 'white' }}>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e4e4ea' }}>{f.label}</td>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e4e4ea', textAlign: 'center', fontFamily: 'monospace', color: colorValor(f.score) }}>
                   {f.score != null ? f.score.toFixed(3) : '—'}
                 </td>
-                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>{f.peso}</td>
-                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: '#6b7280' }}>{contrib}</td>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e4e4ea', textAlign: 'center' }}>{f.peso}</td>
+                <td style={{ padding: '5px 8px', borderBottom: '1px solid #e4e4ea', textAlign: 'center', fontFamily: 'monospace', color: '#6b6b76' }}>{contrib}</td>
               </tr>
             )
           })}
-          <tr style={{ backgroundColor: '#e0e7ff', fontWeight: 'bold' }}>
+          <tr style={{ backgroundColor: '#e2e4f0', fontWeight: 'bold' }}>
             <td style={{ padding: '5px 8px' }}>Score Consolidado</td>
             <td style={{ padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', color: colorValor(scoreTotal) }}>{scoreTotal != null ? scoreTotal.toFixed(3) : '—'}</td>
             <td style={{ padding: '5px 8px', textAlign: 'center' }}>—</td>
@@ -541,7 +541,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
       </table>
 
       {/* ──── DETALLE POR FACTOR ──── */}
-      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#0e0e6e', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid #0e0e6e', paddingBottom: '4px', marginBottom: '12px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#0a1247', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid #0a1247', paddingBottom: '4px', marginBottom: '12px' }}>
         Detalle de criterios evaluados
       </div>
 
@@ -580,18 +580,18 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
 
       {/* Observaciones */}
       {observaciones && (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: '5px', padding: '8px 12px', marginBottom: '14px', marginTop: '4px' }}>
-          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#374151', marginBottom: '3px' }}>Observaciones del oficial de cumplimiento:</div>
-          <div style={{ fontSize: '11px', color: '#4b5563' }}>{observaciones}</div>
+        <div style={{ border: '1px solid #e4e4ea', borderRadius: '5px', padding: '8px 12px', marginBottom: '14px', marginTop: '4px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#45454f', marginBottom: '3px' }}>Observaciones del oficial de cumplimiento:</div>
+          <div style={{ fontSize: '11px', color: '#55555f' }}>{observaciones}</div>
         </div>
       )}
 
       {/* Referencias */}
-      <div style={{ borderTop: '1px solid #d1d5db', paddingTop: '8px', marginTop: '10px' }}>
-        <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>
+      <div style={{ borderTop: '1px solid #cfcfd7', paddingTop: '8px', marginTop: '10px' }}>
+        <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#6b6b76', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>
           Referencias y fuentes metodológicas
         </div>
-        <p style={{ fontSize: '9px', color: '#9ca3af', margin: 0, lineHeight: '1.7' }}>
+        <p style={{ fontSize: '9px', color: '#9a9aa4', margin: 0, lineHeight: '1.7' }}>
           <strong>Metodología:</strong> Metodología N06 — Evaluación de Riesgo ALA/CFT/FPADM. Acuerdo SUGEF 13-19, Art. 5–10. &nbsp;|&nbsp;
           <strong>Riesgo por país:</strong> Basel AML Index 2023, Basel Institute on Governance. &nbsp;|&nbsp;
           <strong>Riesgo cantonal:</strong> SUGEF — Informe de Riesgo por Provincia y Cantón de Costa Rica (RIESGO_PROVINCIA_CANTON_AL_2025). &nbsp;|&nbsp;
@@ -599,7 +599,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
           <strong>Verificación de listas:</strong> OFAC SDN, ONU, UK OFSI, INTERPOL, GAFI/FATF, GAFILAT, Lista PEP UIF–ICD Costa Rica (corte 08/04/2026). &nbsp;|&nbsp;
           <strong>Marco legal:</strong> Ley 7786 (CONASSEP), Acuerdo SUGEF 13-19, Recomendaciones GAFI 2012 (rev. 2023).
         </p>
-        <p style={{ fontSize: '8.5px', color: '#d1d5db', margin: '5px 0 0', textAlign: 'right' }}>
+        <p style={{ fontSize: '8.5px', color: '#cfcfd7', margin: '5px 0 0', textAlign: 'right' }}>
           Generado por CNL Craniley Compliance · www.cnl-cr.com · {fecha}
         </p>
       </div>

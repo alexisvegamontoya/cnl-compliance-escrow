@@ -610,7 +610,7 @@ export default function Informes() {
             padding: 1.5rem;
           }
           #informe-pdf .card {
-            border: 1px solid #e5e7eb !important;
+            border: 1px solid #e4e4ea !important;
             box-shadow: none !important;
             break-inside: avoid;
             margin-bottom: 1rem;

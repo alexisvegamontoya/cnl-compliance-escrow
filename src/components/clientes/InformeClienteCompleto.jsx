@@ -54,7 +54,7 @@ function calcScore(respuestas, tipo) {
 }
 
 function nivelColor(nivel) {
-  return nivel === 'bajo' ? '#16a34a' : nivel === 'medio' ? '#ca8a04' : nivel === 'alto' ? '#dc2626' : '#6b7280'
+  return nivel === 'bajo' ? '#1f6d45' : nivel === 'medio' ? '#c89116' : nivel === 'alto' ? '#c31b26' : '#6b6b76'
 }
 
 function NivelBadge({ nivel }) {
@@ -111,15 +111,15 @@ const NIVELES = {
 
 // ─── Configuración de fuentes (igual que ConsultaPEP) ────────────────────────
 const FUENTES_CONFIG = {
-  OFAC_SDN:   { label: 'OFAC SDN',              flag: '🇺🇸', color: '#b91c1c' },
-  OFAC_CONS:  { label: 'OFAC Consolidated',      flag: '🇺🇸', color: '#b91c1c' },
-  ONU:        { label: 'ONU Consejo Seguridad',  flag: '🇺🇳', color: '#1d4ed8' },
-  UK_OFSI:    { label: 'UK OFSI',               flag: '🇬🇧', color: '#7c3aed' },
-  INTERPOL:   { label: 'INTERPOL',              flag: '🚨', color: '#dc2626' },
-  GAFI_NEGRO: { label: 'GAFI Lista Negra',       flag: '⬛', color: '#111827' },
-  GAFI_GRIS:  { label: 'GAFI Lista Gris',        flag: '🔘', color: '#6b7280' },
-  GAFILAT:    { label: 'GAFILAT',               flag: '🌎', color: '#92400e' },
-  ICD_CR_PEP: { label: 'ICD CR — Lista PEP',    flag: '🇨🇷', color: '#065f46' },
+  OFAC_SDN:   { label: 'OFAC SDN',              flag: '🇺🇸', color: '#86111a' },
+  OFAC_CONS:  { label: 'OFAC Consolidated',      flag: '🇺🇸', color: '#86111a' },
+  ONU:        { label: 'ONU Consejo Seguridad',  flag: '🇺🇳', color: '#293670' },
+  UK_OFSI:    { label: 'UK OFSI',               flag: '🇬🇧', color: '#a87813' },
+  INTERPOL:   { label: 'INTERPOL',              flag: '🚨', color: '#c31b26' },
+  GAFI_NEGRO: { label: 'GAFI Lista Negra',       flag: '⬛', color: '#14141a' },
+  GAFI_GRIS:  { label: 'GAFI Lista Gris',        flag: '🔘', color: '#6b6b76' },
+  GAFILAT:    { label: 'GAFILAT',               flag: '🌎', color: '#63470d' },
+  ICD_CR_PEP: { label: 'ICD CR — Lista PEP',    flag: '🇨🇷', color: '#15442c' },
 }
 const TODAS_FUENTES = Object.keys(FUENTES_CONFIG)
 
@@ -150,36 +150,36 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
   const todosItems = [...CHECKLIST_BASE, ...(tipo === 'J' ? CHECKLIST_PJ : []), ...(hayPEP ? CHECKLIST_PEP : [])]
   const itemsOk = todosItems.filter(it => getEstadoCL(checklist[it.id]) === 'disponible').length
 
-  const rowStyle = 'border: 1px solid #ddd; padding: 5px 8px; text-align: left; font-size: 10px;'
-  const headStyle = rowStyle + 'background: #f5f5f5; font-weight: 600;'
+  const rowStyle = 'border: 1px solid #e4e4ea; padding: 5px 8px; text-align: left; font-size: 10px;'
+  const headStyle = rowStyle + 'background: #f7f7f9; font-weight: 600;'
 
   const secCalificacion = `
     <div style="page-break-after: always;">
-      <div style="background: #0e0e6e; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 24px; border-radius: 8px 8px 0 0;">
+      <div style="background: #0a1247; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 24px; border-radius: 8px 8px 0 0;">
         <div style="flex:1;">
           <p style="font-size:16px; font-weight:700; margin:0;">CNL CRANILEY COMPLIANCE SERVICES SRL</p>
-          <p style="font-size:12px; color:#a5b4fc; margin:4px 0 0;">Consultoría en Cumplimiento ALA/CFT — Costa Rica</p>
+          <p style="font-size:12px; color:#9aa0c8; margin:4px 0 0;">Consultoría en Cumplimiento ALA/CFT — Costa Rica</p>
         </div>
-        <div style="text-align:right; font-size:11px; color:#c7d2fe;">
+        <div style="text-align:right; font-size:11px; color:#c3c7e0;">
           <p style="font-weight:700; color:white; font-size:13px; margin:0;">CALIFICACIÓN DE RIESGO</p>
           <p style="margin:2px 0;">Ref: CNL-CAL-${new Date().getFullYear()}-${Math.floor(Math.random()*90000)+10000}</p>
         </div>
       </div>
-      <div style="background:#eef2ff; padding:6px 32px; font-size:10px; color:#3730a3; display:flex; justify-content:space-between; border-radius: 0 0 8px 8px; margin-bottom: 16px;">
+      <div style="background:#f2f3f8; padding:6px 32px; font-size:10px; color:#101b54; display:flex; justify-content:space-between; border-radius: 0 0 8px 8px; margin-bottom: 16px;">
         <span>Acuerdo SUGEF 13-19 — Metodología de Calificación de Riesgo del Cliente</span>
         <span>${new Date().toLocaleString('es-CR')}</span>
       </div>
       <table style="width:100%; border-collapse: collapse; margin-bottom: 16px;">
         <tr>
-          <td style="padding:4px 6px; font-size:11px; color:#6b7280;">Cliente:</td>
+          <td style="padding:4px 6px; font-size:11px; color:#6b6b76;">Cliente:</td>
           <td style="padding:4px 6px; font-size:11px; font-weight:600;">${nombre}</td>
-          <td style="padding:4px 6px; font-size:11px; color:#6b7280;">Identificación:</td>
+          <td style="padding:4px 6px; font-size:11px; color:#6b6b76;">Identificación:</td>
           <td style="padding:4px 6px; font-size:11px;">${cliente.cedula_juridica || cliente.numero_identificacion || '—'}</td>
         </tr>
         <tr>
-          <td style="padding:4px 6px; font-size:11px; color:#6b7280;">Sujeto Obligado:</td>
+          <td style="padding:4px 6px; font-size:11px; color:#6b6b76;">Sujeto Obligado:</td>
           <td style="padding:4px 6px; font-size:11px;">${tenant?.nombre || '—'}</td>
-          <td style="padding:4px 6px; font-size:11px; color:#6b7280;">Elaborado por:</td>
+          <td style="padding:4px 6px; font-size:11px; color:#6b6b76;">Elaborado por:</td>
           <td style="padding:4px 6px; font-size:11px;">${profile?.nombre || profile?.email || '—'}</td>
         </tr>
       </table>
@@ -187,11 +187,11 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
         <div style="display:flex; gap: 24px; align-items:center;">
           <div style="text-align:center; min-width: 100px;">
             <p style="font-size:36px; font-weight:900; color:${nivelColor(nivelRiesgo)}; margin:0;">${scoreTotal}</p>
-            <p style="font-size:10px; color:#6b7280; margin:4px 0 0;">Puntuación (0–3)</p>
+            <p style="font-size:10px; color:#6b6b76; margin:4px 0 0;">Puntuación (0–3)</p>
           </div>
           <div>
             <p style="font-size:18px; font-weight:700; color:${nivelColor(nivelRiesgo)}; margin:0;">${nivelRiesgo === 'bajo' ? '🟢' : nivelRiesgo === 'medio' ? '🟡' : '🔴'} Riesgo ${(nivelRiesgo || '').toUpperCase()}</p>
-            <p style="font-size:10px; color:#6b7280; margin:4px 0;">Metodología SUGEF 13-19 y Basel AML Index 2023</p>
+            <p style="font-size:10px; color:#6b6b76; margin:4px 0;">Metodología SUGEF 13-19 y Basel AML Index 2023</p>
           </div>
         </div>
       </div>
@@ -216,19 +216,19 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
   const secListas = `
     <div style="page-break-after: always;">
       <!-- Header idéntico a ConsultaPEP -->
-      <div style="border: 2px solid #0e0e6e; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
-        <div style="background: #0e0e6e; color: white; padding: 20px 32px; display:flex; align-items:center; gap:24px;">
+      <div style="border: 2px solid #0a1247; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
+        <div style="background: #0a1247; color: white; padding: 20px 32px; display:flex; align-items:center; gap:24px;">
           <div style="flex:1;">
             <p style="font-size:18px; font-weight:700; margin:0;">CNL CRANILEY COMPLIANCE SERVICES SRL</p>
-            <p style="font-size:11px; color:#a5b4fc; margin:4px 0 0;">Consultoría en Cumplimiento ALA/CFT — Costa Rica</p>
+            <p style="font-size:11px; color:#9aa0c8; margin:4px 0 0;">Consultoría en Cumplimiento ALA/CFT — Costa Rica</p>
           </div>
-          <div style="text-align:right; font-size:11px; color:#c7d2fe;">
+          <div style="text-align:right; font-size:11px; color:#c3c7e0;">
             <p style="font-weight:700; color:white; font-size:13px; margin:0;">REPORTE DE CONSULTA</p>
             <p style="margin:2px 0;">LISTAS INTERNACIONALES Y PEP</p>
             <p style="font-size:9px; margin:2px 0;">Ref: CNL-PEP-${new Date().getFullYear()}-${Math.floor(Math.random()*90000)+10000}</p>
           </div>
         </div>
-        <div style="background:#eef2ff; padding:6px 32px; font-size:10px; color:#3730a3; display:flex; justify-content:space-between;">
+        <div style="background:#f2f3f8; padding:6px 32px; font-size:10px; color:#101b54; display:flex; justify-content:space-between;">
           <span>📋 Documento válido como evidencia — Acuerdo SUGEF 13-19, Art. 21-28</span>
           <span>${new Date().toLocaleString('es-CR')}</span>
         </div>
@@ -236,33 +236,33 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
 
       <!-- Datos de consulta y reporte -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px;">
-          <p style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin:0 0 8px;">Datos de la Consulta</p>
+        <div style="border:1px solid #e4e4ea; border-radius:8px; padding:14px;">
+          <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">Datos de la Consulta</p>
           <table style="font-size:11px; width:100%;"><tbody>
-            <tr><td style="color:#9ca3af; padding:2px 0; width:40%;">Cliente:</td><td style="font-weight:600;">${nombre}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Identificación:</td><td>${cliente.cedula_juridica||cliente.numero_identificacion||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Tipo:</td><td>${tipo==='J'?'Persona Jurídica':'Persona Física'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Personas verificadas:</td><td>${Object.keys(resultadosListas).length}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0; width:40%;">Cliente:</td><td style="font-weight:600;">${nombre}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Identificación:</td><td>${cliente.cedula_juridica||cliente.numero_identificacion||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Tipo:</td><td>${tipo==='J'?'Persona Jurídica':'Persona Física'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Personas verificadas:</td><td>${Object.keys(resultadosListas).length}</td></tr>
           </tbody></table>
         </div>
-        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px;">
-          <p style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin:0 0 8px;">Datos del Reporte</p>
+        <div style="border:1px solid #e4e4ea; border-radius:8px; padding:14px;">
+          <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">Datos del Reporte</p>
           <table style="font-size:11px; width:100%;"><tbody>
-            <tr><td style="color:#9ca3af; padding:2px 0; width:40%;">Consultó:</td><td style="font-weight:600;">${profile?.nombre||profile?.email||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Sujeto Obligado:</td><td>${tenant?.nombre||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Fecha:</td><td>${new Date().toLocaleString('es-CR')}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Listas consultadas:</td><td>${TODAS_FUENTES.length}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0; width:40%;">Consultó:</td><td style="font-weight:600;">${profile?.nombre||profile?.email||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Sujeto Obligado:</td><td>${tenant?.nombre||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Fecha:</td><td>${new Date().toLocaleString('es-CR')}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Listas consultadas:</td><td>${TODAS_FUENTES.length}</td></tr>
           </tbody></table>
         </div>
       </div>
 
       <!-- Resultado consolidado -->
-      <div style="border-radius:8px; padding:20px; text-align:center; border:2px solid ${nivelGlobal==='ALERTA'?'#f87171':nivelGlobal==='REVISAR'?'#fb923c':'#4ade80'}; background:${nivelGlobal==='ALERTA'?'#fef2f2':nivelGlobal==='REVISAR'?'#fff7ed':'#f0fdf4'}; margin-bottom:16px;">
-        <p style="font-size:10px; font-weight:700; text-transform:uppercase; color:#6b7280; margin:0 0 8px;">Resultado Consolidado</p>
-        <p style="font-size:28px; font-weight:900; color:${nivelGlobal==='ALERTA'?'#b91c1c':nivelGlobal==='REVISAR'?'#c2410c':'#15803d'}; margin:0;">
+      <div style="border-radius:8px; padding:20px; text-align:center; border:2px solid ${nivelGlobal==='ALERTA'?'#de5f68':nivelGlobal==='REVISAR'?'#d98442':'#4fa574'}; background:${nivelGlobal==='ALERTA'?'#fdf3f3':nivelGlobal==='REVISAR'?'#fdf4ec':'#eff7f1'}; margin-bottom:16px;">
+        <p style="font-size:10px; font-weight:700; text-transform:uppercase; color:#6b6b76; margin:0 0 8px;">Resultado Consolidado</p>
+        <p style="font-size:28px; font-weight:900; color:${nivelGlobal==='ALERTA'?'#86111a':nivelGlobal==='REVISAR'?'#7e3f12':'#1a5738'}; margin:0;">
           ${nivelGlobal==='ALERTA'?'🚨 ALERTA':nivelGlobal==='REVISAR'?'⚠️ REVISAR':'✅ SIN COINCIDENCIA'}
         </p>
-        <p style="font-size:11px; color:#374151; margin:6px 0 0;">
+        <p style="font-size:11px; color:#45454f; margin:6px 0 0;">
           ${nivelGlobal==='ALERTA'?`Se encontraron ${todosLosHits.length} coincidencias en ${fuentesConCoincidencia.length} lista(s).`:
             nivelGlobal==='REVISAR'?'Se encontraron coincidencias parciales que requieren verificación manual.':
             `No se encontraron coincidencias en ninguna de las ${TODAS_FUENTES.length} listas consultadas.`}
@@ -270,8 +270,8 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
       </div>
 
       <!-- Personas verificadas -->
-      <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; margin-bottom:16px;">
-        <div style="background:#1f2937; color:white; padding:10px 16px;">
+      <div style="border:1px solid #e4e4ea; border-radius:8px; overflow:hidden; margin-bottom:16px;">
+        <div style="background:#2a2a32; color:white; padding:10px 16px;">
           <p style="font-size:12px; font-weight:700; margin:0;">👥 Personas Verificadas (${Object.keys(resultadosListas).length})</p>
         </div>
         <table style="width:100%; border-collapse:collapse;">
@@ -285,7 +285,7 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
                 <td style="${rowStyle} font-weight:600;">${nom}</td>
                 <td style="${rowStyle}">${res.rol||'Cliente principal'}</td>
                 <td style="${rowStyle} font-family:monospace;">${res.id||'—'}</td>
-                <td style="${rowStyle}"><span style="font-weight:700; color:${res.nivel==='ALERTA'?'#b91c1c':res.nivel==='REVISAR'?'#c2410c':'#15803d'};">${res.nivel==='ALERTA'?'🔴 ALERTA':res.nivel==='REVISAR'?'⚠ REVISAR':'✅ SIN HALLAZGOS'}</span></td>
+                <td style="${rowStyle}"><span style="font-weight:700; color:${res.nivel==='ALERTA'?'#86111a':res.nivel==='REVISAR'?'#7e3f12':'#1a5738'};">${res.nivel==='ALERTA'?'🔴 ALERTA':res.nivel==='REVISAR'?'⚠ REVISAR':'✅ SIN HALLAZGOS'}</span></td>
                 <td style="${rowStyle}">${res.esPEP?'🏛️ PEP':'—'}</td>
               </tr>`).join('')}
           </tbody>
@@ -293,29 +293,29 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
       </div>
 
       <!-- Resultados por lista -->
-      <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:16px;">
+      <div style="border:1px solid #e4e4ea; border-radius:8px; padding:14px; margin-bottom:16px;">
         <p style="font-size:12px; font-weight:700; margin:0 0 10px;">📊 Resultados por Lista Internacional</p>
         ${TODAS_FUENTES.map(f => {
           const count = conteoFuente[f] || 0
           const cfg = FUENTES_CONFIG[f] || {}
           const pct = count > 0 ? Math.max(8, (count / maxConteo) * 100) : 0
           return `<div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-            <span style="font-size:10px; color:#374151; width:160px; flex-shrink:0;">${cfg.flag||''} ${cfg.label||f}</span>
-            <div style="flex:1; background:#f3f4f6; border-radius:99px; height:16px; overflow:hidden;">
-              ${count>0?`<div style="width:${pct}%; height:100%; background:${cfg.color||'#1e3a8a'}; border-radius:99px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px;"><span style="font-size:9px; color:white; font-weight:700;">${count}</span></div>`:''}
+            <span style="font-size:10px; color:#45454f; width:160px; flex-shrink:0;">${cfg.flag||''} ${cfg.label||f}</span>
+            <div style="flex:1; background:#ededf1; border-radius:99px; height:16px; overflow:hidden;">
+              ${count>0?`<div style="width:${pct}%; height:100%; background:${cfg.color||'#1a2348'}; border-radius:99px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px;"><span style="font-size:9px; color:white; font-weight:700;">${count}</span></div>`:''}
             </div>
-            <span style="font-size:10px; font-weight:700; width:80px; text-align:right; color:${count>0?'#b91c1c':'#16a34a'};">${count>0?`${count} coincid.`:'Sin coincid.'}</span>
+            <span style="font-size:10px; font-weight:700; width:80px; text-align:right; color:${count>0?'#86111a':'#1f6d45'};">${count>0?`${count} coincid.`:'Sin coincid.'}</span>
           </div>`
         }).join('')}
       </div>
 
       <!-- Listas sin coincidencias -->
-      <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:16px;">
+      <div style="border:1px solid #e4e4ea; border-radius:8px; padding:14px; margin-bottom:16px;">
         <p style="font-size:12px; font-weight:700; margin:0 0 8px;">✅ Listas sin coincidencias (${fuentesSinCoincidencia.length}/${TODAS_FUENTES.length})</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
           ${fuentesSinCoincidencia.map(f => `
-            <div style="display:flex; align-items:center; gap:6px; background:#f0fdf4; border-radius:6px; padding:4px 10px; font-size:10px; color:#374151;">
-              <span style="color:#16a34a; font-weight:700;">✓</span>
+            <div style="display:flex; align-items:center; gap:6px; background:#eff7f1; border-radius:6px; padding:4px 10px; font-size:10px; color:#45454f;">
+              <span style="color:#1f6d45; font-weight:700;">✓</span>
               <span>${FUENTES_CONFIG[f]?.flag||''} ${FUENTES_CONFIG[f]?.label||f}</span>
             </div>`).join('')}
         </div>
@@ -323,26 +323,26 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
 
       <!-- Detalle de coincidencias -->
       ${todosLosHits.length > 0 ? `
-        <div style="border:1px solid #fecaca; border-radius:8px; overflow:hidden; margin-bottom:16px;">
-          <div style="background:#dc2626; color:white; padding:10px 16px;">
+        <div style="border:1px solid #f5c2c5; border-radius:8px; overflow:hidden; margin-bottom:16px;">
+          <div style="background:#c31b26; color:white; padding:10px 16px;">
             <p style="font-size:12px; font-weight:700; margin:0;">🚨 Detalle de Coincidencias (${todosLosHits.length})</p>
           </div>
           ${todosLosHits.map(r => {
             const cfg = FUENTES_CONFIG[r.fuente] || {}
             const sim = Math.round((r.similitud || 0) * 100)
-            return `<div style="padding:12px 16px; border-bottom:1px solid #f3f4f6;">
+            return `<div style="padding:12px 16px; border-bottom:1px solid #ededf1;">
               <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
                 <div>
-                  <span style="font-size:9px; font-weight:700; padding:2px 8px; border-radius:99px; color:white; background:${cfg.color||'#1e3a8a'};">${cfg.flag||''} ${cfg.label||r.fuente}</span>
-                  <p style="font-size:12px; font-weight:700; color:#111827; margin:4px 0 2px;">${r.nombre_completo}</p>
-                  ${r.aliases?.length>0?`<p style="font-size:10px; color:#6b7280; margin:0;">Aliases: ${r.aliases.slice(0,3).join(' · ')}</p>`:''}
+                  <span style="font-size:9px; font-weight:700; padding:2px 8px; border-radius:99px; color:white; background:${cfg.color||'#1a2348'};">${cfg.flag||''} ${cfg.label||r.fuente}</span>
+                  <p style="font-size:12px; font-weight:700; color:#14141a; margin:4px 0 2px;">${r.nombre_completo}</p>
+                  ${r.aliases?.length>0?`<p style="font-size:10px; color:#6b6b76; margin:0;">Aliases: ${r.aliases.slice(0,3).join(' · ')}</p>`:''}
                 </div>
                 <div style="text-align:right; flex-shrink:0;">
-                  <p style="font-size:10px; color:#6b7280; margin:0;">Similitud</p>
-                  <p style="font-size:22px; font-weight:900; color:${sim>=85?'#b91c1c':sim>=65?'#c2410c':'#d97706'}; margin:0;">${sim}%</p>
+                  <p style="font-size:10px; color:#6b6b76; margin:0;">Similitud</p>
+                  <p style="font-size:22px; font-weight:900; color:${sim>=85?'#86111a':sim>=65?'#7e3f12':'#a87813'}; margin:0;">${sim}%</p>
                 </div>
               </div>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px; font-size:10px; color:#6b7280;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:6px; font-size:10px; color:#6b6b76;">
                 ${r.tipo_entidad?`<span>📋 Tipo: ${r.tipo_entidad}</span>`:''}
                 ${r.paises?.length>0?`<span>🌍 Países: ${r.paises.slice(0,3).join(', ')}</span>`:''}
                 ${r.programa?`<span>⚖️ Programa: ${r.programa}</span>`:''}
@@ -353,37 +353,37 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
         </div>` : ''}
 
       <!-- Sección PEP — idéntica a ConsultaPEP -->
-      <div style="border:1px solid #fde68a; border-radius:8px; overflow:hidden; margin-bottom:16px;">
-        <div style="background:#d97706; color:white; padding:10px 16px;">
+      <div style="border:1px solid #f0e2be; border-radius:8px; overflow:hidden; margin-bottom:16px;">
+        <div style="background:#a87813; color:white; padding:10px 16px;">
           <p style="font-size:12px; font-weight:700; margin:0;">🏛️ Personas Expuestas Políticamente (PEP)</p>
         </div>
         <div style="padding:14px 16px;">
-          <p style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin:0 0 8px;">Verificación en Lista Oficial UIF — ICD Costa Rica</p>
-          <div style="border-radius:6px; padding:10px 14px; border:1px solid ${enListaUIF?'#fecaca':'#bbf7d0'}; background:${enListaUIF?'#fef2f2':'#f0fdf4'};">
-            <p style="font-size:12px; font-weight:700; color:${enListaUIF?'#b91c1c':'#15803d'}; margin:0;">
+          <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">Verificación en Lista Oficial UIF — ICD Costa Rica</p>
+          <div style="border-radius:6px; padding:10px 14px; border:1px solid ${enListaUIF?'#f5c2c5':'#b4dbc3'}; background:${enListaUIF?'#fdf3f3':'#eff7f1'};">
+            <p style="font-size:12px; font-weight:700; color:${enListaUIF?'#86111a':'#1a5738'}; margin:0;">
               ${enListaUIF?'🚨 FIGURA EN LISTA PEP OFICIAL ICD':'✅ NO figura en Lista PEP oficial ICD'}
             </p>
-            ${enListaUIF&&mejorUIF?`<p style="font-size:10px; color:#b91c1c; margin:4px 0 0;">Nombre en lista: <strong>${mejorUIF.nombre_completo}</strong> · Similitud: ${((mejorUIF.similitud||0)*100).toFixed(0)}%${mejorUIF.programa?` · Cargo: ${mejorUIF.programa}`:''}</p>`:''}
+            ${enListaUIF&&mejorUIF?`<p style="font-size:10px; color:#86111a; margin:4px 0 0;">Nombre en lista: <strong>${mejorUIF.nombre_completo}</strong> · Similitud: ${((mejorUIF.similitud||0)*100).toFixed(0)}%${mejorUIF.programa?` · Cargo: ${mejorUIF.programa}`:''}</p>`:''}
           </div>
-          <p style="font-size:9px; color:#9ca3af; margin:6px 0 0;">Fuente: UIF — ICD Costa Rica. Lista PEP corte 2026. Ley 7786, Art. 2 inc. 29 — Acuerdo SUGEF 13-19, Art. 36-40.</p>
+          <p style="font-size:9px; color:#9a9aa4; margin:6px 0 0;">Fuente: UIF — ICD Costa Rica. Lista PEP corte 2026. Ley 7786, Art. 2 inc. 29 — Acuerdo SUGEF 13-19, Art. 36-40.</p>
         </div>
       </div>
 
       <!-- Pie legal -->
-      <div style="border-top:2px solid #0e0e6e; padding-top:12px;">
-        <div style="display:flex; justify-content:space-between; font-size:10px; color:#6b7280; margin-bottom:8px;">
+      <div style="border-top:2px solid #0a1247; padding-top:12px;">
+        <div style="display:flex; justify-content:space-between; font-size:10px; color:#6b6b76; margin-bottom:8px;">
           <div>
-            <p style="font-weight:700; color:#374151; margin:0;">CNL Craniley Compliance Services SRL</p>
+            <p style="font-weight:700; color:#45454f; margin:0;">CNL Craniley Compliance Services SRL</p>
             <p style="margin:2px 0;">Plataforma: cnl-compliance-app.vercel.app</p>
             <p style="margin:0;">Reporte generado: ${new Date().toLocaleString('es-CR')} por ${profile?.nombre||profile?.email||'—'}</p>
           </div>
           <div style="text-align:right;">
-            <p style="font-weight:700; color:#374151; margin:0;">Base Legal</p>
+            <p style="font-weight:700; color:#45454f; margin:0;">Base Legal</p>
             <p style="margin:2px 0;">Ley 7786, Art. 15 bis — Debida Diligencia</p>
             <p style="margin:0;">Acuerdo SUGEF 13-19, Art. 21-28 y 36-40</p>
           </div>
         </div>
-        <div style="background:#0e0e6e; color:#a5b4fc; font-size:9px; border-radius:6px; padding:8px 16px; text-align:center;">
+        <div style="background:#0a1247; color:#9aa0c8; font-size:9px; border-radius:6px; padding:8px 16px; text-align:center;">
           Este reporte constituye evidencia de la verificación realizada conforme al Acuerdo SUGEF 13-19 y debe conservarse 5 años (Ley 7786, Art. 24).
         </div>
       </div>
@@ -391,106 +391,106 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
 
   const secDD = `
     <div>
-      <div style="background: #0e0e6e; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 24px; border-radius: 8px 8px 0 0;">
+      <div style="background: #0a1247; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 24px; border-radius: 8px 8px 0 0;">
         <div style="flex:1;">
           <p style="font-size:16px; font-weight:700; margin:0;">CNL CRANILEY COMPLIANCE SERVICES SRL</p>
-          <p style="font-size:12px; color:#a5b4fc; margin:4px 0 0;">Consultoría en Cumplimiento ALA/CFT — Costa Rica</p>
+          <p style="font-size:12px; color:#9aa0c8; margin:4px 0 0;">Consultoría en Cumplimiento ALA/CFT — Costa Rica</p>
         </div>
-        <div style="text-align:right; font-size:11px; color:#c7d2fe;">
+        <div style="text-align:right; font-size:11px; color:#c3c7e0;">
           <p style="font-weight:700; color:white; font-size:13px; margin:0;">NOTA DE DEBIDA DILIGENCIA</p>
           <p style="margin:2px 0;">Ref: CNL-DD-${new Date().getFullYear()}-${Math.floor(Math.random()*90000)+10000}</p>
         </div>
       </div>
-      <div style="background:#eef2ff; padding:6px 32px; font-size:10px; color:#3730a3; display:flex; justify-content:space-between; margin-bottom:16px;">
+      <div style="background:#f2f3f8; padding:6px 32px; font-size:10px; color:#101b54; display:flex; justify-content:space-between; margin-bottom:16px;">
         <span>Acuerdo SUGEF 13-19, Art. 21-28 — Debida Diligencia del Cliente</span>
         <span>${new Date().toLocaleString('es-CR')}</span>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:16px;">
-          <p style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin:0 0 8px;">Datos del Cliente</p>
+        <div style="border:1px solid #e4e4ea; border-radius:8px; padding:16px;">
+          <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">Datos del Cliente</p>
           <table style="width:100%; font-size:11px;"><tbody>
-            <tr><td style="color:#9ca3af; padding:2px 0; width:40%;">Nombre:</td><td style="font-weight:600;">${nombre}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Tipo:</td><td>${tipo==='J'?'Persona Jurídica':'Persona Física'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Identificación:</td><td>${cliente.cedula_juridica||cliente.numero_identificacion||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">País residencia:</td><td>${cliente.pais_ubicacion||cliente.pais_nacimiento||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Actividad:</td><td>${cliente.actividad_eco_nombre||cliente.profesion_nombre||cliente.actividad_economica||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Propósito:</td><td>${cliente.proposito_relacion||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0; width:40%;">Nombre:</td><td style="font-weight:600;">${nombre}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Tipo:</td><td>${tipo==='J'?'Persona Jurídica':'Persona Física'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Identificación:</td><td>${cliente.cedula_juridica||cliente.numero_identificacion||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">País residencia:</td><td>${cliente.pais_ubicacion||cliente.pais_nacimiento||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Actividad:</td><td>${cliente.actividad_eco_nombre||cliente.profesion_nombre||cliente.actividad_economica||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Propósito:</td><td>${cliente.proposito_relacion||'—'}</td></tr>
           </tbody></table>
         </div>
-        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:16px;">
-          <p style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase; margin:0 0 8px;">Datos del Reporte</p>
+        <div style="border:1px solid #e4e4ea; border-radius:8px; padding:16px;">
+          <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">Datos del Reporte</p>
           <table style="width:100%; font-size:11px;"><tbody>
-            <tr><td style="color:#9ca3af; padding:2px 0; width:40%;">Elaborado por:</td><td style="font-weight:600;">${profile?.nombre||profile?.email||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Sujeto Obligado:</td><td>${tenant?.nombre||'—'}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Fecha:</td><td>${new Date().toLocaleString('es-CR')}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Nivel de riesgo:</td><td style="font-weight:700;">${(nivelFinal||'—').toUpperCase()}</td></tr>
-            <tr><td style="color:#9ca3af; padding:2px 0;">Documentos:</td><td>${itemsOk}/${todosItems.length} recopilados</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0; width:40%;">Elaborado por:</td><td style="font-weight:600;">${profile?.nombre||profile?.email||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Sujeto Obligado:</td><td>${tenant?.nombre||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Fecha:</td><td>${new Date().toLocaleString('es-CR')}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Nivel de riesgo:</td><td style="font-weight:700;">${(nivelFinal||'—').toUpperCase()}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Documentos:</td><td>${itemsOk}/${todosItems.length} recopilados</td></tr>
           </tbody></table>
         </div>
       </div>
       ${perfil ? `
-        <div style="border:1px solid #bfdbfe; border-radius:8px; margin-bottom:16px; overflow:hidden;">
-          <div style="background:#1d4ed8; color:white; padding:10px 16px;">
+        <div style="border:1px solid #bcc8ee; border-radius:8px; margin-bottom:16px; overflow:hidden;">
+          <div style="background:#293670; color:white; padding:10px 16px;">
             <p style="font-size:12px; font-weight:700; margin:0;">🤖 Perfil IA — Investigación del Cliente</p>
-            <p style="font-size:10px; color:#bfdbfe; margin:2px 0 0;">Generado por Claude AI con búsqueda web</p>
+            <p style="font-size:10px; color:#bcc8ee; margin:2px 0 0;">Generado por Claude AI con búsqueda web</p>
           </div>
-          <div style="padding:16px; font-size:11px; color:#374151; line-height:1.6; white-space:pre-line;">${perfil}</div>
+          <div style="padding:16px; font-size:11px; color:#45454f; line-height:1.6; white-space:pre-line;">${perfil}</div>
         </div>` : ''}
-      <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; margin-bottom:16px;">
-        <div style="background:#f9fafb; padding:10px 16px; border-bottom:1px solid #e5e7eb;">
+      <div style="border:1px solid #e4e4ea; border-radius:8px; overflow:hidden; margin-bottom:16px;">
+        <div style="background:#f7f7f9; padding:10px 16px; border-bottom:1px solid #e4e4ea;">
           <p style="font-size:12px; font-weight:700; margin:0;">📋 Checklist de Debida Diligencia — SUGEF 13-19 — ${itemsOk}/${todosItems.length} completados</p>
         </div>
         <table style="width:100%; border-collapse:collapse; font-size:10px;">
           <thead>
-            <tr style="background:#f3f4f6; border-bottom:1px solid #e5e7eb;">
-              <th style="padding:5px 8px; text-align:left; color:#6b7280; width:24px;">#</th>
-              <th style="padding:5px 8px; text-align:left; color:#6b7280;">Documento / Verificación</th>
-              <th style="padding:5px 8px; text-align:left; color:#6b7280; width:40px;">Req.</th>
-              <th style="padding:5px 8px; text-align:left; color:#6b7280; width:100px;">Estado</th>
-              <th style="padding:5px 8px; text-align:left; color:#6b7280;">Notas / Referencia</th>
+            <tr style="background:#ededf1; border-bottom:1px solid #e4e4ea;">
+              <th style="padding:5px 8px; text-align:left; color:#6b6b76; width:24px;">#</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b6b76;">Documento / Verificación</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b6b76; width:40px;">Req.</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b6b76; width:100px;">Estado</th>
+              <th style="padding:5px 8px; text-align:left; color:#6b6b76;">Notas / Referencia</th>
             </tr>
           </thead>
           <tbody>
             ${todosItems.map((item, idx) => {
               const est = getEstadoCL(checklist[item.id])
               const nota = getNotaCL(checklist[item.id])
-              const rowBg = est === 'disponible' ? '#f0fdf4' : est === 'no_disponible' ? '#fef2f2' : '#ffffff'
+              const rowBg = est === 'disponible' ? '#eff7f1' : est === 'no_disponible' ? '#fdf3f3' : '#ffffff'
               const estLabel = est === 'disponible' ? '✅ Disponible' : est === 'no_disponible' ? '❌ No disponible' : est === 'no_aplica' ? '➖ No aplica' : '⏳ Pendiente'
-              const estColor = est === 'disponible' ? '#16a34a' : est === 'no_disponible' ? '#dc2626' : est === 'no_aplica' ? '#6b7280' : '#d97706'
-              return `<tr style="background:${rowBg}; border-bottom:1px solid #f3f4f6;">
-                <td style="padding:5px 8px; color:#9ca3af;">${idx + 1}</td>
-                <td style="padding:5px 8px; color:#374151;">${item.label}</td>
-                <td style="padding:5px 8px;"><span style="font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; background:${item.required?'#fee2e2':'#f3f4f6'}; color:${item.required?'#b91c1c':'#6b7280'};">${item.required?'Obl':'Opt'}</span></td>
+              const estColor = est === 'disponible' ? '#1f6d45' : est === 'no_disponible' ? '#c31b26' : est === 'no_aplica' ? '#6b6b76' : '#a87813'
+              return `<tr style="background:${rowBg}; border-bottom:1px solid #ededf1;">
+                <td style="padding:5px 8px; color:#9a9aa4;">${idx + 1}</td>
+                <td style="padding:5px 8px; color:#45454f;">${item.label}</td>
+                <td style="padding:5px 8px;"><span style="font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px; background:${item.required?'#fbe1e2':'#ededf1'}; color:${item.required?'#86111a':'#6b6b76'};">${item.required?'Obl':'Opt'}</span></td>
                 <td style="padding:5px 8px; font-size:9px; font-weight:600; color:${estColor};">${estLabel}</td>
-                <td style="padding:5px 8px; color:#6b7280;">${nota || '—'}</td>
+                <td style="padding:5px 8px; color:#6b6b76;">${nota || '—'}</td>
               </tr>`
             }).join('')}
           </tbody>
         </table>
       </div>
       <div style="border:2px solid ${nivelColor(nivelFinal||'medio')}; border-radius:8px; padding:16px; margin-bottom:16px;">
-        <p style="font-size:10px; font-weight:700; text-transform:uppercase; color:#6b7280; margin:0 0 6px;">Conclusión — Nivel de Riesgo Asignado</p>
+        <p style="font-size:10px; font-weight:700; text-transform:uppercase; color:#6b6b76; margin:0 0 6px;">Conclusión — Nivel de Riesgo Asignado</p>
         <p style="font-size:16px; font-weight:700; color:${nivelColor(nivelFinal||'medio')}; margin:0;">${(nivelFinal||'—').toUpperCase()}</p>
-        <p style="font-size:10px; color:#374151; margin:4px 0 0;">${nivel?.desc||''} · Próxima actualización: ${nivel?.years||'—'} año(s)</p>
-        <p style="font-size:9px; color:#9ca3af; margin:4px 0 0;">Conservar 5 años mínimo — Ley 7786, Art. 24</p>
+        <p style="font-size:10px; color:#45454f; margin:4px 0 0;">${nivel?.desc||''} · Próxima actualización: ${nivel?.years||'—'} año(s)</p>
+        <p style="font-size:9px; color:#9a9aa4; margin:4px 0 0;">Conservar 5 años mínimo — Ley 7786, Art. 24</p>
       </div>
-      <div style="border:1px solid #d1d5db; border-radius:8px; padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-bottom:16px;">
+      <div style="border:1px solid #cfcfd7; border-radius:8px; padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-bottom:16px;">
         <div>
-          <p style="font-size:10px; color:#9ca3af; margin:0 0 32px;">Firma del Oficial de Cumplimiento</p>
-          <div style="border-top:1px solid #9ca3af; padding-top:6px;">
+          <p style="font-size:10px; color:#9a9aa4; margin:0 0 32px;">Firma del Oficial de Cumplimiento</p>
+          <div style="border-top:1px solid #9a9aa4; padding-top:6px;">
             <p style="font-size:12px; font-weight:600; margin:0;">${profile?.nombre||profile?.email||''}</p>
-            <p style="font-size:10px; color:#6b7280; margin:2px 0 0;">${tenant?.nombre||''}</p>
+            <p style="font-size:10px; color:#6b6b76; margin:2px 0 0;">${tenant?.nombre||''}</p>
           </div>
         </div>
         <div>
-          <p style="font-size:10px; color:#9ca3af; margin:0 0 32px;">Fecha y lugar</p>
-          <div style="border-top:1px solid #9ca3af; padding-top:6px;">
+          <p style="font-size:10px; color:#9a9aa4; margin:0 0 32px;">Fecha y lugar</p>
+          <div style="border-top:1px solid #9a9aa4; padding-top:6px;">
             <p style="font-size:12px; margin:0;">${new Date().toLocaleDateString('es-CR',{day:'2-digit',month:'long',year:'numeric'})}</p>
-            <p style="font-size:10px; color:#6b7280; margin:2px 0 0;">San José, Costa Rica</p>
+            <p style="font-size:10px; color:#6b6b76; margin:2px 0 0;">San José, Costa Rica</p>
           </div>
         </div>
       </div>
-      <div style="background:#0e0e6e; color:#a5b4fc; font-size:9px; border-radius:6px; padding:10px 16px; text-align:center;">
+      <div style="background:#0a1247; color:#9aa0c8; font-size:9px; border-radius:6px; padding:10px 16px; text-align:center;">
         Este expediente constituye evidencia de la debida diligencia aplicada conforme a la Ley N.° 7786 y el Acuerdo SUGEF 13-19.
         Debe conservarse por un mínimo de cinco (5) años desde el cierre de la relación comercial.
         Plataforma: cnl-compliance-app.vercel.app — CNL Craniley Compliance Services SRL.
@@ -498,7 +498,7 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
     </div>`
 
   return `<html><head><title>Expediente Compliance — ${nombre}</title>
-    <style>* { box-sizing:border-box; } body { font-family:Arial,sans-serif; font-size:11px; color:#111; margin:20px 32px; } @page { margin:12mm; }</style>
+    <style>* { box-sizing:border-box; } body { font-family:Arial,sans-serif; font-size:11px; color:#14141a; margin:20px 32px; } @page { margin:12mm; }</style>
     </head><body>${secCalificacion}${secListas}${secDD}</body></html>`
 }
 

@@ -304,7 +304,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
       <div className="card flex flex-wrap gap-3 items-end">
         {isSuperAdmin && (
           <div className="w-full">
-            <label className="label text-xs text-purple-700">🔐 Sujeto Obligado (superadmin)</label>
+            <label className="label text-xs text-brand-700">🔐 Sujeto Obligado (superadmin)</label>
             <SearchableSelect
               options={tenants}
               value={filtroTenant}
@@ -611,7 +611,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: '🔎 Consultar en Listas', desc: 'PEP / Listas internacionales', fn: irAListas, color: 'border-blue-200 hover:bg-blue-50' },
-          { label: '🛡 Debida Diligencia', desc: 'Verificación ampliada', fn: irADD, color: 'border-purple-200 hover:bg-purple-50' },
+          { label: '🛡 Debida Diligencia', desc: 'Verificación ampliada', fn: irADD, color: 'border-brand-200 hover:bg-brand-50' },
           { label: '🎯 Calificación de Riesgo', desc: 'Metodología SUGEF 13-19', fn: irACalificacion, color: 'border-orange-200 hover:bg-orange-50' },
         ].map(a => (
           <button key={a.label} onClick={a.fn}
@@ -865,7 +865,7 @@ function PersonaCard({ persona, nivel }) {
             <span className="text-xs text-blue-600 ml-2">{persona.porcentaje_participacion}%</span>
           )}
           {persona.es_beneficiario_final && (
-            <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">BF</span>
+            <span className="ml-2 text-xs bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded-full">BF</span>
           )}
         </div>
         <Badge cls="bg-gray-100 text-gray-600 text-xs">{TIPO_RELACION_LABELS[persona.tipo_relacion] || persona.tipo_relacion}</Badge>

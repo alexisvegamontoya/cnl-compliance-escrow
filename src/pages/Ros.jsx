@@ -132,21 +132,21 @@ export default function Ros() {
     w.document.write(`
       <html><head><title>ROS – ${r.nombre_reportado}</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 40px; color: #1a1a1a; }
-        h1 { font-size: 16px; border-bottom: 2px solid #0e0e6e; padding-bottom: 8px; color: #0e0e6e; }
-        h2 { font-size: 13px; color: #0e0e6e; margin-top: 20px; }
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 40px; color: #14141a; }
+        h1 { font-size: 16px; border-bottom: 2px solid #0a1247; padding-bottom: 8px; color: #0a1247; }
+        h2 { font-size: 13px; color: #0a1247; margin-top: 20px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .field { margin: 4px 0; }
-        .label { font-weight: bold; color: #555; }
-        .value { color: #111; }
-        .textarea { background: #f5f5f5; padding: 8px; border-radius: 4px; margin-top: 4px; white-space: pre-wrap; }
-        .footer { margin-top: 40px; border-top: 1px solid #ccc; padding-top: 16px; font-size: 11px; color: #666; }
+        .label { font-weight: bold; color: #55555f; }
+        .value { color: #14141a; }
+        .textarea { background: #f7f7f9; padding: 8px; border-radius: 4px; margin-top: 4px; white-space: pre-wrap; }
+        .footer { margin-top: 40px; border-top: 1px solid #cfcfd7; padding-top: 16px; font-size: 11px; color: #6b6b76; }
         .firma { margin-top: 60px; display: flex; justify-content: space-around; }
-        .firma-box { text-align: center; border-top: 1px solid #333; padding-top: 8px; min-width: 200px; }
+        .firma-box { text-align: center; border-top: 1px solid #45454f; padding-top: 8px; min-width: 200px; }
         @media print { body { margin: 20px; } }
       </style></head><body>
       <h1>Reporte de Operación Sospechosa (ROS)</h1>
-      <p style="color:#666; margin-bottom:16px;">${tenant?.nombre} · Oficina de Cumplimiento ALA/CFT</p>
+      <p style="color:#6b6b76; margin-bottom:16px;">${tenant?.nombre} · Oficina de Cumplimiento ALA/CFT</p>
 
       <h2>A) Información General del Reporte</h2>
       <div class="grid">

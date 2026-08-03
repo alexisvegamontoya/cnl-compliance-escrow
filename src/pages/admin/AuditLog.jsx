@@ -6,7 +6,7 @@ const ACCION_STYLE = {
   crear:    { color: 'bg-green-100 text-green-700',  icon: '➕' },
   editar:   { color: 'bg-blue-100 text-blue-700',    icon: '✏️' },
   eliminar: { color: 'bg-red-100 text-red-700',      icon: '🗑️' },
-  exportar: { color: 'bg-purple-100 text-purple-700',icon: '📥' },
+  exportar: { color: 'bg-brand-100 text-brand-800',icon: '📥' },
   enviar:   { color: 'bg-orange-100 text-orange-700',icon: '📤' },
   login:    { color: 'bg-gray-100 text-gray-600',    icon: '🔐' },
 }

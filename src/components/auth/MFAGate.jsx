@@ -17,7 +17,7 @@ export default function MFAGate() {
     <div
       className="min-h-screen flex items-center justify-center"
       style={{
-        background: 'linear-gradient(135deg, #0e0e6e 0%, #1a1a8c 60%, #0a0a50 100%)',
+        background: 'linear-gradient(135deg, #0a1247 0%, #1b2a6b 60%, #060b2e 100%)',
       }}
     >
       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20">
@@ -134,7 +134,7 @@ function EnrollPanel({ onDone, onSignOut }) {
           <button
             onClick={startEnroll}
             disabled={loading}
-            className="w-full bg-white text-[#0e0e6e] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50"
+            className="w-full bg-white text-[#0a1247] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50"
           >
             {loading ? 'Iniciando…' : 'Activar autenticación 2FA'}
           </button>
@@ -169,7 +169,7 @@ function EnrollPanel({ onDone, onSignOut }) {
           </div>
           <button
             onClick={() => setStep('verify')}
-            className="w-full bg-white text-[#0e0e6e] font-bold py-3 rounded-lg hover:bg-white/90 transition"
+            className="w-full bg-white text-[#0a1247] font-bold py-3 rounded-lg hover:bg-white/90 transition"
           >
             Ya lo escaneé → Verificar código
           </button>
@@ -198,7 +198,7 @@ function EnrollPanel({ onDone, onSignOut }) {
           <button
             onClick={verifyEnroll}
             disabled={loading || code.length !== 6}
-            className="w-full bg-white text-[#0e0e6e] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50"
+            className="w-full bg-white text-[#0a1247] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50"
           >
             {loading ? 'Verificando…' : 'Confirmar y activar 2FA'}
           </button>
@@ -292,7 +292,7 @@ function ChallengePanel({ onDone, onSignOut }) {
         <button
           onClick={handleChallenge}
           disabled={loading || code.length !== 6}
-          className="w-full bg-white text-[#0e0e6e] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50"
+          className="w-full bg-white text-[#0a1247] font-bold py-3 rounded-lg hover:bg-white/90 transition disabled:opacity-50"
         >
           {loading ? 'Verificando…' : 'Verificar código'}
         </button>

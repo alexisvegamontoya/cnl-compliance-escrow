@@ -5,15 +5,15 @@ import { logAudit } from '../lib/auditLog'
 
 // ── Configuración de fuentes ──────────────────────────────────────────────────
 const FUENTES_CONFIG = {
-  OFAC_SDN:   { label: 'OFAC SDN',                    flag: '🇺🇸', color: '#b91c1c', bg: '#fef2f2' },
-  OFAC_CONS:  { label: 'OFAC Consolidated',            flag: '🇺🇸', color: '#b91c1c', bg: '#fef2f2' },
-  ONU:        { label: 'ONU Consejo de Seguridad',     flag: '🇺🇳', color: '#1d4ed8', bg: '#eff6ff' },
-  UK_OFSI:    { label: 'UK OFSI',                      flag: '🇬🇧', color: '#7c3aed', bg: '#f5f3ff' },
-  INTERPOL:   { label: 'INTERPOL',                     flag: '🚨', color: '#dc2626', bg: '#fef2f2' },
-  GAFI_NEGRO: { label: 'GAFI Lista Negra',             flag: '⬛', color: '#111827', bg: '#f9fafb' },
-  GAFI_GRIS:  { label: 'GAFI Lista Gris',              flag: '🔘', color: '#6b7280', bg: '#f9fafb' },
-  GAFILAT:    { label: 'GAFILAT',                      flag: '🌎', color: '#92400e', bg: '#fffbeb' },
-  ICD_CR_PEP: { label: 'ICD CR — Lista PEP',           flag: '🇨🇷', color: '#065f46', bg: '#ecfdf5' },
+  OFAC_SDN:   { label: 'OFAC SDN',                    flag: '🇺🇸', color: '#86111a', bg: '#fdf3f3' },
+  OFAC_CONS:  { label: 'OFAC Consolidated',            flag: '🇺🇸', color: '#86111a', bg: '#fdf3f3' },
+  ONU:        { label: 'ONU Consejo de Seguridad',     flag: '🇺🇳', color: '#293670', bg: '#eef2fc' },
+  UK_OFSI:    { label: 'UK OFSI',                      flag: '🇬🇧', color: '#a87813', bg: '#fdf8ec' },
+  INTERPOL:   { label: 'INTERPOL',                     flag: '🚨', color: '#c31b26', bg: '#fdf3f3' },
+  GAFI_NEGRO: { label: 'GAFI Lista Negra',             flag: '⬛', color: '#14141a', bg: '#f7f7f9' },
+  GAFI_GRIS:  { label: 'GAFI Lista Gris',              flag: '🔘', color: '#6b6b76', bg: '#f7f7f9' },
+  GAFILAT:    { label: 'GAFILAT',                      flag: '🌎', color: '#63470d', bg: '#fdf8ec' },
+  ICD_CR_PEP: { label: 'ICD CR — Lista PEP',           flag: '🇨🇷', color: '#15442c', bg: '#eff7f1' },
 }
 
 const TODAS_LAS_FUENTES = Object.keys(FUENTES_CONFIG)
@@ -161,7 +161,7 @@ function Reporte({ consulta, resultados, allResultados, nivelRiesgo, metadata, o
                       className="h-full rounded-full flex items-center justify-end pr-2 transition-all"
                       style={{
                         width: count > 0 ? `${pct}%` : '0%',
-                        backgroundColor: count > 0 ? cfg.color || '#1e3a8a' : 'transparent',
+                        backgroundColor: count > 0 ? cfg.color || '#1a2348' : 'transparent',
                         minWidth: count > 0 ? '28px' : '0',
                       }}
                     >
@@ -204,7 +204,7 @@ function Reporte({ consulta, resultados, allResultados, nivelRiesgo, metadata, o
                   <div key={i} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cfg.color || '#1e3a8a' }}>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cfg.color || '#1a2348' }}>
                           {cfg.flag} {cfg.label || r.fuente}
                         </span>
                         <p className="font-bold text-gray-900 text-sm mt-1.5">{r.nombre_completo}</p>
@@ -733,7 +733,7 @@ export default function ConsultaPEP() {
 
 
       {/* ── CCSS y SUGEF ── */}
-      <div className="card border-l-4 border-teal-400 space-y-4">
+      <div className="card border-l-4 border-dorado-400 space-y-4">
         <div className="flex items-center gap-2">
           <span className="text-xl">🇨🇷</span>
           <div>
@@ -755,7 +755,7 @@ export default function ConsultaPEP() {
                 href={`https://enlinea.ccss.sa.cr/verificacion/`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-1"
+                className="text-xs bg-dorado-600 text-white px-3 py-1.5 rounded-lg hover:bg-dorado-700 transition-colors flex items-center gap-1"
               >
                 🔗 Consultar CCSS
               </a>
@@ -906,7 +906,7 @@ export default function ConsultaPEP() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cfg.color || '#1e3a8a' }}>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cfg.color || '#1a2348' }}>
                             {cfg.flag} {cfg.label || r.fuente}
                           </span>
                           <span className="text-xs text-gray-500 capitalize">{r.tipo_lista?.replace('_', ' ')}</span>

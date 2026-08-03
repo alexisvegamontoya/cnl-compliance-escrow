@@ -38,3 +38,4 @@ scripts/data/
 
 # Excel generados con datos de clientes - no versionar
 scripts/*.xlsx
+.vercel

@@ -183,15 +183,15 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
       </div>
 
       {/* Portada */}
-      <div className="card border-2 border-[#0e0e6e] bg-blue-50 print:border-0">
+      <div className="card border-2 border-[#0a1247] bg-blue-50 print:border-0">
         <div className="text-center py-4 space-y-2">
-          <p className="text-xs uppercase tracking-widest text-[#0e0e6e] font-semibold">Documento para Aprobación — Junta Directiva</p>
-          <h2 className="text-2xl font-bold text-[#0e0e6e]">PLAN DE CAPACITACIÓN {anio}</h2>
+          <p className="text-xs uppercase tracking-widest text-[#0a1247] font-semibold">Documento para Aprobación — Junta Directiva</p>
+          <h2 className="text-2xl font-bold text-[#0a1247]">PLAN DE CAPACITACIÓN {anio}</h2>
           <h3 className="text-lg font-semibold text-gray-700">Prevención LC/FT/FPADM</h3>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-left">
             <div className="bg-white rounded-lg p-3"><p className="text-gray-400 text-xs">Entidad</p><p className="font-semibold text-gray-800">{tenant?.nombre || '—'}</p></div>
             <div className="bg-white rounded-lg p-3"><p className="text-gray-400 text-xs">Responsable</p><p className="font-semibold text-gray-800">{profile?.nombre || '—'}</p></div>
-            <div className="bg-white rounded-lg p-3"><p className="text-gray-400 text-xs">Total horas planificadas</p><p className="font-bold text-[#0e0e6e]">{totalHoras} horas</p></div>
+            <div className="bg-white rounded-lg p-3"><p className="text-gray-400 text-xs">Total horas planificadas</p><p className="font-bold text-[#0a1247]">{totalHoras} horas</p></div>
             <div className="bg-white rounded-lg p-3">
               <p className="text-gray-400 text-xs">Proveedor principal</p>
               <input className="w-full text-xs font-semibold text-gray-800 bg-transparent focus:outline-none border-b border-gray-200 print:border-0"
@@ -203,9 +203,9 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
 
       {/* Introducción */}
       <section className="card space-y-3">
-        <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">I. Justificación</h3>
+        <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">I. Justificación</h3>
         <textarea
-          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
+          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0a1247] print:border-0"
           value={intro}
           onChange={e => setIntro(e.target.value)}
           placeholder={introDefault(tenant?.nombre || 'la entidad')}
@@ -214,14 +214,14 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
 
       {/* Resumen por trimestre */}
       <section className="card space-y-3">
-        <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">II. Resumen por Trimestre</h3>
+        <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">II. Resumen por Trimestre</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map(tr => (
             <div key={tr} className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
-              <p className="font-semibold text-[#0e0e6e] text-xs mb-1">
+              <p className="font-semibold text-[#0a1247] text-xs mb-1">
                 {['I', 'II', 'III', 'IV'][tr - 1]} Trimestre
               </p>
-              <p className="text-2xl font-bold text-[#0e0e6e]">{porTrimestre[tr - 1].length}</p>
+              <p className="text-2xl font-bold text-[#0a1247]">{porTrimestre[tr - 1].length}</p>
               <p className="text-xs text-gray-500">actividades · {porTrimestre[tr - 1].reduce((s, t) => s + Number(t.horas || 0), 0)} horas</p>
             </div>
           ))}
@@ -231,7 +231,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
       {/* Detalle */}
       <section className="card space-y-4">
         <div className="flex items-center justify-between border-b pb-2">
-          <h3 className="text-lg font-bold text-[#0e0e6e]">III. Detalle de Actividades de Capacitación</h3>
+          <h3 className="text-lg font-bold text-[#0a1247]">III. Detalle de Actividades de Capacitación</h3>
           <button onClick={addTema} className="btn-secondary text-xs print:hidden">+ Agregar tema</button>
         </div>
         <div className="overflow-x-auto">
@@ -251,7 +251,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
               {temas.map((t, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="py-1.5 px-2">
-                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0e0e6e] print:border-0"
+                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0a1247] print:border-0"
                       value={t.tema} onChange={e => updateTema(idx, 'tema', e.target.value)} />
                   </td>
                   <td className="py-1.5 px-1">
@@ -288,8 +288,8 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
                 </tr>
               ))}
               <tr className="border-t-2 border-gray-300 font-bold bg-blue-50">
-                <td className="py-2 px-2 text-xs text-[#0e0e6e]">TOTAL</td>
-                <td className="py-2 px-1 text-center text-xs text-[#0e0e6e]">{totalHoras}</td>
+                <td className="py-2 px-2 text-xs text-[#0a1247]">TOTAL</td>
+                <td className="py-2 px-1 text-center text-xs text-[#0a1247]">{totalHoras}</td>
                 <td colSpan={5}></td>
               </tr>
             </tbody>
@@ -299,9 +299,9 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
 
       {/* Presupuesto */}
       <section className="card space-y-3">
-        <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">IV. Presupuesto Estimado</h3>
+        <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">IV. Presupuesto Estimado</h3>
         <textarea
-          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[80px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
+          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[80px] focus:outline-none focus:border-[#0a1247] print:border-0"
           value={presupuesto}
           onChange={e => setPresupuesto(e.target.value)}
           placeholder={PRESUPUESTO_DEFAULT}
@@ -310,7 +310,7 @@ export default function InformePlanCapacitacion({ tenantEfectivo }) {
 
       {/* Base legal */}
       <section className="card space-y-2 bg-gray-50 text-sm text-gray-600">
-        <h3 className="font-bold text-[#0e0e6e] border-b pb-1 text-sm">V. Base Legal</h3>
+        <h3 className="font-bold text-[#0a1247] border-b pb-1 text-sm">V. Base Legal</h3>
         <ul className="list-disc list-inside space-y-1 text-xs">
           {BASE_LEGAL.map(b => <li key={b}>{b}</li>)}
         </ul>

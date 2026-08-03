@@ -161,7 +161,7 @@ export default function StatusPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#0e0e6e] text-white">
+      <div className="bg-[#0a1247] text-white">
         <div className="max-w-3xl mx-auto px-6 py-8">
           <div className="flex items-center gap-4 mb-6">
             <img

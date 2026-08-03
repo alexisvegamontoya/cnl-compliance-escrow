@@ -5,17 +5,17 @@ import { useAuth } from '../lib/AuthContext'
 
 // ── Configuración de categorías ───────────────────────────────────────────────
 const TIPOS = {
-  normativa:     { label: 'Normativa',     color: '#4338ca', bg: '#eef2ff', icon: '📋' },
-  noticia:       { label: 'Noticia CR',    color: '#0369a1', bg: '#e0f2fe', icon: '📰' },
-  internacional: { label: 'Internacional', color: '#065f46', bg: '#ecfdf5', icon: '🌎' },
-  judicial:      { label: 'Judicial',      color: '#92400e', bg: '#fef3c7', icon: '⚖️' },
-  informativo:   { label: 'Informativo',   color: '#374151', bg: '#f3f4f6', icon: '🔵' },
+  normativa:     { label: 'Normativa',     color: '#1b2a6b', bg: '#f2f3f8', icon: '📋' },
+  noticia:       { label: 'Noticia CR',    color: '#293670', bg: '#dbe3f7', icon: '📰' },
+  internacional: { label: 'Internacional', color: '#15442c', bg: '#eff7f1', icon: '🌎' },
+  judicial:      { label: 'Judicial',      color: '#63470d', bg: '#faefd3', icon: '⚖️' },
+  informativo:   { label: 'Informativo',   color: '#45454f', bg: '#ededf1', icon: '🔵' },
 }
 
 const URGENCIAS = {
-  urgente:     { label: '🔴 URGENTE',    color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-  importante:  { label: '🟡 IMPORTANTE', color: '#b45309', bg: '#fffbeb', border: '#fde68a' },
-  informativo: { label: '🔵 INFO',       color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
+  urgente:     { label: '🔴 URGENTE',    color: '#c31b26', bg: '#fdf3f3', border: '#f5c2c5' },
+  importante:  { label: '🟡 IMPORTANTE', color: '#7f5a10', bg: '#fdf8ec', border: '#f0e2be' },
+  informativo: { label: '🔵 INFO',       color: '#293670', bg: '#eef2fc', border: '#bcc8ee' },
 }
 
 const FILTROS = [
@@ -58,8 +58,8 @@ function FeedCard({ item }) {
     <div
       className="rounded-xl border p-4 flex flex-col gap-2.5 hover:shadow-md transition-all"
       style={{
-        borderColor: item.urgencia === 'urgente' ? urg.border : '#e5e7eb',
-        background:  item.urgencia === 'urgente' ? '#fff8f8' : '#ffffff',
+        borderColor: item.urgencia === 'urgente' ? urg.border : '#e4e4ea',
+        background:  item.urgencia === 'urgente' ? '#fdf3f3' : '#ffffff',
       }}
     >
       {/* Badges */}

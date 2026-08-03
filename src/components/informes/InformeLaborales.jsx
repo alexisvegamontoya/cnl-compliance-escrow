@@ -288,10 +288,10 @@ export default function InformeLaborales({ tenantEfectivo }) {
         <div id="informe-labores" className="space-y-8 print:text-sm">
 
           {/* ── PORTADA ── */}
-          <div className="card border-2 border-[#0e0e6e] bg-blue-50 print:border-0">
+          <div className="card border-2 border-[#0a1247] bg-blue-50 print:border-0">
             <div className="text-center py-6 space-y-2">
-              <p className="text-xs uppercase tracking-widest text-[#0e0e6e] font-semibold">Confidencial — Uso exclusivo Junta Directiva</p>
-              <h2 className="text-2xl font-bold text-[#0e0e6e]">INFORME DE LABORES</h2>
+              <p className="text-xs uppercase tracking-widest text-[#0a1247] font-semibold">Confidencial — Uso exclusivo Junta Directiva</p>
+              <h2 className="text-2xl font-bold text-[#0a1247]">INFORME DE LABORES</h2>
               <h3 className="text-lg font-semibold text-gray-700">Oficial de Cumplimiento ALA/CFT</h3>
               <p className="text-gray-500">Período: 1 de enero al 31 de diciembre de {anio}</p>
               <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-left">
@@ -305,10 +305,10 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── INTRODUCCIÓN ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">I. Introducción</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">I. Introducción</h3>
             <p className="text-sm text-gray-500 italic">Edite el texto de introducción según corresponda:</p>
             <textarea
-              className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[120px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
+              className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[120px] focus:outline-none focus:border-[#0a1247] print:border-0"
               value={intro}
               onChange={e => setIntro(e.target.value)}
               placeholder={introDefault(tenant?.nombre || 'la entidad', anio)}
@@ -317,7 +317,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── NORMATIVA ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">II. Normativa Interna Aprobada en el Período</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">II. Normativa Interna Aprobada en el Período</h3>
             {datos.normativas.length > 0 ? (
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-gray-200 text-gray-500">
@@ -344,10 +344,10 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── MONITOREO TRANSACCIONAL ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">III. Monitoreo Transaccional SICVECA</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">III. Monitoreo Transaccional SICVECA</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               {[
-                { label: 'Total transacciones', val: datos.txns.length, color: 'text-[#0e0e6e]' },
+                { label: 'Total transacciones', val: datos.txns.length, color: 'text-[#0a1247]' },
                 { label: 'Monto total reportado', val: 'USD ' + fmtUSD(datos.totalMonto), color: 'text-gray-800' },
                 { label: 'Meses con movimiento', val: datos.periodosConMov, color: 'text-green-700' },
                 { label: 'Meses sin movimiento', val: datos.periodosSinMov, color: 'text-orange-600' },
@@ -368,7 +368,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── DEBIDA DILIGENCIA ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">IV. Debida Diligencia de Clientes</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">IV. Debida Diligencia de Clientes</h3>
             <div className="grid grid-cols-3 gap-3 text-sm mb-3">
               {[
                 { label: 'Expedientes gestionados', val: datos.dds.length },
@@ -376,7 +376,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
                 { label: 'Riesgo medio', val: datos.dds.filter(d => d.nivel_riesgo === 'medio').length, color: 'text-orange-600' },
               ].map(s => (
                 <div key={s.label} className="bg-gray-50 rounded-lg p-3">
-                  <p className={`text-lg font-bold ${s.color || 'text-[#0e0e6e]'}`}>{s.val}</p>
+                  <p className={`text-lg font-bold ${s.color || 'text-[#0a1247]'}`}>{s.val}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
                 </div>
               ))}
@@ -388,7 +388,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── ROS ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">V. Reportes de Operaciones Sospechosas (ROS)</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">V. Reportes de Operaciones Sospechosas (ROS)</h3>
             {datos.ros.length > 0 ? (
               <>
                 <p className="text-sm text-gray-700">
@@ -422,7 +422,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── DENUNCIAS ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">VI. Atención de Denuncias — Canal Confidencial</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">VI. Atención de Denuncias — Canal Confidencial</h3>
             <div className="grid grid-cols-3 gap-3 text-sm mb-2">
               {[
                 { label: 'Denuncias recibidas', val: datos.denuncias.length },
@@ -430,7 +430,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
                 { label: 'Resueltas', val: datos.denuncias.filter(d => d.estado === 'resuelta' || d.estado === 'cerrada').length, color: 'text-green-700' },
               ].map(s => (
                 <div key={s.label} className="bg-gray-50 rounded-lg p-3">
-                  <p className={`text-lg font-bold ${s.color || 'text-[#0e0e6e]'}`}>{s.val}</p>
+                  <p className={`text-lg font-bold ${s.color || 'text-[#0a1247]'}`}>{s.val}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
                 </div>
               ))}
@@ -442,7 +442,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── CALIFICACIÓN DE CLIENTES ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">VII. Calificación de Riesgo de Clientes</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">VII. Calificación de Riesgo de Clientes</h3>
             <div className="grid grid-cols-3 gap-3 text-sm">
               {[
                 { label: 'Calificaciones realizadas', val: datos.calificaciones.length },
@@ -450,7 +450,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
                 { label: 'Riesgo bajo/medio', val: datos.calificaciones.filter(c => c.nivel_riesgo !== 'Alto').length, color: 'text-green-700' },
               ].map(s => (
                 <div key={s.label} className="bg-gray-50 rounded-lg p-3">
-                  <p className={`text-lg font-bold ${s.color || 'text-[#0e0e6e]'}`}>{s.val}</p>
+                  <p className={`text-lg font-bold ${s.color || 'text-[#0a1247]'}`}>{s.val}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
                 </div>
               ))}
@@ -459,7 +459,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── CAPACITACIÓN ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">VIII. Capacitación en Materia ALA/CFT</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">VIII. Capacitación en Materia ALA/CFT</h3>
             {datos.capacitacion ? (
               <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <span className="text-2xl">✅</span>
@@ -480,10 +480,10 @@ export default function InformeLaborales({ tenantEfectivo }) {
 
           {/* ── CONCLUSIONES ── */}
           <section className="card space-y-3">
-            <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">IX. Conclusiones y Recomendaciones</h3>
+            <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">IX. Conclusiones y Recomendaciones</h3>
             <p className="text-sm text-gray-500 italic">Edite las conclusiones según corresponda:</p>
             <textarea
-              className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[150px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
+              className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[150px] focus:outline-none focus:border-[#0a1247] print:border-0"
               value={conclusiones}
               onChange={e => setConclusiones(e.target.value)}
               placeholder={conclusionesDefault(anio)}

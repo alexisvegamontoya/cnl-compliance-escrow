@@ -20,8 +20,8 @@ const CATEGORIAS = [
     id: 'pep',
     label: 'Personas Expuestas Políticamente (PEPs)',
     icon: '🏛️',
-    color: 'bg-purple-50 border-purple-200 text-purple-800',
-    colorActive: 'bg-purple-600 text-white border-purple-600',
+    color: 'bg-dorado-50 border-dorado-200 text-dorado-800',
+    colorActive: 'bg-dorado-600 text-white border-dorado-600',
     preguntas: [
       '¿Cómo se define un PEP según el Acuerdo SUGEF 13-19?',
       '¿Qué medidas adicionales se deben aplicar a un cliente PEP?',
@@ -75,8 +75,8 @@ const CATEGORIAS = [
     id: 'evaluacion_riesgos',
     label: 'Evaluación de Riesgos Institucional',
     icon: '📊',
-    color: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    colorActive: 'bg-yellow-600 text-white border-yellow-600',
+    color: 'bg-brand-50 border-brand-200 text-brand-900',
+    colorActive: 'bg-brand-900 text-white border-brand-900',
     preguntas: [
       '¿Con qué frecuencia debe actualizarse la evaluación de riesgos institucional?',
       '¿Qué factores deben considerarse en la evaluación de riesgos LC/FT?',
@@ -88,8 +88,8 @@ const CATEGORIAS = [
     id: 'capacitacion',
     label: 'Capacitación ALA/CFT',
     icon: '📚',
-    color: 'bg-teal-50 border-teal-200 text-teal-800',
-    colorActive: 'bg-teal-600 text-white border-teal-600',
+    color: 'bg-crema border-dorado-300 text-dorado-900',
+    colorActive: 'bg-dorado-900 text-white border-dorado-900',
     preguntas: [
       '¿Con qué frecuencia debe capacitarse al personal en materia ALA/CFT?',
       '¿Qué temas mínimos debe cubrir la capacitación ALA/CFT?',

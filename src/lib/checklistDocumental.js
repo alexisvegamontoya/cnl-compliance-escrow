@@ -208,9 +208,9 @@ function camposGestiones(cliente) {
 }
 
 export const SEMAFOROS = {
-  verde:    { id: 'verde',    label: 'Cumplimiento adecuado', color: '#16a34a', clase: 'text-green-700',  fondo: 'bg-green-50 border-green-200' },
-  amarillo: { id: 'amarillo', label: 'Cumplimiento parcial',  color: '#ca8a04', clase: 'text-yellow-700', fondo: 'bg-yellow-50 border-yellow-200' },
-  rojo:     { id: 'rojo',     label: 'Cumplimiento crítico',  color: '#dc2626', clase: 'text-red-700',    fondo: 'bg-red-50 border-red-200' },
+  verde:    { id: 'verde',    label: 'Cumplimiento adecuado', color: '#1f6d45', clase: 'text-green-700',  fondo: 'bg-green-50 border-green-200' },
+  amarillo: { id: 'amarillo', label: 'Cumplimiento parcial',  color: '#c89116', clase: 'text-yellow-700', fondo: 'bg-yellow-50 border-yellow-200' },
+  rojo:     { id: 'rojo',     label: 'Cumplimiento crítico',  color: '#c31b26', clase: 'text-red-700',    fondo: 'bg-red-50 border-red-200' },
 }
 
 /** Semáforo a partir del puntaje: ≥80 verde · 50-79 amarillo · <50 rojo. */

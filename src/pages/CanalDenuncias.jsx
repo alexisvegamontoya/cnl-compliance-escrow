@@ -297,7 +297,7 @@ function VistaSuperAdmin() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-800 text-sm">{TIPO_LABEL[d.tipo]}</span>
                       {d.es_confidencial && (
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">🔒 Confidencial</span>
+                        <span className="px-2 py-0.5 bg-brand-100 text-brand-800 text-xs font-bold rounded-full">🔒 Confidencial</span>
                       )}
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${estado.color}`}>{estado.label}</span>
                       {d.tenants?.nombre && (
@@ -374,7 +374,7 @@ export default function CanalDenuncias() {
           </p>
         </div>
         {/* Banner confidencialidad */}
-        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2 text-sm text-purple-700">
+        <div className="flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-xl px-4 py-2 text-sm text-brand-700">
           <span>🔒</span>
           <span>Los reportes confidenciales son gestionados exclusivamente por CNL Craniley</span>
         </div>

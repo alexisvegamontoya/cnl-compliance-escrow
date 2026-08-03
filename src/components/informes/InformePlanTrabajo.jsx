@@ -208,10 +208,10 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
       </div>
 
       {/* Portada */}
-      <div className="card border-2 border-[#0e0e6e] bg-blue-50 print:border-0">
+      <div className="card border-2 border-[#0a1247] bg-blue-50 print:border-0">
         <div className="text-center py-4 space-y-2">
-          <p className="text-xs uppercase tracking-widest text-[#0e0e6e] font-semibold">Documento para Aprobación — Junta Directiva</p>
-          <h2 className="text-2xl font-bold text-[#0e0e6e]">PLAN DE TRABAJO {anio}</h2>
+          <p className="text-xs uppercase tracking-widest text-[#0a1247] font-semibold">Documento para Aprobación — Junta Directiva</p>
+          <h2 className="text-2xl font-bold text-[#0a1247]">PLAN DE TRABAJO {anio}</h2>
           <h3 className="text-lg font-semibold text-gray-700">Área de Cumplimiento ALA/CFT/FPADM</h3>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm text-left">
             <div className="bg-white rounded-lg p-3"><p className="text-gray-400 text-xs">Entidad</p><p className="font-semibold text-gray-800">{tenant?.nombre || '—'}</p></div>
@@ -223,10 +223,10 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
 
       {/* Justificación */}
       <section className="card space-y-3">
-        <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">I. Justificación</h3>
+        <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">I. Justificación</h3>
         <p className="text-sm text-gray-500 italic print:hidden">Edite según corresponda:</p>
         <textarea
-          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
+          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0a1247] print:border-0"
           value={justificacion}
           onChange={e => setJustificacion(e.target.value)}
           placeholder={justificacionDefault(tenant?.nombre || 'la entidad', anio)}
@@ -236,7 +236,7 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
       {/* Plan */}
       <section className="card space-y-4">
         <div className="flex items-center justify-between border-b pb-2">
-          <h3 className="text-lg font-bold text-[#0e0e6e]">II. Actividades Planificadas {anio}</h3>
+          <h3 className="text-lg font-bold text-[#0a1247]">II. Actividades Planificadas {anio}</h3>
           <button onClick={addRow} className="btn-secondary text-xs print:hidden">+ Agregar actividad</button>
         </div>
         <div className="overflow-x-auto">
@@ -255,25 +255,25 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
               {planRows.map((row, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="py-1.5 px-2">
-                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0e0e6e] print:border-0"
+                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0a1247] print:border-0"
                       value={row.area} onChange={e => updateRow(idx, 'area', e.target.value)} />
                   </td>
                   <td className="py-1.5 px-2">
-                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0e0e6e] print:border-0"
+                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0a1247] print:border-0"
                       value={row.actividad} onChange={e => updateRow(idx, 'actividad', e.target.value)} />
                   </td>
                   <td className="py-1.5 px-2">
-                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0e0e6e] print:border-0"
+                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0a1247] print:border-0"
                       value={row.responsable} onChange={e => updateRow(idx, 'responsable', e.target.value)} />
                   </td>
                   {row.trimestres.map((v, t) => (
                     <td key={t} className="py-1.5 px-1 text-center">
                       <input type="checkbox" checked={v} onChange={() => toggleTrimestre(idx, t)}
-                        className="w-3.5 h-3.5 rounded accent-[#0e0e6e]" />
+                        className="w-3.5 h-3.5 rounded accent-[#0a1247]" />
                     </td>
                   ))}
                   <td className="py-1.5 px-2">
-                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0e0e6e] print:border-0"
+                    <input className="w-full text-xs border-b border-gray-200 bg-transparent focus:outline-none focus:border-[#0a1247] print:border-0"
                       value={row.observaciones} onChange={e => updateRow(idx, 'observaciones', e.target.value)}
                       placeholder="—" />
                   </td>
@@ -289,9 +289,9 @@ export default function InformePlanTrabajo({ tenantEfectivo }) {
 
       {/* Recursos */}
       <section className="card space-y-3">
-        <h3 className="text-lg font-bold text-[#0e0e6e] border-b pb-2">III. Recursos Requeridos</h3>
+        <h3 className="text-lg font-bold text-[#0a1247] border-b pb-2">III. Recursos Requeridos</h3>
         <textarea
-          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0e0e6e] print:border-0"
+          className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 min-h-[100px] focus:outline-none focus:border-[#0a1247] print:border-0"
           value={recursos}
           onChange={e => setRecursos(e.target.value)}
           placeholder={RECURSOS_DEFAULT}

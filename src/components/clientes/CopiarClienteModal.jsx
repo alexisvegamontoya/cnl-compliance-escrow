@@ -264,7 +264,7 @@ export default function CopiarClienteModal({ cliente, onClose, onCopiado }) {
                   ))}
                 </select>
                 {isSuperAdmin && (
-                  <p className="text-xs text-purple-600 mt-1">
+                  <p className="text-xs text-brand-600 mt-1">
                     🔐 Como superadministrador ve todos los sujetos obligados del sistema.
                   </p>
                 )}

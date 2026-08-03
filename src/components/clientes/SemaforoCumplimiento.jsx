@@ -8,9 +8,9 @@ import { semaforoDe } from '../../lib/checklistDocumental'
 // ─── Semáforo de tres luces ───────────────────────────────────────────────────
 function Semaforo({ activo, size = 'md' }) {
   const luces = [
-    { id: 'rojo',     color: '#dc2626' },
-    { id: 'amarillo', color: '#ca8a04' },
-    { id: 'verde',    color: '#16a34a' },
+    { id: 'rojo',     color: '#c31b26' },
+    { id: 'amarillo', color: '#c89116' },
+    { id: 'verde',    color: '#1f6d45' },
   ]
   const r  = size === 'sm' ? 9  : 13
   const gap = size === 'sm' ? 24 : 33
@@ -20,7 +20,7 @@ function Semaforo({ activo, size = 'md' }) {
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className={size === 'sm' ? 'h-20' : 'h-28'} role="img" aria-label={`Semáforo de cumplimiento: ${activo}`}>
       <rect x="1" y="1" width={w - 2} height={h - 2} rx={size === 'sm' ? 8 : 11}
-        fill="#1f2937" stroke="#111827" strokeWidth="1.5" />
+        fill="#2a2a32" stroke="#14141a" strokeWidth="1.5" />
       {luces.map((l, i) => {
         const encendida = l.id === activo
         return (
@@ -29,8 +29,8 @@ function Semaforo({ activo, size = 'md' }) {
             cx={w / 2}
             cy={(size === 'sm' ? 18 : 24) + i * gap}
             r={r}
-            fill={encendida ? l.color : '#374151'}
-            stroke={encendida ? l.color : '#4b5563'}
+            fill={encendida ? l.color : '#45454f'}
+            stroke={encendida ? l.color : '#55555f'}
             strokeWidth="1"
             opacity={encendida ? 1 : 0.45}
           />
@@ -60,17 +60,17 @@ function Arco({ pct, color }) {
 
   return (
     <svg viewBox="0 0 180 100" className="w-full max-w-[190px]">
-      <path d={arco(0, 100)} fill="#e5e7eb" />
+      <path d={arco(0, 100)} fill="#e4e4ea" />
       {pct > 0 && <path d={arco(0, Math.min(100, pct))} fill={color} />}
       <text x={cx} y={cy - 8} textAnchor="middle" fontSize="26" fontWeight="700" fill={color}>{Math.round(pct)}</text>
-      <text x={cx} y={cy + 8} textAnchor="middle" fontSize="9" fill="#6b7280">de 100</text>
+      <text x={cx} y={cy + 8} textAnchor="middle" fontSize="9" fill="#6b6b76">de 100</text>
     </svg>
   )
 }
 
 // ─── Barra de un componente de la calificación ────────────────────────────────
 function BarraComponente({ label, pct, peso, detalle }) {
-  const color = pct >= 80 ? '#16a34a' : pct >= 50 ? '#ca8a04' : '#dc2626'
+  const color = pct >= 80 ? '#1f6d45' : pct >= 50 ? '#c89116' : '#c31b26'
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -192,9 +192,9 @@ export function SemaforoGlobalClientes({ global, nombreSujeto, onVerCliente }) {
         {/* Distribución de la cartera */}
         <div className="md:col-span-2 space-y-2">
           {[
-            { id: 'verde',    label: 'Cumplimiento adecuado (≥80)', color: '#16a34a', n: distribucion.verde },
-            { id: 'amarillo', label: 'Cumplimiento parcial (50-79)', color: '#ca8a04', n: distribucion.amarillo },
-            { id: 'rojo',     label: 'Cumplimiento crítico (<50)',   color: '#dc2626', n: distribucion.rojo },
+            { id: 'verde',    label: 'Cumplimiento adecuado (≥80)', color: '#1f6d45', n: distribucion.verde },
+            { id: 'amarillo', label: 'Cumplimiento parcial (50-79)', color: '#c89116', n: distribucion.amarillo },
+            { id: 'rojo',     label: 'Cumplimiento crítico (<50)',   color: '#c31b26', n: distribucion.rojo },
           ].map(f => (
             <div key={f.id}>
               <div className="flex items-baseline justify-between">

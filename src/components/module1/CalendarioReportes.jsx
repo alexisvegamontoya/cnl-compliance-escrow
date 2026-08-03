@@ -267,7 +267,7 @@ export default function CalendarioReportes({ tenantId, refreshTrigger }) {
         </div>
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
             <span className="text-gray-600">{reportados} reportado{reportados !== 1 ? 's' : ''}</span>
           </span>
           <span className="flex items-center gap-1.5">
@@ -299,23 +299,23 @@ export default function CalendarioReportes({ tenantId, refreshTrigger }) {
                 <button
                   key={m.key}
                   onClick={() => setModalDetalle(m)}
-                  className={base + `bg-emerald-50 border border-emerald-200 hover:border-emerald-400 hover:shadow-sm cursor-pointer ${
-                    m.esActual ? 'ring-2 ring-emerald-400' : ''
+                  className={base + `bg-green-50 border border-green-200 hover:border-green-400 hover:shadow-sm cursor-pointer ${
+                    m.esActual ? 'ring-2 ring-green-400' : ''
                   }`}
                   title={isSinMov ? 'Sin movimiento declarado' : `${m.totalTxns} transacciones`}
                 >
-                  <span className="text-xs font-semibold text-emerald-700">{m.label}</span>
+                  <span className="text-xs font-semibold text-green-700">{m.label}</span>
                   {isSinMov ? (
-                    <span className="text-xs text-emerald-600">Sin mov.</span>
+                    <span className="text-xs text-green-600">Sin mov.</span>
                   ) : (
                     <>
-                      <span className="text-xs font-bold text-emerald-700">{m.totalTxns} txn{m.totalTxns !== 1 ? 's' : ''}</span>
-                      <span className="text-[10px] text-emerald-500 leading-tight">
+                      <span className="text-xs font-bold text-green-700">{m.totalTxns} txn{m.totalTxns !== 1 ? 's' : ''}</span>
+                      <span className="text-[10px] text-green-500 leading-tight">
                         {m.totalMonto.toLocaleString('es-CR', { maximumFractionDigits: 0 })}
                       </span>
                     </>
                   )}
-                  <span className="text-emerald-500 text-sm">✓</span>
+                  <span className="text-green-500 text-sm">✓</span>
                 </button>
               )
             }
