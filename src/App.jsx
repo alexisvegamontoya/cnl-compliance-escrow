@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
+import { CatalogoDocumentalProvider } from './lib/CatalogoDocumentalContext'
 import Login from './components/auth/Login'
 import Sidebar from './components/layout/Sidebar'
 
@@ -227,9 +228,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Suspense fallback={<CargandoPantalla />}>
-          <AppRoutes />
-        </Suspense>
+        <CatalogoDocumentalProvider>
+          <Suspense fallback={<CargandoPantalla />}>
+            <AppRoutes />
+          </Suspense>
+        </CatalogoDocumentalProvider>
       </AuthProvider>
     </BrowserRouter>
   )

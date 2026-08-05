@@ -13,6 +13,10 @@ import {
   CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
   PESOS_CONSOLIDADO, OPCIONES, clasificar, PAISES_RIESGO, ACTIVIDADES_PROFESIONES,
 } from '../../lib/metodologiaRiesgo'
+// El expediente imprime los documentos exigidos por el sujeto obligado
+// (catálogo estándar SUGEF 13-19 + sus ajustes), no una copia local del catálogo.
+import { gruposChecklist, itemsChecklist, ESTADOS_CHECKLIST } from '../../lib/checklistDocumental'
+import { useCatalogoDeTenant } from '../../lib/CatalogoDocumentalContext'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function nombreCompleto(c) {
@@ -65,39 +69,11 @@ function NivelBadge({ nivel }) {
   return <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${cls}`}>{map[nivel] || nivel}</span>
 }
 
-const CHECKLIST_BASE = [
-  { id: 'id_vigente',    label: 'Copia de identificación vigente (cédula / DIMEX / pasaporte)', required: true },
-  { id: 'domicilio',     label: 'Comprobante de domicilio (no mayor a 3 meses)', required: true },
-  { id: 'comp_ingreso',  label: 'Comprobante de ingreso (colilla CCSS, carta patronal o declaración)', required: true },
-  { id: 'kyc_firmado',   label: 'Formulario de vinculación firmado por el cliente', required: true },
-  { id: 'proposito',     label: 'Declaración de propósito de la relación comercial', required: true },
-  { id: 'origen_fondos', label: 'Declaración de origen de fondos', required: true },
-  { id: 'pep_check',     label: 'Verificación PEP (persona expuesta políticamente)', required: true },
-  { id: 'listas_ok',     label: 'Verificación en listas internacionales (OFAC, ONU, UE)', required: true },
-  { id: 'ccss_estado',   label: 'Verificación estado CCSS (mora patronal, si aplica)', required: false },
-  { id: 'sugef_check',   label: 'Verificación SUGEF (si es sujeto obligado, Art. 15/15bis/15ter)', required: false },
-]
-const CHECKLIST_PJ = [
-  { id: 'personeria',  label: 'Certificación de personería jurídica (≤30 días)', required: true },
-  { id: 'acta',        label: 'Acta constitutiva / estatutos', required: true },
-  { id: 'nomina',      label: 'Nómina de socios y % de participación', required: true },
-  { id: 'id_socios',   label: 'Identificación de todos los socios ≥10%', required: true },
-  { id: 'bene_final',  label: 'Identificación del Beneficiario Final', required: true },
-  { id: 'estados_fin', label: 'Estados financieros (si aplica por monto)', required: false },
-]
-const CHECKLIST_PEP = [
-  { id: 'aprobacion_jd',   label: 'Aprobación de la Junta Directiva o nivel superior', required: true },
-  { id: 'decl_jurada_pep', label: 'Declaración jurada de cargo y origen de fondos', required: true },
-  { id: 'monitoreo_ref',   label: 'Monitoreo reforzado activado', required: true },
-  { id: 'revision_anual',  label: 'Revisión anual programada', required: true },
-]
-
-const ESTADOS_CHECKLIST = [
-  { value: 'pendiente',     label: '⏳ Pendiente' },
-  { value: 'disponible',    label: '✅ Disponible' },
-  { value: 'no_disponible', label: '❌ No disponible' },
-  { value: 'no_aplica',     label: '➖ No aplica' },
-]
+/** Contexto de checklist del cliente del expediente. */
+const ctxChecklist = (cliente, hayPEP) => ({
+  tipoPersona: cliente?.tipo_persona === 'juridica' ? 'juridica' : 'fisica',
+  esPEP:       !!hayPEP,
+})
 
 function getEstadoCL(val) { return typeof val === 'object' ? val?.estado || 'pendiente' : (val ? 'disponible' : 'pendiente') }
 function getNotaCL(val)   { return typeof val === 'object' ? val?.nota || '' : '' }
@@ -144,10 +120,10 @@ async function buscarEnListas(nombre, identificacion) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PRINT: idéntico a ConsultaPEP + ReporteDD + Calificación
 // ─────────────────────────────────────────────────────────────────────────────
-function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, nivelFinal, checklist, hayPEP, tenant, profile, scoreTotal, nivelRiesgo, desglose, tipo }) {
+function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, nivelFinal, checklist, hayPEP, tenant, profile, scoreTotal, nivelRiesgo, desglose, tipo, catalogo }) {
   const nombre = nombreCompleto(cliente)
   const nivel  = NIVELES[nivelFinal] || NIVELES.medio
-  const todosItems = [...CHECKLIST_BASE, ...(tipo === 'J' ? CHECKLIST_PJ : []), ...(hayPEP ? CHECKLIST_PEP : [])]
+  const todosItems = itemsChecklist({ tipoPersona: tipo === 'J' ? 'juridica' : 'fisica', esPEP: hayPEP }, catalogo)
   const itemsOk = todosItems.filter(it => getEstadoCL(checklist[it.id]) === 'disponible').length
 
   const rowStyle = 'border: 1px solid #e4e4ea; padding: 5px 8px; text-align: left; font-size: 10px;'
@@ -843,10 +819,11 @@ function SeccionListas({ cliente, personas, onResultados }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SECCIÓN 3: DEBIDA DILIGENCIA + PERFIL IA
 // ─────────────────────────────────────────────────────────────────────────────
-function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelChange, onChecklistChange, onPerfilChange }) {
+function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, catalogo, onNivelChange, onChecklistChange, onPerfilChange }) {
   const tipo = cliente.tipo_persona === 'juridica' ? 'J' : 'F'
   const hayPEP = Object.values(resultadosListas || {}).some(r => r.esPEP)
-  const todosItems = [...CHECKLIST_BASE, ...(tipo === 'J' ? CHECKLIST_PJ : []), ...(hayPEP ? CHECKLIST_PEP : [])]
+  const grupos     = gruposChecklist(ctxChecklist(cliente, hayPEP), catalogo)
+  const todosItems = itemsChecklist(ctxChecklist(cliente, hayPEP), catalogo)
 
   const [checklist, setChecklist]   = useState({})
   const [nivelLocal, setNivelLocal] = useState(nivelFinal || 'medio')
@@ -975,11 +952,7 @@ function SeccionDD({ cliente, personas, resultadosListas, nivelFinal, onNivelCha
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {[
-                { titulo: 'Base — Todos los clientes', items: CHECKLIST_BASE },
-                ...(tipo === 'J' ? [{ titulo: 'Persona Jurídica — Art. 30 SUGEF 13-19', items: CHECKLIST_PJ }] : []),
-                ...(hayPEP ? [{ titulo: '🏛️ PEP — DDC Ampliada — Art. 38', items: CHECKLIST_PEP }] : []),
-              ].flatMap((grupo, gi) => [
+              {grupos.flatMap((grupo, gi) => [
                 <tr key={`h-${gi}`} className="bg-gray-50">
                   <td colSpan={5} className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider">{grupo.titulo}</td>
                 </tr>,
@@ -1084,6 +1057,9 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
 
   const tipo = cliente.tipo_persona === 'juridica' ? 'J' : 'F'
 
+  // Documentos exigidos por el sujeto obligado dueño del cliente
+  const catalogoDoc = useCatalogoDeTenant(cliente.tenant_id)
+
   useEffect(() => {
     if (!cliente?.id) return
     supabase.from('clientes_personas_relacionadas').select('*')
@@ -1101,6 +1077,7 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
         nivelRiesgo: scoreData.nivel || '',
         desglose: scoreData.desglose || {},
         tipo,
+        catalogo: catalogoDoc,
       })
       const w = window.open('', '_blank', 'width=900,height=700')
       if (!w) {
@@ -1179,6 +1156,7 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
               personas={personas}
               resultadosListas={resultadosListas}
               nivelFinal={nivelFinal}
+              catalogo={catalogoDoc}
               onNivelChange={setNivelFinal}
               onChecklistChange={setChecklist}
               onPerfilChange={setPerfil}

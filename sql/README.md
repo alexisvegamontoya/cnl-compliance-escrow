@@ -21,8 +21,9 @@ en orden cronológico. No hay una herramienta de migraciones automática.
 | 11 | `sql/clientes_extended.sql` | `clientes_personas_relacionadas` |
 | 12 | `sql/alertas_noticias.sql` | `alertas_noticias` |
 | 13 | `sql/informes_periodicidad.sql` | `informes_generados` |
-| 14 | `sql/add_*.sql` | columnas añadidas a tablas existentes |
-| 15 | `sql/fix_*.sql` | correcciones de columnas y políticas RLS |
+| 14 | `sql/add_catalogo_documentos_tenant.sql` | `catalogo_documentos` *(checklist documental por sujeto obligado)* |
+| 15 | `sql/add_*.sql` | columnas añadidas a tablas existentes |
+| 16 | `sql/fix_*.sql` | correcciones de columnas y políticas RLS |
 
 Los `add_*` y `fix_*` son idempotentes (`IF NOT EXISTS`) y se pueden volver a
 ejecutar sin riesgo. Los `CREATE TABLE` no siempre lo son: revíselos antes de
@@ -58,7 +59,8 @@ KEY=$(grep -m1 '^VITE_SUPABASE_ANON_KEY' .env | cut -d= -f2-)
 
 for t in clientes tenants user_profiles transacciones expedientes_dd \
          calificaciones_riesgo compliance_seguimiento denuncias normativa \
-         reportes_ros informes_generados notificaciones audit_log; do
+         reportes_ros informes_generados notificaciones audit_log \
+         catalogo_documentos; do
   r=$(curl -s -I "$URL/rest/v1/$t?select=*&limit=1" \
         -H "apikey: $KEY" -H "Prefer: count=exact" \
         | grep -i content-range | tr -d '\r' | sed 's/.*\///')

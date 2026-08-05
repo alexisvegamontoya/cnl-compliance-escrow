@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
 import { calcularCumplimientoGlobal } from '../lib/checklistDocumental'
+import { useCatalogoDeTenant } from '../lib/CatalogoDocumentalContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
 
 // ─── Pesos de cada ítem ───────────────────────────────────────────────────────
@@ -147,6 +148,9 @@ export default function ComplianceDashboard() {
 
   const tenant = isSuperAdmin ? tenantSel : tenantCtx
 
+  // Documentos exigidos por el sujeto obligado — el ítem 1 se calcula sobre ellos
+  const catalogoDoc = useCatalogoDeTenant(tenant?.id)
+
   useEffect(() => {
     if (isSuperAdmin) {
       supabase.from('tenants').select('*').order('nombre').then(({ data }) => setAllTenants(data || []))
@@ -266,7 +270,7 @@ export default function ComplianceDashboard() {
   // Es la calificación GLOBAL de la cartera — promedio de la calificación de
   // cumplimiento de cada cliente (documentación 60% · expediente 25% · gestiones 15%),
   // la misma que se muestra al consultar los clientes del sujeto obligado.
-  const globalClientes  = calcularCumplimientoGlobal(clientes)
+  const globalClientes  = calcularCumplimientoGlobal(clientes, catalogoDoc)
   const clientesActivos = clientes.filter(c => c.activo !== false && !c.fecha_termino_relacion)
   const clientesCompletos = globalClientes.detalle.filter(d => d.score >= 80)
   const scoreI1 = globalClientes.score

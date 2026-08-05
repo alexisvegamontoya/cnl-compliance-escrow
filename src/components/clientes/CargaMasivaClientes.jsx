@@ -15,11 +15,13 @@ import {
   PAISES_RIESGO,
 } from '../../lib/metodologiaRiesgo'
 import {
-  COLUMNAS_DOCUMENTOS,
-  TODOS_LOS_DOCUMENTOS,
+  columnasDocumentos,
+  columnaExcelDoc,
+  todosLosDocumentos,
   TITULOS_GRUPO,
   checklistDesdeFilaExcel,
 } from '../../lib/checklistDocumental'
+import { useCatalogoDeTenant } from '../../lib/CatalogoDocumentalContext'
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 // Identificación normalizada (sin guiones/espacios) para hacer match entre hojas
@@ -54,7 +56,9 @@ const num = (v) => {
 
 // ─── Columnas de la hoja "Clientes" ──────────────────────────────────────────
 // Orden y nombre exacto que tendrá el Excel
-const COLUMNAS = [
+// Las columnas doc_* dependen del catálogo del sujeto obligado, por eso las
+// columnas se arman en tiempo de ejecución (columnasClientes) y no como const.
+const COLUMNAS_BASE = [
   { key: 'tipo_persona',         grupo: 'General',   ejemplo: 'fisica',                 req: true,  nota: 'fisica | juridica' },
   { key: 'tipo_identificacion',  grupo: 'General',   ejemplo: '1',                      req: true,  nota: '1=Cédula 3=DIMEX 5=Pasaporte 2=Cédula Jurídica 4=Otro' },
   { key: 'numero_identificacion',grupo: 'General',   ejemplo: '1-0234-0567',            req: true,  nota: 'Debe ser único. Se usa para enlazar la hoja "Estructura"' },
@@ -88,9 +92,16 @@ const COLUMNAS = [
   { key: 'origen_fondos',        grupo: 'Perfil',    ejemplo: 'Salario / planilla',     req: false, nota: 'Salario / planilla | Negocio propio | Venta de bienes | Inversiones | Herencia | Remesas | Pensión | Préstamo | Otro' },
   { key: 'ingreso_mensual_est',  grupo: 'Perfil',    ejemplo: '2500',                   req: false, nota: 'Monto en USD (solo números)' },
   { key: 'notas',                grupo: 'Perfil',    ejemplo: 'Cliente referido por...',req: false, nota: 'Uso interno del oficial de cumplimiento' },
-  // Documentación presentada (checklist SUGEF 13-19) — SI / NO / NA
-  ...COLUMNAS_DOCUMENTOS.map(c => ({ ...c, grupo: 'Documentos' })),
-].map(c => ({ ...c, label: c.key }))
+]
+
+/** Columnas de la hoja «Clientes» — incluye un doc_* por documento del catálogo. */
+function columnasClientes(catalogo) {
+  return [
+    ...COLUMNAS_BASE,
+    // Documentación presentada (catálogo del sujeto obligado) — SI / NO / NA
+    ...columnasDocumentos(catalogo).map(c => ({ ...c, grupo: 'Documentos' })),
+  ].map(c => ({ ...c, label: c.key }))
+}
 
 // ─── Columnas de la hoja "Estructura" ────────────────────────────────────────
 // Representantes legales, junta directiva, socios/accionistas y beneficiarios finales
@@ -139,8 +150,9 @@ function normEntidad(v) {
 }
 
 // ─── Generador de plantilla Excel ────────────────────────────────────────────
-function generarPlantilla() {
+function generarPlantilla(catalogo) {
   const wb = XLSX.utils.book_new()
+  const COLUMNAS = columnasClientes(catalogo)
 
   // Hoja 1: Clientes (encabezados + fila ejemplo + fila notas)
   const wsData = [
@@ -195,8 +207,8 @@ function generarPlantilla() {
   // Hoja 7: Documentos (checklist de documentación presentada)
   const wsDocs = XLSX.utils.aoa_to_sheet([
     ['columna', 'documento / verificación', 'aplica a', 'obligatorio', 'valores aceptados'],
-    ...TODOS_LOS_DOCUMENTOS.map(d => [
-      `doc_${d.id}`,
+    ...todosLosDocumentos(catalogo).map(d => [
+      columnaExcelDoc(d.id),
       d.label,
       TITULOS_GRUPO[d.grupo],
       d.required ? 'Sí' : 'No',
@@ -250,12 +262,12 @@ function generarPlantilla() {
 }
 
 // ─── Normalizar fila de Excel a payload Supabase ─────────────────────────────
-function normalizarFila(fila, tenantId, previo = {}) {
+function normalizarFila(fila, tenantId, previo = {}, catalogo) {
   const tipo = sinTildes(fila.tipo_persona) === 'juridica' ? 'juridica' : 'fisica'
   const actNombre = txt(fila.actividad_economica)
   const actObj = ACTIVIDADES_PROFESIONES.find(a => sinTildes(a.label) === sinTildes(actNombre))
   // Las columnas doc_* vacías no borran lo que el cliente ya tuviera registrado
-  const docsExcel = checklistDesdeFilaExcel(fila)
+  const docsExcel = checklistDesdeFilaExcel(fila, catalogo)
   const checklist = { ...(previo.checklist || {}), ...docsExcel }
 
   return {
@@ -445,6 +457,11 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
 
   const hayErrores = errores.length > 0 || erroresEstr.length > 0
 
+  // Catálogo del sujeto obligado destino: define las columnas doc_* de la plantilla
+  const catalogoDoc = useCatalogoDeTenant(tenantEfectivo?.id)
+  const COLUMNAS    = columnasClientes(catalogoDoc)
+  const nDocs       = columnasDocumentos(catalogoDoc).length
+
   // Cuántas personas relacionadas trae cada cliente (por identificación normalizada)
   const personasPorCliente = estructura.reduce((acc, f) => {
     const k = normId(f.numero_identificacion_cliente)
@@ -530,7 +547,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
     }
 
     const payloads = filas.map(f =>
-      normalizarFila(f, tenantEfectivo.id, previos.get(normId(f.numero_identificacion)) || {})
+      normalizarFila(f, tenantEfectivo.id, previos.get(normId(f.numero_identificacion)) || {}, catalogoDoc)
     )
     const LOTE = 50
     let ok = 0
@@ -677,7 +694,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                   y beneficiarios finales. Incluye además hojas de referencia con documentos, actividades económicas, provincias, cantones y países.
                 </p>
                 <p className="text-xs text-blue-700">
-                  Las <strong>{COLUMNAS_DOCUMENTOS.length} columnas <code>doc_…</code></strong> al final de la hoja «Clientes» permiten indicar
+                  Las <strong>{nDocs} columnas <code>doc_…</code></strong> al final de la hoja «Clientes» permiten indicar
                   con <strong>SI / NO / NA</strong> qué documentos del checklist ya presentó el cliente. Es el mismo checklist de la
                   Debida Diligencia y pesa un 60% en la calificación de cumplimiento del cliente.
                 </p>
@@ -685,7 +702,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                   La fila 2 es un ejemplo y la fila con corchetes [ ] son instrucciones; elimínelas antes de cargar si lo desea,
                   o déjelas — el sistema las ignora automáticamente.
                 </p>
-                <button onClick={generarPlantilla}
+                <button onClick={() => generarPlantilla(catalogoDoc)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
                   ⬇ Descargar Plantilla_Clientes_CNL.xlsx
                 </button>
@@ -878,7 +895,7 @@ export default function CargaMasivaClientes({ onClose, onCargaCompleta }) {
                         ? f.nombre_empresa
                         : [f.nombre_cliente, f.primer_apellido, f.segundo_apellido].filter(Boolean).join(' ')
                       const nPersonas = personasPorCliente[normId(f.numero_identificacion)] || 0
-                      const docs = checklistDesdeFilaExcel(f)
+                      const docs = checklistDesdeFilaExcel(f, catalogoDoc)
                       const docsOk = Object.values(docs).filter(d => d.estado === 'disponible').length
                       return (
                         <tr key={i} className={tieneError ? 'bg-red-50' : 'hover:bg-gray-50'}>

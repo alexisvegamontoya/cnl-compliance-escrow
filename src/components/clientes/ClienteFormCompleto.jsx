@@ -15,6 +15,7 @@ import {
 import EstructuraEmpresa from './EstructuraEmpresa'
 import ChecklistDocumental from './ChecklistDocumental'
 import { normalizarChecklist, resumenChecklist, itemsChecklist } from '../../lib/checklistDocumental'
+import { useCatalogoDeTenant } from '../../lib/CatalogoDocumentalContext'
 
 const PAISES = PAISES_RIESGO.map(p => p.pais).sort()
 const PAISES_ALL = [...new Set([
@@ -297,7 +298,12 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
     }
   }
 
-  const resumenDoc = resumenChecklist(checklist, itemsChecklist({ tipoPersona: tipoPers, esPEP: !!form.pep }))
+  // Los documentos exigidos son los del sujeto obligado al que se vincula el cliente
+  const catalogoDoc = useCatalogoDeTenant(isSuperAdmin ? tenantDestino : tenant?.id)
+  const resumenDoc  = resumenChecklist(
+    checklist,
+    itemsChecklist({ tipoPersona: tipoPers, esPEP: !!form.pep }, catalogoDoc)
+  )
 
   const TABS = [
     { id: 'datos', label: '📋 Datos principales' },
@@ -620,6 +626,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
             onChange={setChecklist}
             tipoPersona={tipoPers}
             esPEP={!!form.pep}
+            catalogo={catalogoDoc}
           />
         </div>
       )}

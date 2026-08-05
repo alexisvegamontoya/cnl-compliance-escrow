@@ -17,11 +17,13 @@ import {
   calcularCumplimientoGlobal,
   normalizarChecklist,
 } from '../lib/checklistDocumental'
+import { useCatalogoDeTenant, useCatalogoPorCliente } from '../lib/CatalogoDocumentalContext'
 import { exportarExcel } from '../lib/exportExcel'
 import { imprimirFichaCliente } from '../utils/imprimirFicha'
 import ErrorBanner from '../components/ui/ErrorBanner'
 
 const InformeClienteCompleto = lazy(() => import('../components/clientes/InformeClienteCompleto'))
+const ConfigDocumentosModal  = lazy(() => import('../components/clientes/ConfigDocumentosModal'))
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const NIVEL_COLORS = {
@@ -123,7 +125,7 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Buscar…',
 
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
-  const { tenant, isSuperAdmin, tenantsDisponibles } = useAuth()
+  const { tenant, isSuperAdmin, isAdmin, tenantsDisponibles } = useAuth()
 
   // Copiar a otro sujeto obligado: solo tiene sentido con más de uno disponible
   const puedeCopiar = (tenantsDisponibles?.length || 0) > 1
@@ -138,6 +140,18 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   const [filtroTenant, setFiltroTenant] = useState('')   // solo superadmin
   const [tenants, setTenants]         = useState([])     // solo superadmin
   const [error, setError]             = useState(null)
+
+  // Catálogo de documentos de cada cliente — define qué documentos entran en su
+  // calificación de cumplimiento. Se resuelve por cliente porque el superadmin
+  // puede estar viendo la cartera de todos los sujetos obligados a la vez.
+  const catalogoDoc = useCatalogoPorCliente()
+
+  // Configurar el catálogo desde la lista: es el único punto de entrada para un
+  // sujeto obligado que todavía no tiene clientes. El editor trabaja siempre
+  // sobre el sujeto obligado activo, así que el superadmin debe estar viendo ese.
+  const [configDocs, setConfigDocs] = useState(false)
+  const puedeConfigurarDocs = isAdmin && !!tenant?.id &&
+    (!isSuperAdmin || filtroTenant === tenant.id)
 
   // Cargar lista de tenants para superadmin
   useEffect(() => {
@@ -186,7 +200,10 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   })
 
   // Calificación global de cumplimiento de la cartera consultada
-  const globalCumplimiento = useMemo(() => calcularCumplimientoGlobal(clientes), [clientes])
+  const globalCumplimiento = useMemo(
+    () => calcularCumplimientoGlobal(clientes, catalogoDoc),
+    [clientes, catalogoDoc]
+  )
 
   // Nombre del sujeto obligado consultado
   const nombreSujeto = isSuperAdmin
@@ -205,6 +222,12 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
         />
       )}
 
+      {configDocs && (
+        <Suspense fallback={null}>
+          <ConfigDocumentosModal onClose={() => setConfigDocs(false)} />
+        </Suspense>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -217,7 +240,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
           <button
             onClick={() => exportarExcel({
               data: filtrados.map(c => {
-                const cal = calcularCumplimientoCliente(c)
+                const cal = calcularCumplimientoCliente(c, { catalogo: catalogoDoc })
                 return {
                   ...c,
                   pep:               c.pep               ? 'Sí' : 'No',
@@ -294,6 +317,13 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
             📥 Carga masiva Excel
           </button>
+          {puedeConfigurarDocs && (
+            <button onClick={() => setConfigDocs(true)}
+              title="Agregar, renombrar o excluir los documentos que se exigen a los clientes de este sujeto obligado"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              ⚙️ Documentos requeridos
+            </button>
+          )}
           <button onClick={onNuevo} className="btn-primary flex items-center gap-2">
             <span className="text-lg leading-none">+</span> Nuevo cliente
           </button>
@@ -383,7 +413,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtrados.map(c => {
-                const cal = calcularCumplimientoCliente(c)
+                const cal = calcularCumplimientoCliente(c, { catalogo: catalogoDoc })
                 return (
                 <tr key={c.id} onClick={() => onSelect(c)}
                   className="hover:bg-brand-50 cursor-pointer transition-colors">
@@ -448,9 +478,16 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
 // ─── Perfil del cliente ──────────────────────────────────────────────────────
 function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
   const navigate = useNavigate()
-  const { tenant, profile, tenantsDisponibles } = useAuth()
+  const { tenant, profile, tenantsDisponibles, isAdmin } = useAuth()
   const puedeCopiar = (tenantsDisponibles?.length || 0) > 1
   const [mostrarCopiar, setMostrarCopiar] = useState(false)
+  const [configDocs, setConfigDocs] = useState(false)
+
+  // Catálogo del sujeto obligado dueño del cliente
+  const catalogoDoc = useCatalogoDeTenant(cliente.tenant_id)
+  // El catálogo se edita sobre el sujeto obligado activo: si el superadmin está
+  // viendo el cliente de otro, primero debe cambiarse a ese sujeto obligado.
+  const puedeConfigurarDocs = isAdmin && (!cliente.tenant_id || cliente.tenant_id === tenant?.id)
   const [tab, setTab] = useState('datos')
   const [personas, setPersonas] = useState([])
   const [histDD, setHistDD]     = useState([])
@@ -473,8 +510,8 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
   }, [cliente.id])
 
   const calificacion = useMemo(
-    () => calcularCumplimientoCliente(cliente, { checklist }),
-    [cliente, checklist]
+    () => calcularCumplimientoCliente(cliente, { checklist, catalogo: catalogoDoc }),
+    [cliente, checklist, catalogoDoc]
   )
 
   async function guardarChecklist() {
@@ -541,6 +578,12 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
           cliente={cliente}
           onClose={() => setMostrarCopiar(false)}
         />
+      )}
+
+      {configDocs && (
+        <Suspense fallback={null}>
+          <ConfigDocumentosModal onClose={() => setConfigDocs(false)} />
+        </Suspense>
       )}
 
       {mostrarInforme && (
@@ -794,6 +837,13 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {docGuardado && <span className="text-xs font-medium text-green-600">✓ Guardado</span>}
+            {puedeConfigurarDocs && (
+              <button onClick={() => setConfigDocs(true)}
+                title="Agregar, renombrar o excluir documentos para este sujeto obligado"
+                className="px-3 py-1.5 text-xs font-semibold text-brand-700 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">
+                ⚙️ Configurar documentos
+              </button>
+            )}
             <button onClick={guardarChecklist} disabled={guardandoDoc}
               className="px-3 py-1.5 text-xs font-semibold bg-brand-700 text-white rounded-lg hover:bg-brand-800 disabled:opacity-50 transition-colors">
               {guardandoDoc ? 'Guardando…' : '💾 Guardar documentación'}
@@ -812,6 +862,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
           onChange={c => { setChecklist(c); setDocGuardado(false) }}
           tipoPersona={cliente.tipo_persona}
           esPEP={!!cliente.pep}
+          catalogo={catalogoDoc}
         />
       </div>
 

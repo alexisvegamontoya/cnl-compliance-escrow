@@ -9,9 +9,20 @@
  *   · Formulario de cliente (tab Documentación)       → src/components/clientes/ClienteFormCompleto.jsx
  *   · Plantilla de carga masiva Excel                 → src/components/clientes/CargaMasivaClientes.jsx
  *   · Dashboard de cumplimiento (ítem 1)              → src/pages/ComplianceDashboard.jsx
+ *   · Expediente imprimible                           → src/components/clientes/InformeClienteCompleto.jsx
  *
  * El checklist se persiste en clientes.checklist_documental (JSONB):
  *   { id_vigente: { estado: 'disponible', nota: '...' }, ... }
+ *
+ * CATÁLOGO POR SUJETO OBLIGADO
+ * El catálogo estándar de abajo es el punto de partida. Cada sujeto obligado
+ * puede renombrar documentos, volverlos obligatorios u opcionales, excluirlos o
+ * agregar requisitos propios; esas personalizaciones viven en la tabla
+ * `catalogo_documentos` (sql/add_catalogo_documentos_tenant.sql) y se resuelven
+ * con resolverCatalogo(). El catálogo resultante se distribuye por la app con
+ * useCatalogoDocumental() (src/lib/CatalogoDocumentalContext.jsx) y se pasa a
+ * todas las funciones de este módulo, porque determina qué documentos entran en
+ * la calificación de cumplimiento del cliente.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,16 +61,26 @@ export const CHECKLIST_DOCUMENTAL = {
 // Alias histórico usado por el módulo de Debida Diligencia
 export const CHECKLIST = CHECKLIST_DOCUMENTAL
 
+/** Catálogo sin personalizar — el que aplica a un sujeto obligado sin ajustes. */
+export const CATALOGO_ESTANDAR = CHECKLIST_DOCUMENTAL
+
+export const GRUPOS_DOC = ['base', 'pj', 'pep']
+
 export const TITULOS_GRUPO = {
   base: 'Base — Todos los clientes',
   pj:   'Persona Jurídica — Art. 30 SUGEF 13-19',
   pep:  '🏛️ PEP — DDC Ampliada — Art. 38',
 }
 
-/** Todos los documentos del catálogo, en orden, con su grupo. */
-export const TODOS_LOS_DOCUMENTOS = ['base', 'pj', 'pep'].flatMap(g =>
-  CHECKLIST_DOCUMENTAL[g].map(it => ({ ...it, grupo: g }))
-)
+/** Todos los documentos de un catálogo, en orden, con su grupo. */
+export function todosLosDocumentos(catalogo = CATALOGO_ESTANDAR) {
+  return GRUPOS_DOC.flatMap(g => (catalogo[g] || []).map(it => ({ ...it, grupo: g })))
+}
+
+/** ¿El documento viene del catálogo estándar SUGEF? */
+export function esDocEstandar(docId) {
+  return GRUPOS_DOC.some(g => CHECKLIST_DOCUMENTAL[g].some(it => it.id === docId))
+}
 
 export const ESTADOS_CHECKLIST = [
   { value: 'pendiente',     label: '⏳ Pendiente' },
@@ -76,6 +97,89 @@ export const ESTADO_LABEL = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CATÁLOGO PERSONALIZADO POR SUJETO OBLIGADO
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Aplica las personalizaciones de un sujeto obligado sobre el catálogo estándar.
+ *
+ * Reglas:
+ *   · label / required en NULL heredan el valor del estándar (así una
+ *     actualización normativa del catálogo base llega sola a quien no lo tocó).
+ *   · activo = false saca el documento del checklist y de la calificación.
+ *   · las filas cuyo doc_id no existe en el estándar son requisitos propios y
+ *     se agregan al final de su grupo, ordenadas por `orden`.
+ *
+ * @param {Array} personalizaciones filas de la tabla `catalogo_documentos`
+ * @returns {{ base: Array, pj: Array, pep: Array }}
+ */
+export function resolverCatalogo(personalizaciones = []) {
+  const filas  = Array.isArray(personalizaciones) ? personalizaciones : []
+  const porId  = new Map(filas.map(f => [f.doc_id, f]))
+  const catalogo = { base: [], pj: [], pep: [] }
+
+  // 1) Documentos del catálogo estándar, con el ajuste del sujeto obligado
+  GRUPOS_DOC.forEach(grupo => {
+    CHECKLIST_DOCUMENTAL[grupo].forEach(item => {
+      const ajuste = porId.get(item.id)
+      if (ajuste && ajuste.activo === false) return
+      const label = ajuste?.label?.trim()
+      catalogo[grupo].push({
+        id:          item.id,
+        label:       label || item.label,
+        required:    ajuste?.required == null ? item.required : !!ajuste.required,
+        ayuda:       ajuste?.ayuda || '',
+        grupo,
+        estandar:    true,
+        // el nombre o la obligatoriedad difieren de la norma base
+        ajustado:    !!(label && label !== item.label) ||
+                     (ajuste?.required != null && !!ajuste.required !== item.required),
+      })
+    })
+  })
+
+  // 2) Requisitos propios del sujeto obligado
+  filas
+    .filter(f => f.activo !== false && !esDocEstandar(f.doc_id) && f.label?.trim())
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || String(a.creado_en || '').localeCompare(String(b.creado_en || '')))
+    .forEach(f => {
+      const grupo = GRUPOS_DOC.includes(f.grupo) ? f.grupo : 'base'
+      catalogo[grupo].push({
+        id:       f.doc_id,
+        label:    f.label.trim(),
+        required: f.required !== false,
+        ayuda:    f.ayuda || '',
+        grupo,
+        estandar: false,
+        ajustado: false,
+      })
+    })
+
+  return catalogo
+}
+
+const RE_NO_SLUG = new RegExp('[^a-z0-9]+', 'g')
+
+/**
+ * doc_id estable para un requisito propio, derivado de su nombre.
+ * Se prefija para no colisionar nunca con el catálogo estándar y se persiste
+ * tal cual: es la clave con la que queda guardado el estado en cada cliente,
+ * por lo que NO debe recalcularse al renombrar el documento.
+ */
+export function docIdDesdeLabel(label, idsExistentes = []) {
+  const base = String(label || '')
+    .normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .toLowerCase().replace(RE_NO_SLUG, '_').replace(/^_+|_+$/g, '')
+    .slice(0, 45)
+  const raiz = `doc_${base || 'requisito'}`
+  const usados = new Set(idsExistentes)
+  if (!usados.has(raiz)) return raiz
+  let n = 2
+  while (usados.has(`${raiz}_${n}`)) n++
+  return `${raiz}_${n}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SELECCIÓN DE DOCUMENTOS APLICABLES
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -84,17 +188,19 @@ const esJuridica = (tipoPersona) => String(tipoPersona || '').toLowerCase().star
 /**
  * Grupos de documentos que aplican a un cliente.
  * @param {{ tipoPersona?: string, esPEP?: boolean }} ctx
+ * @param {object} [catalogo] catálogo del sujeto obligado (por defecto, el estándar)
  */
-export function gruposChecklist({ tipoPersona = 'fisica', esPEP = false } = {}) {
-  const grupos = [{ id: 'base', titulo: TITULOS_GRUPO.base, items: CHECKLIST_DOCUMENTAL.base }]
-  if (esJuridica(tipoPersona)) grupos.push({ id: 'pj', titulo: TITULOS_GRUPO.pj, items: CHECKLIST_DOCUMENTAL.pj })
-  if (esPEP)                   grupos.push({ id: 'pep', titulo: TITULOS_GRUPO.pep, items: CHECKLIST_DOCUMENTAL.pep })
-  return grupos
+export function gruposChecklist({ tipoPersona = 'fisica', esPEP = false } = {}, catalogo = CATALOGO_ESTANDAR) {
+  const cat = catalogo || CATALOGO_ESTANDAR
+  const grupos = [{ id: 'base', titulo: TITULOS_GRUPO.base, items: cat.base || [] }]
+  if (esJuridica(tipoPersona)) grupos.push({ id: 'pj', titulo: TITULOS_GRUPO.pj, items: cat.pj || [] })
+  if (esPEP)                   grupos.push({ id: 'pep', titulo: TITULOS_GRUPO.pep, items: cat.pep || [] })
+  return grupos.filter(g => g.items.length > 0)
 }
 
 /** Lista plana de documentos aplicables a un cliente. */
-export function itemsChecklist(ctx) {
-  return gruposChecklist(ctx).flatMap(g => g.items)
+export function itemsChecklist(ctx, catalogo = CATALOGO_ESTANDAR) {
+  return gruposChecklist(ctx, catalogo).flatMap(g => g.items)
 }
 
 /** Contexto de checklist a partir de una fila de la tabla clientes. */
@@ -221,13 +327,26 @@ export function semaforoDe(score) {
 }
 
 /**
+ * Catálogo que aplica a un cliente concreto.
+ * Acepta un catálogo fijo o un resolutor `(cliente) => catálogo`, para las
+ * pantallas que listan clientes de varios sujetos obligados a la vez.
+ */
+function catalogoAplicable(catalogo, cliente) {
+  const cat = typeof catalogo === 'function' ? catalogo(cliente) : catalogo
+  return cat || CATALOGO_ESTANDAR
+}
+
+/**
  * Calificación de cumplimiento de un cliente (1 a 100).
  * @param {object} cliente  fila de la tabla `clientes`
- * @param {{ checklist?: object }} [opts] checklist alternativo (p. ej. el que se está editando)
+ * @param {{ checklist?: object, catalogo?: object|Function }} [opts]
+ *        checklist: estado alternativo (p. ej. el que se está editando)
+ *        catalogo:  catálogo del sujeto obligado, o `(cliente) => catálogo`
+ *                   (por defecto, el estándar)
  */
 export function calcularCumplimientoCliente(cliente = {}, opts = {}) {
   const checklist = opts.checklist ?? cliente.checklist_documental ?? {}
-  const items     = itemsChecklist(contextoCliente(cliente))
+  const items     = itemsChecklist(contextoCliente(cliente), catalogoAplicable(opts.catalogo, cliente))
   const doc       = resumenChecklist(checklist, items)
 
   const info      = camposInformacion(cliente)
@@ -268,10 +387,17 @@ export function calcularCumplimientoCliente(cliente = {}, opts = {}) {
  * Calificación GLOBAL de la cartera de clientes de un sujeto obligado.
  * Es el promedio simple de la calificación de los clientes activos y es el
  * valor que alimenta el ítem 1 del Dashboard de Cumplimiento.
+ *
+ * En la vista consolidada del superadmin la cartera mezcla varios sujetos
+ * obligados: pásele el resolutor `(cliente) => catálogo` para que cada cliente
+ * se califique con los documentos que exige el suyo.
+ *
+ * @param {Array} clientes
+ * @param {object|Function} [catalogo] catálogo fijo o `(cliente) => catálogo`
  */
-export function calcularCumplimientoGlobal(clientes = []) {
+export function calcularCumplimientoGlobal(clientes = [], catalogo = CATALOGO_ESTANDAR) {
   const activos = clientes.filter(c => c.activo !== false && !c.fecha_termino_relacion)
-  const detalle = activos.map(c => ({ cliente: c, ...calcularCumplimientoCliente(c) }))
+  const detalle = activos.map(c => ({ cliente: c, ...calcularCumplimientoCliente(c, { catalogo }) }))
 
   const score = detalle.length === 0
     ? 100
@@ -299,16 +425,21 @@ const NOTA_GRUPO = {
   pep:  'Solo si el cliente es PEP',
 }
 
+/** Nombre de la columna de Excel de un documento (los propios ya vienen con prefijo). */
+export const columnaExcelDoc = (id) => (String(id).startsWith('doc_') ? String(id) : `doc_${id}`)
+
 /** Columnas `doc_*` (SI / NO / NA) que se agregan a la hoja «Clientes». */
-export const COLUMNAS_DOCUMENTOS = TODOS_LOS_DOCUMENTOS.map(it => ({
-  key:     `doc_${it.id}`,
-  id:      it.id,
-  grupo:   it.grupo,
-  label:   it.label,
-  req:     false,
-  ejemplo: 'SI',
-  nota:    `${NOTA_GRUPO[it.grupo]} · SI | NO | NA (no aplica) · ${it.label}`,
-}))
+export function columnasDocumentos(catalogo = CATALOGO_ESTANDAR) {
+  return todosLosDocumentos(catalogo).map(it => ({
+    key:     columnaExcelDoc(it.id),
+    id:      it.id,
+    grupo:   it.grupo,
+    label:   it.label,
+    req:     false,
+    ejemplo: 'SI',
+    nota:    `${NOTA_GRUPO[it.grupo]} · SI | NO | NA (no aplica) · ${it.label}`,
+  }))
+}
 
 const RE_DIACRITICOS = new RegExp('[\\u0300-\\u036f]', 'g')
 
@@ -329,10 +460,10 @@ export function estadoDesdeCelda(valor) {
 }
 
 /** Construye el checklist a partir de las columnas `doc_*` de una fila del Excel. */
-export function checklistDesdeFilaExcel(fila = {}) {
+export function checklistDesdeFilaExcel(fila = {}, catalogo = CATALOGO_ESTANDAR) {
   const out = {}
-  TODOS_LOS_DOCUMENTOS.forEach(it => {
-    const estado = estadoDesdeCelda(fila[`doc_${it.id}`])
+  todosLosDocumentos(catalogo).forEach(it => {
+    const estado = estadoDesdeCelda(fila[columnaExcelDoc(it.id)])
     if (estado) out[it.id] = { estado, nota: '' }
   })
   return out

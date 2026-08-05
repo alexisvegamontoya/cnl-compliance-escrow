@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase'
 import { apiFetch } from '../lib/apiFetch'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
-import { CHECKLIST_DOCUMENTAL as CHECKLIST, normalizarChecklist } from '../lib/checklistDocumental'
+import { normalizarChecklist, itemsChecklist } from '../lib/checklistDocumental'
+import { useCatalogoDeTenant } from '../lib/CatalogoDocumentalContext'
 import ChecklistDocumental from '../components/clientes/ChecklistDocumental'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,16 +67,19 @@ function NivelBadge({ nivel }) {
 // REPORTE PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivelFinal, checklist, onClose }) {
+function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivelFinal, checklist, catalogo, onClose }) {
   const { tenant, profile } = useAuth()
   const nombre = tipo === 'F' ? datos.nombre : datos.razon_social
   const nivel = NIVELES[nivelFinal] || NIVELES.medio
 
-  const todosItems = [
-    ...CHECKLIST.base,
-    ...(tipo === 'J' ? CHECKLIST.pj : []),
-    ...(Object.values(resultadosListas).some(r => r.esPEP) ? CHECKLIST.pep : []),
-  ]
+  // Documentos exigidos por este sujeto obligado (estándar SUGEF + sus ajustes)
+  const todosItems = itemsChecklist(
+    {
+      tipoPersona: tipo === 'J' ? 'juridica' : 'fisica',
+      esPEP:       Object.values(resultadosListas).some(r => r.esPEP),
+    },
+    catalogo
+  )
   const getEstado = (id) => typeof checklist[id] === 'object' ? checklist[id]?.estado : (checklist[id] ? 'disponible' : 'pendiente')
   const getNota   = (id) => typeof checklist[id] === 'object' ? checklist[id]?.nota || '' : ''
   const itemsOk  = todosItems.filter(it => getEstado(it.id) === 'disponible').length
@@ -351,6 +355,9 @@ export default function DebilidaDiligencia() {
   const [tenants, setTenants]         = useState([])
   const [tenantVista, setTenantVista] = useState(null)
   const tenantEfectivoId = isSuperAdmin ? (tenantVista?.id || null) : tenant?.id
+
+  // Catálogo de documentos exigido por el sujeto obligado en curso
+  const catalogoDoc = useCatalogoDeTenant(tenantEfectivoId)
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -647,7 +654,7 @@ export default function DebilidaDiligencia() {
       <ReporteDD
         tipo={tipo} datos={datos} participantes={participantes}
         resultadosListas={resultadosListas} perfil={perfil}
-        nivelFinal={nivelFinal} checklist={checklist}
+        nivelFinal={nivelFinal} checklist={checklist} catalogo={catalogoDoc}
         onClose={() => setShowPDF(false)}
       />
     )
@@ -1091,6 +1098,7 @@ export default function DebilidaDiligencia() {
               onChange={setChecklist}
               tipoPersona={tipo === 'J' ? 'juridica' : 'fisica'}
               esPEP={hayPEP}
+              catalogo={catalogoDoc}
             />
           </div>
 
@@ -1125,7 +1133,7 @@ export default function DebilidaDiligencia() {
               <div>
                 <p className="text-2xl font-bold text-brand-700">
                   {Object.values(checklist).filter(v => v?.estado === 'disponible' || v === true).length}/
-                  {CHECKLIST.base.length + (tipo === 'J' ? CHECKLIST.pj.length : 0) + (hayPEP ? CHECKLIST.pep.length : 0)}
+                  {itemsChecklist({ tipoPersona: tipo === 'J' ? 'juridica' : 'fisica', esPEP: hayPEP }, catalogoDoc).length}
                 </p>
                 <p className="text-xs text-gray-500">Documentos marcados</p>
               </div>

@@ -2,8 +2,10 @@
  * ChecklistDocumental.jsx
  * Tabla del checklist de documentación presentada por el cliente.
  * Se usa en el perfil del cliente, en el formulario de cliente y en el
- * asistente de Debida Diligencia — siempre sobre el mismo catálogo
- * (src/lib/checklistDocumental.js), por lo que el estado es intercambiable.
+ * asistente de Debida Diligencia — siempre sobre el mismo catálogo, por lo que
+ * el estado es intercambiable. El catálogo es el del sujeto obligado activo
+ * (estándar SUGEF 13-19 + sus ajustes); si no se recibe por props se toma del
+ * contexto, de modo que ninguna pantalla se queda con el catálogo equivocado.
  */
 import {
   gruposChecklist,
@@ -14,6 +16,7 @@ import {
   ESTADOS_CHECKLIST,
   ESTADO_LABEL,
 } from '../../lib/checklistDocumental'
+import { useCatalogoDocumental } from '../../lib/CatalogoDocumentalContext'
 
 const CLASES_ESTADO = {
   disponible:    'border-green-300 bg-green-50 text-green-700',
@@ -36,10 +39,13 @@ export default function ChecklistDocumental({
   esPEP = false,
   soloLectura = false,
   conNotas = true,
+  catalogo,
 }) {
+  const { catalogo: catalogoTenant } = useCatalogoDocumental()
+  const cat     = catalogo || catalogoTenant
   const ctx     = { tipoPersona, esPEP }
-  const grupos  = gruposChecklist(ctx)
-  const resumen = resumenChecklist(checklist, itemsChecklist(ctx))
+  const grupos  = gruposChecklist(ctx, cat)
+  const resumen = resumenChecklist(checklist, itemsChecklist(ctx, cat))
 
   const setItem = (id, campo, valor) => {
     if (!onChange) return
@@ -90,7 +96,16 @@ export default function ChecklistDocumental({
                 return (
                   <tr key={item.id} className={`${rowBg} transition-colors`}>
                     <td className="px-3 py-2 text-gray-400 text-xs">{idx + 1}</td>
-                    <td className="px-3 py-2 text-sm text-gray-700">{item.label}</td>
+                    <td className="px-3 py-2 text-sm text-gray-700">
+                      {item.label}
+                      {item.estandar === false && (
+                        <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 align-middle"
+                          title="Requisito propio de este sujeto obligado">
+                          Propio
+                        </span>
+                      )}
+                      {item.ayuda && <p className="text-xs text-gray-400 mt-0.5">{item.ayuda}</p>}
+                    </td>
                     <td className="px-3 py-2">
                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${item.required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
                         {item.required ? 'Obl' : 'Opt'}
