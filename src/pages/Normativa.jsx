@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { clasificarError } from '../lib/errorHandler'
@@ -50,7 +50,7 @@ export default function Normativa() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { apiFetch } from '../lib/apiFetch'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
@@ -339,7 +339,7 @@ export default function DebilidaDiligencia() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

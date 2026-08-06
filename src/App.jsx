@@ -101,7 +101,7 @@ function PrivateRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { session, loading, needsPasswordSetup, mustChangePassword, setMustChangePassword, needsMFAEnroll, needsMFAChallenge } = useAuth()
+  const { session, loading, needsPasswordSetup, mustChangePassword, setMustChangePassword, needsMFAEnroll, needsMFAChallenge, sinAccesoApp, signOut } = useAuth()
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -122,6 +122,24 @@ function AppRoutes() {
   // MFA enforcement: admin sin MFA inscrito o sin AAL2 en sesión
   if (session && (needsMFAEnroll || needsMFAChallenge)) {
     return <MFAGate />
+  }
+
+  // Cuenta válida pero sin habilitación para esta aplicación. La base es
+  // compartida con el evaluador de riesgos y capacitación.
+  if (session && sinAccesoApp) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="card max-w-md text-center space-y-4">
+          <p className="text-4xl">🔒</p>
+          <h1 className="text-xl font-bold text-gray-900">Sin acceso a esta aplicación</h1>
+          <p className="text-sm text-gray-500">
+            Su cuenta es válida, pero no está habilitada para CNL Compliance.
+            Solicite el acceso al administrador del sistema.
+          </p>
+          <button className="btn-secondary text-sm" onClick={signOut}>Cerrar sesión</button>
+        </div>
+      </div>
+    )
   }
 
   return (

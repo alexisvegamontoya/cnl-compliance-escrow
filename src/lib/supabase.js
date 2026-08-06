@@ -8,3 +8,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+/**
+ * Esta base de Supabase la comparten tres aplicaciones (compliance,
+ * evaluador de riesgos y capacitación), así que `tenants` contiene sujetos
+ * obligados que no son de acá. La columna app_compliance marca cuáles sí.
+ */
+export const APP_ID   = 'compliance'
+export const APP_FLAG = 'app_compliance'
+
+/** Consulta de tenants ya acotada a los sujetos obligados de esta app. */
+export function tenantsDeLaApp(select = '*') {
+  return supabase.from('tenants').select(select).eq(APP_FLAG, true)
+}

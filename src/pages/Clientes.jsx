@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { TIPO_IDENTIFICACION, getEtiquetaCliente } from '../lib/catalogos'
 import CargaMasivaClientesSicveca from '../components/carga/CargaMasivaClientesSicveca'
@@ -103,7 +103,7 @@ export default function Clientes() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre, actividad_apnfd, clase_dato').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre, actividad_apnfd, clase_dato').order('nombre').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

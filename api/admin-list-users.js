@@ -65,24 +65,43 @@ export default async function handler(req, res) {
       })
     }
 
-    // 4. Combinar: auth user + profile + membresías
-    const resultado = authUsers.map(au => {
-      const perfil = profilesById[au.id] || {}
-      return {
-        id:         au.id,
-        email:      au.email,
-        nombre:     perfil.nombre || au.user_metadata?.nombre || au.email,
-        rol:        perfil.rol || 'sin_perfil',
-        activo:     perfil.activo !== false,
-        created_at: au.created_at,
-        // campos extra del perfil si existen
-        ...perfil,
-        // membresías siempre desde la tabla
-        _tenants: memsByUser[au.id] || [],
-        // marcar si no tiene perfil creado
-        _sin_perfil: !profilesById[au.id],
-      }
-    })
+    // 4. Habilitación por aplicación. La base la comparten compliance,
+    //    evaluador de riesgos y capacitación, así que auth.users trae también
+    //    usuarios que no son de acá. Si la tabla todavía no existe se listan
+    //    todos, para no vaciar la pantalla por una migración pendiente.
+    const accesoRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_app_access?select=user_id&app=eq.compliance&activo=is.true`,
+      { headers }
+    )
+    const hayTablaAcceso = accesoRes.ok
+    const conAcceso = new Set(
+      hayTablaAcceso ? (await accesoRes.json()).map(a => a.user_id) : []
+    )
+
+    // 5. Combinar: auth user + profile + membresías
+    const resultado = authUsers
+      .filter(au => {
+        if (!hayTablaAcceso) return true
+        const perfil = profilesById[au.id]
+        return perfil?.rol === 'superadmin' || conAcceso.has(au.id)
+      })
+      .map(au => {
+        const perfil = profilesById[au.id] || {}
+        return {
+          id:         au.id,
+          email:      au.email,
+          nombre:     perfil.nombre || au.user_metadata?.nombre || au.email,
+          rol:        perfil.rol || 'sin_perfil',
+          activo:     perfil.activo !== false,
+          created_at: au.created_at,
+          // campos extra del perfil si existen
+          ...perfil,
+          // membresías siempre desde la tabla
+          _tenants: memsByUser[au.id] || [],
+          // marcar si no tiene perfil creado
+          _sin_perfil: !profilesById[au.id],
+        }
+      })
 
     return res.status(200).json({ usuarios: resultado })
 

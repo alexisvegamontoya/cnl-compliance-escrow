@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
 
@@ -352,7 +352,7 @@ export default function ConsultaPEP() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

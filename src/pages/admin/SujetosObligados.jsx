@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, tenantsDeLaApp, APP_FLAG } from '../../lib/supabase'
 import { ACTIVIDADES_APNFD, TIPO_SUJETO } from '../../lib/catalogos'
 import ErrorBanner from '../../components/ui/ErrorBanner'
 import { clasificarError } from '../../lib/errorHandler'
@@ -34,10 +34,7 @@ export default function SujetosObligados() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('tenants')
-      .select('*')
-      .order('nombre')
+    const { data } = await tenantsDeLaApp('*').order('nombre')
     setTenants(data || [])
     setLoading(false)
   }, [])
@@ -143,7 +140,9 @@ export default function SujetosObligados() {
       if (editId) {
         result = await supabase.from('tenants').update(payload).eq('id', editId)
       } else {
-        result = await supabase.from('tenants').insert(payload)
+        // La tabla es compartida con las otras apps: lo que se crea acá nace
+        // marcado como de compliance para que solo aparezca en esta.
+        result = await supabase.from('tenants').insert({ ...payload, [APP_FLAG]: true })
       }
       if (result.error) throw result.error
       cancelar()

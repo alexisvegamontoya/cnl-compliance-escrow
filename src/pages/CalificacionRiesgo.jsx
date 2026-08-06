@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import PanelPeriodicidad from '../components/informes/PanelPeriodicidad'
 import { imprimirNodo } from '../utils/imprimirDocumento'
@@ -650,7 +650,7 @@ export default function CalificacionRiesgo() {
   // Cargar tenants si superadmin
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre, clase_dato').order('nombre')
+      tenantsDeLaApp('id, nombre, clase_dato').order('nombre')
         .then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 
 const ACCION_STYLE = {
@@ -43,7 +43,7 @@ export default function AuditLog() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

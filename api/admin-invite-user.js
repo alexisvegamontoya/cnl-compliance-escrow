@@ -101,6 +101,18 @@ export default async function handler(req, res) {
       })
     }
 
+    // 4. Habilitar al usuario en esta aplicación. La base la comparten
+    //    compliance, evaluador de riesgos y capacitación; sin esta fila la
+    //    cuenta existe pero no entra acá. No es bloqueante: si la migración
+    //    todavía no se aplicó, el alta igual se completa.
+    const { error: accesoError } = await supabaseAdmin
+      .from('user_app_access')
+      .upsert({ user_id: userId, app: 'compliance', activo: true },
+              { onConflict: 'user_id,app' })
+    if (accesoError) {
+      console.error('[admin-invite-user] user_app_access error:', accesoError)
+    }
+
     return res.status(200).json({
       ok:      true,
       userId,

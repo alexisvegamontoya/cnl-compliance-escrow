@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import { generarXMLSICVECA, descargarXML } from '../../lib/xmlGenerator'
 import { TIPO_CARGA } from '../../lib/catalogos'
@@ -96,7 +96,7 @@ export default function XMLGenerator() {
   // ── Tenants para superadmin ──
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('*').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('*').order('nombre').then(({ data }) => setTenants(data || []))
     } else {
       setTenantActivo(tenant)
       setTipoMoneda(tenant?.tipo_moneda_default || 2)

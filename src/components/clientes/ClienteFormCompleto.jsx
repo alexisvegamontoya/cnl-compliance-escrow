@@ -4,7 +4,7 @@
  * con dropdowns de actividad económica, provincia/cantón y país.
  */
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import {
   ACTIVIDADES_PROFESIONES,
@@ -115,7 +115,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
 
   useEffect(() => {
     if (!isSuperAdmin) return
-    supabase.from('tenants').select('id, nombre, actividad_apnfd').order('nombre')
+    tenantsDeLaApp('id, nombre, actividad_apnfd').order('nombre')
       .then(({ data }) => {
         if (data) setTenants(data)
         // Si no hay tenant destino aún, dejar vacío para forzar selección

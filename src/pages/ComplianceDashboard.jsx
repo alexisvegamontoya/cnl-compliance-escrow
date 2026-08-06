@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -153,7 +153,7 @@ export default function ComplianceDashboard() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      supabase.from('tenants').select('*').order('nombre').then(({ data }) => setAllTenants(data || []))
+      tenantsDeLaApp('*').order('nombre').then(({ data }) => setAllTenants(data || []))
     }
   }, [isSuperAdmin])
 

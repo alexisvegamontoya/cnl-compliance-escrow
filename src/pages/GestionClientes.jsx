@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
@@ -156,7 +156,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   // Cargar lista de tenants para superadmin
   useEffect(() => {
     if (!isSuperAdmin) return
-    supabase.from('tenants').select('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+    tenantsDeLaApp('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
   }, [isSuperAdmin])
 
   const cargar = useCallback(async () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../../lib/supabase'
 import { apiFetch } from '../../lib/apiFetch'
 import { useAuth } from '../../lib/AuthContext'
 import ErrorBanner from '../../components/ui/ErrorBanner'
@@ -445,9 +445,7 @@ export default function Usuarios() {
   useEffect(() => {
     cargar()
     // Cargar lista de tenants (para formulario de creación y panel de membresías)
-    supabase
-      .from('tenants')
-      .select('id, nombre, actividad_apnfd')
+    tenantsDeLaApp('id, nombre, actividad_apnfd')
       .order('nombre')
       .then(({ data }) => setTenants(data || []))
   }, [cargar])

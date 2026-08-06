@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { supabase } from './supabase'
+import { supabase, tenantsDeLaApp, APP_ID } from './supabase'
 
 const AuthContext = createContext(null)
 
@@ -17,6 +17,8 @@ export function AuthProvider({ children }) {
   // MFA enforcement para roles admin
   const [needsMFAEnroll, setNeedsMFAEnroll]       = useState(false) // sin MFA inscrito
   const [needsMFAChallenge, setNeedsMFAChallenge] = useState(false) // inscrito pero sesión AAL1
+  // Usuario válido en la base compartida, pero sin habilitación para esta app
+  const [sinAccesoApp, setSinAccesoApp] = useState(false)
 
   useEffect(() => {
     // ── Leer la URL ANTES de que Supabase la borre al procesar el token ──
@@ -96,10 +98,23 @@ export function AuthProvider({ children }) {
 
       const esSuperAdmin = prof?.rol === 'superadmin'
 
+      // ── Habilitación para esta aplicación ─────────────────────────────
+      // La base la comparten compliance, evaluador de riesgos y capacitación.
+      // Un usuario dado de alta solo en otra app no debe entrar acá.
+      // Si la tabla todavía no existe (migración sin aplicar) no se bloquea
+      // a nadie: el error deja el acceso abierto a propósito.
+      const { data: acceso, error: accesoErr } = await supabase
+        .from('user_app_access')
+        .select('app')
+        .eq('user_id', userId)
+        .eq('app', APP_ID)
+        .eq('activo', true)
+        .maybeSingle()
+      setSinAccesoApp(!accesoErr && !esSuperAdmin && !acceso)
+
       if (esSuperAdmin) {
         // Superadmin: cargar TODOS los tenants para navegar como cualquiera
-        const { data: allTenants } = await supabase
-          .from('tenants').select('*').order('nombre')
+        const { data: allTenants } = await tenantsDeLaApp('*').order('nombre')
         if (allTenants && allTenants.length > 0) {
           const lista = allTenants.map(t => ({ ...t, rol_tenant: 'superadmin' }))
           setTenants(lista)
@@ -108,16 +123,19 @@ export function AuthProvider({ children }) {
           setTenant(encontrado || lista[0])
         }
       } else if (memberships && memberships.length > 0) {
+        // La base es compartida con las otras apps: hay membresías a sujetos
+        // obligados que no pertenecen a compliance y no deben aparecer acá.
         const lista = memberships
-          .filter(m => m.tenants)
+          .filter(m => m.tenants?.app_compliance)
           .map(m => ({ ...m.tenants, rol_tenant: m.rol }))
         setTenants(lista)
         const saved = localStorage.getItem('cnl_tenant_activo')
         const encontrado = lista.find(t => t.id === saved)
-        setTenant(encontrado || lista[0])
+        setTenant(encontrado || lista[0] || null)
       } else if (prof?.tenant_id) {
         const { data: t } = await supabase
-          .from('tenants').select('*').eq('id', prof.tenant_id).single()
+          .from('tenants').select('*').eq('id', prof.tenant_id)
+          .eq('app_compliance', true).maybeSingle()
         if (t) {
           setTenant(t)
           setTenants([t])
@@ -158,6 +176,7 @@ export function AuthProvider({ children }) {
       mustChangePassword, setMustChangePassword,
       needsMFAEnroll, setNeedsMFAEnroll,
       needsMFAChallenge, setNeedsMFAChallenge,
+      sinAccesoApp,
     }}>
       {children}
     </AuthContext.Provider>
