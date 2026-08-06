@@ -70,7 +70,6 @@ function NivelBadge({ nivel }) {
 function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivelFinal, checklist, catalogo, onClose }) {
   const { tenant, profile } = useAuth()
   const nombre = tipo === 'F' ? datos.nombre : datos.razon_social
-  const nivel = NIVELES[nivelFinal] || NIVELES.medio
 
   // Documentos exigidos por este sujeto obligado (estándar SUGEF + sus ajustes)
   const todosItems = itemsChecklist(
@@ -274,27 +273,6 @@ function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivel
               })}
             </tbody>
           </table>
-        </div>
-
-        {/* Nivel de riesgo conclusión */}
-        <div className={`rounded-xl p-5 border-2 ${
-          nivelFinal === 'bajo' ? 'bg-green-50 border-green-400' :
-          nivelFinal === 'medio' ? 'bg-yellow-50 border-yellow-400' :
-          nivelFinal === 'alto' ? 'bg-orange-50 border-orange-400' :
-          'bg-red-50 border-red-400'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Conclusión — Nivel de Riesgo Asignado</p>
-              <NivelBadge nivel={nivelFinal} />
-              <p className="text-xs text-gray-600 mt-1">{nivel.desc}</p>
-            </div>
-            <div className="text-right text-xs text-gray-500 space-y-0.5">
-              <p className="font-semibold text-gray-700">Próxima actualización de expediente</p>
-              <p>{nivel.years === 1 ? '1 año' : `${nivel.years} años`} — Acuerdo SUGEF 13-19, Art. 26</p>
-              <p className="text-gray-400">Conservar 5 años mínimo — Ley 7786, Art. 24</p>
-            </div>
-          </div>
         </div>
 
         {/* Firma */}

@@ -30,8 +30,12 @@ export default async function handler(req, res) {
       { headers }
     )
     if (!authRes.ok) {
+      // GoTrue reporta el detalle en "msg"; sin esto el motivo real se pierde.
       const err = await authRes.json().catch(() => ({}))
-      return res.status(500).json({ error: err.message || 'Error al leer auth.users' })
+      const detalle = err.msg || err.message || err.error_description || err.error
+      return res.status(500).json({
+        error: `Error al leer auth.users (HTTP ${authRes.status})` + (detalle ? `: ${detalle}` : ''),
+      })
     }
     const authData = await authRes.json()
     const authUsers = authData.users || []

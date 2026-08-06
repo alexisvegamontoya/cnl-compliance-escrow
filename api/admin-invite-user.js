@@ -71,8 +71,15 @@ export default async function handler(req, res) {
         activo: true,
       }, { onConflict: 'id' })
 
+    // Sin perfil el usuario puede iniciar sesión pero /api lo rechaza con
+    // "Usuario sin perfil activo", así que se deshace la creación en Auth en vez
+    // de dejar la cuenta a medias.
     if (profError) {
       console.error('[admin-invite-user] user_profiles error:', profError)
+      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {})
+      return res.status(500).json({
+        error: 'No se pudo crear el perfil del usuario: ' + profError.message,
+      })
     }
 
     // 3. Insertar membresías

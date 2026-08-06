@@ -40,7 +40,10 @@ export default function Normativa() {
   const [busqueda, setBusqueda] = useState('')
   const fileRef = useRef(null)
 
-  const puedeSubir = isAdmin || isSuperAdmin
+  // Cargar normativa queda abierto a cualquier usuario del sujeto obligado;
+  // eliminar sigue reservado a administradores porque es destructivo.
+  const puedeSubir     = !!tenant || isSuperAdmin
+  const puedeEliminar  = isAdmin || isSuperAdmin
   const [tenants, setTenants]         = useState([])
   const [tenantIdSubir, setTenantIdSubir] = useState(tenant?.id || '')
   const [tenantIdFiltro, setTenantIdFiltro] = useState('')
@@ -299,7 +302,7 @@ export default function Normativa() {
                   className="btn-primary text-xs py-1.5 px-4">
                   ⬇ Descargar
                 </button>
-                {puedeSubir && (
+                {puedeEliminar && (
                   <button
                     onClick={() => eliminar(doc)}
                     className="text-red-500 hover:text-red-700 text-xs font-medium">

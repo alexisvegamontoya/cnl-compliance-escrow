@@ -807,7 +807,7 @@ export default function ConsultaPEP() {
                 <p className="text-xs text-gray-500">Art. 15, 15 bis o 15 ter — Obligados SUGEF</p>
               </div>
               <a
-                href="https://www.sugef.fi.cr/servicios/sujetos_obligados/"
+                href="https://www.sugef.fi.cr/sujetos%20inscritos%20ley%207786%20-%20(%20apnfds)/Consulta_Estado_Inscripcion_%20APNFDs.aspx"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs bg-blue-700 text-white px-3 py-1.5 rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-1"
