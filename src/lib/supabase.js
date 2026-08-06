@@ -17,7 +17,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const APP_ID   = 'compliance'
 export const APP_FLAG = 'app_compliance'
 
-/** Consulta de tenants ya acotada a los sujetos obligados de esta app. */
-export function tenantsDeLaApp(select = '*') {
-  return supabase.from('tenants').select(select).eq(APP_FLAG, true)
+/**
+ * Sujetos obligados de esta app, ordenados por nombre.
+ *
+ * Si la columna app_compliance todavía no existe (migración sin aplicar),
+ * Postgres responde 42703 y se reintenta sin filtro: es preferible mostrar de
+ * más a dejar la aplicación sin ningún sujeto obligado.
+ */
+export async function tenantsDeLaApp(select = '*', orden = 'nombre') {
+  const filtrada = await supabase.from('tenants').select(select).eq(APP_FLAG, true).order(orden)
+  if (!filtrada.error) return filtrada
+  if (filtrada.error.code === '42703') {
+    return supabase.from('tenants').select(select).order(orden)
+  }
+  return filtrada
+}
+
+/** ¿Este tenant pertenece a la app? Sin la columna, no se excluye a nadie. */
+export function esDeLaApp(t) {
+  return !!t && t[APP_FLAG] !== false
 }

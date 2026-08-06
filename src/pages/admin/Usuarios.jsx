@@ -446,7 +446,6 @@ export default function Usuarios() {
     cargar()
     // Cargar lista de tenants (para formulario de creación y panel de membresías)
     tenantsDeLaApp('id, nombre, actividad_apnfd')
-      .order('nombre')
       .then(({ data }) => setTenants(data || []))
   }, [cargar])
 

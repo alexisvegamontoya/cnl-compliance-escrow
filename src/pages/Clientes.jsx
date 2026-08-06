@@ -103,7 +103,7 @@ export default function Clientes() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      tenantsDeLaApp('id, nombre, actividad_apnfd, clase_dato').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre, actividad_apnfd, clase_dato').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

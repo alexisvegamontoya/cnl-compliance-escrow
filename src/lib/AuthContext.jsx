@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { supabase, tenantsDeLaApp, APP_ID } from './supabase'
+import { supabase, tenantsDeLaApp, esDeLaApp, APP_ID } from './supabase'
 
 const AuthContext = createContext(null)
 
@@ -114,7 +114,7 @@ export function AuthProvider({ children }) {
 
       if (esSuperAdmin) {
         // Superadmin: cargar TODOS los tenants para navegar como cualquiera
-        const { data: allTenants } = await tenantsDeLaApp('*').order('nombre')
+        const { data: allTenants } = await tenantsDeLaApp('*')
         if (allTenants && allTenants.length > 0) {
           const lista = allTenants.map(t => ({ ...t, rol_tenant: 'superadmin' }))
           setTenants(lista)
@@ -126,7 +126,7 @@ export function AuthProvider({ children }) {
         // La base es compartida con las otras apps: hay membresías a sujetos
         // obligados que no pertenecen a compliance y no deben aparecer acá.
         const lista = memberships
-          .filter(m => m.tenants?.app_compliance)
+          .filter(m => esDeLaApp(m.tenants))
           .map(m => ({ ...m.tenants, rol_tenant: m.rol }))
         setTenants(lista)
         const saved = localStorage.getItem('cnl_tenant_activo')
@@ -134,9 +134,8 @@ export function AuthProvider({ children }) {
         setTenant(encontrado || lista[0] || null)
       } else if (prof?.tenant_id) {
         const { data: t } = await supabase
-          .from('tenants').select('*').eq('id', prof.tenant_id)
-          .eq('app_compliance', true).maybeSingle()
-        if (t) {
+          .from('tenants').select('*').eq('id', prof.tenant_id).maybeSingle()
+        if (esDeLaApp(t)) {
           setTenant(t)
           setTenants([t])
         }

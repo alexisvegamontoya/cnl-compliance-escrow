@@ -469,7 +469,7 @@ export default function Cuestionarios() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      tenantsDeLaApp('id, nombre').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('id, nombre').then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])
 

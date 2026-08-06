@@ -96,7 +96,7 @@ export default function XMLGenerator() {
   // ── Tenants para superadmin ──
   useEffect(() => {
     if (isSuperAdmin) {
-      tenantsDeLaApp('*').order('nombre').then(({ data }) => setTenants(data || []))
+      tenantsDeLaApp('*').then(({ data }) => setTenants(data || []))
     } else {
       setTenantActivo(tenant)
       setTipoMoneda(tenant?.tipo_moneda_default || 2)

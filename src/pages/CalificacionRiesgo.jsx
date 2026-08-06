@@ -650,7 +650,7 @@ export default function CalificacionRiesgo() {
   // Cargar tenants si superadmin
   useEffect(() => {
     if (isSuperAdmin) {
-      tenantsDeLaApp('id, nombre, clase_dato').order('nombre')
+      tenantsDeLaApp('id, nombre, clase_dato')
         .then(({ data }) => setTenants(data || []))
     }
   }, [isSuperAdmin])

@@ -153,7 +153,7 @@ export default function ComplianceDashboard() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      tenantsDeLaApp('*').order('nombre').then(({ data }) => setAllTenants(data || []))
+      tenantsDeLaApp('*').then(({ data }) => setAllTenants(data || []))
     }
   }, [isSuperAdmin])
 

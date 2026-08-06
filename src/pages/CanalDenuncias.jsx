@@ -406,7 +406,6 @@ export default function CanalDenuncias() {
   useEffect(() => {
     if (isSuperAdmin) {
       tenantsDeLaApp('id, nombre, email_oficial_cumplimiento')
-        .order('nombre')
         .then(({ data }) => setTodosTenants(data || []))
     }
   }, [isSuperAdmin])

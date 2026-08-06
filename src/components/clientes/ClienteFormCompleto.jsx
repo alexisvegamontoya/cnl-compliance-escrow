@@ -115,7 +115,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
 
   useEffect(() => {
     if (!isSuperAdmin) return
-    tenantsDeLaApp('id, nombre, actividad_apnfd').order('nombre')
+    tenantsDeLaApp('id, nombre, actividad_apnfd')
       .then(({ data }) => {
         if (data) setTenants(data)
         // Si no hay tenant destino aún, dejar vacío para forzar selección

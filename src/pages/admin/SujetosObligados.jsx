@@ -34,7 +34,7 @@ export default function SujetosObligados() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await tenantsDeLaApp('*').order('nombre')
+    const { data } = await tenantsDeLaApp('*')
     setTenants(data || [])
     setLoading(false)
   }, [])
@@ -141,8 +141,12 @@ export default function SujetosObligados() {
         result = await supabase.from('tenants').update(payload).eq('id', editId)
       } else {
         // La tabla es compartida con las otras apps: lo que se crea acá nace
-        // marcado como de compliance para que solo aparezca en esta.
+        // marcado como de compliance para que solo aparezca en esta. Si la
+        // columna aún no existe (migración sin aplicar) se inserta sin ella.
         result = await supabase.from('tenants').insert({ ...payload, [APP_FLAG]: true })
+        if (result.error?.code === '42703') {
+          result = await supabase.from('tenants').insert(payload)
+        }
       }
       if (result.error) throw result.error
       cancelar()
