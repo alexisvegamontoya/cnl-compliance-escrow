@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { clasificarError } from '../lib/errorHandler'
@@ -25,8 +25,16 @@ const ESTADO_CONFIG = {
   archivado:   { label: 'Archivado',    color: 'bg-gray-100 text-gray-500 border-gray-200' },
 }
 
-async function enviarEmail(denuncia, tenantNombre) {
+// Copia permanente para CNL; el destinatario principal es el oficial de
+// cumplimiento del sujeto obligado al que se asigna la denuncia.
+const EMAIL_CNL = 'canaldedenuncias@cnl.cr'
+
+async function enviarEmail(denuncia, tenantNombre, emailOficial) {
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) return
+
+  const destino = emailOficial?.trim()
+    ? `${emailOficial.trim()}, ${EMAIL_CNL}`
+    : EMAIL_CNL
 
   try {
     const { default: emailjs } = await import('@emailjs/browser')
@@ -34,7 +42,7 @@ async function enviarEmail(denuncia, tenantNombre) {
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
       {
-        to_email:    'canaldedenuncias@cnl.cr',
+        to_email:    destino,
         tipo:        TIPO_LABEL[denuncia.tipo],
         sujeto:      tenantNombre || 'No especificado',
         descripcion: denuncia.descripcion,
@@ -52,22 +60,28 @@ async function enviarEmail(denuncia, tenantNombre) {
 }
 
 // ─── Formulario de envío ───────────────────────────────────────────────────────
-function FormularioDenuncia({ tenant, profile, onEnviado }) {
+function FormularioDenuncia({ tenant, opciones, profile, onEnviado }) {
   const [form, setForm]     = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
   const [exito, setExito]   = useState(false)
+  // Sujeto obligado al que se asigna la denuncia. Arranca en el activo, pero
+  // se elige explícitamente porque define quién la atiende y a quién le llega.
+  const [tenantId, setTenantId] = useState(tenant?.id || '')
+
+  const tenantElegido = opciones.find(t => t.id === tenantId) || null
 
   function set(f, v) { setForm(p => ({ ...p, [f]: v })) }
 
   async function enviar(e) {
     e.preventDefault()
     if (!form.descripcion.trim()) { setError('La descripción es obligatoria.'); return }
+    if (!tenantId) { setError('Seleccione el sujeto obligado al que corresponde el reporte.'); return }
     setSaving(true)
     setError('')
 
     const payload = {
-      tenant_id:         tenant?.id || null,
+      tenant_id:         tenantId,
       tipo:              form.tipo,
       descripcion:       form.descripcion.trim(),
       fecha_hecho:       form.fecha_hecho || null,
@@ -80,8 +94,8 @@ function FormularioDenuncia({ tenant, profile, onEnviado }) {
     const { error: err } = await supabase.from('denuncias').insert(payload)
     if (err) { setError(clasificarError(err)); setSaving(false); return }
 
-    // Enviar email
-    await enviarEmail(payload, tenant?.nombre)
+    // Notificar al oficial de cumplimiento del sujeto obligado elegido
+    await enviarEmail(payload, tenantElegido?.nombre, tenantElegido?.email_oficial_cumplimiento)
 
     setExito(true)
     setForm(EMPTY)
@@ -113,6 +127,29 @@ function FormularioDenuncia({ tenant, profile, onEnviado }) {
       </div>
 
       <ErrorBanner error={error} onClose={() => setError(null)} />
+
+      {/* Sujeto obligado al que se asigna */}
+      <div>
+        <label className="label">Sujeto obligado *</label>
+        <select
+          className="input-field"
+          value={tenantId}
+          onChange={e => setTenantId(e.target.value)}
+          required
+        >
+          <option value="">— Seleccione el sujeto obligado —</option>
+          {opciones.map(t => (
+            <option key={t.id} value={t.id}>{t.nombre}</option>
+          ))}
+        </select>
+        {tenantElegido && (
+          <p className="text-xs text-gray-400 mt-1">
+            {tenantElegido.email_oficial_cumplimiento
+              ? `Se notificará al oficial de cumplimiento: ${tenantElegido.email_oficial_cumplimiento}`
+              : '⚠ Este sujeto obligado no tiene oficial de cumplimiento registrado; el reporte llegará solo a CNL.'}
+          </p>
+        )}
+      </div>
 
       {/* Tipo */}
       <div>
@@ -359,9 +396,22 @@ function VistaSuperAdmin() {
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function CanalDenuncias() {
-  const { tenant, profile, isSuperAdmin } = useAuth()
+  const { tenant, tenantsDisponibles, profile, isSuperAdmin } = useAuth()
   const [tab, setTab] = useState(isSuperAdmin ? 'bandeja' : 'nuevo')
   const [refresh, setRefresh] = useState(0)
+  const [todosTenants, setTodosTenants] = useState([])
+
+  // El superadmin puede asignar la denuncia a cualquier sujeto obligado;
+  // el resto, solo a los suyos.
+  useEffect(() => {
+    if (isSuperAdmin) {
+      tenantsDeLaApp('id, nombre, email_oficial_cumplimiento')
+        .order('nombre')
+        .then(({ data }) => setTodosTenants(data || []))
+    }
+  }, [isSuperAdmin])
+
+  const opciones = isSuperAdmin ? todosTenants : (tenantsDisponibles || [])
 
   return (
     <div className="p-6 max-w-4xl space-y-6">
@@ -399,6 +449,7 @@ export default function CanalDenuncias() {
       {tab === 'nuevo' && (
         <FormularioDenuncia
           tenant={tenant}
+          opciones={opciones}
           profile={profile}
           onEnviado={() => setRefresh(r => r + 1)}
         />

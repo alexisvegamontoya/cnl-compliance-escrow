@@ -752,7 +752,7 @@ export default function ConsultaPEP() {
                 <p className="text-xs text-gray-500">Verificar morosidad patronal / obrero-patronal</p>
               </div>
               <a
-                href={`https://enlinea.ccss.sa.cr/verificacion/`}
+                href="https://aissfa.ccss.sa.cr/moroso/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs bg-dorado-600 text-white px-3 py-1.5 rounded-lg hover:bg-dorado-700 transition-colors flex items-center gap-1"

@@ -13,13 +13,6 @@ import ChecklistDocumental from '../components/clientes/ChecklistDocumental'
 
 const ROLES = ['Representante Legal', 'Socio/Accionista', 'Beneficiario Final', 'Apoderado', 'Junta Directiva']
 
-const NIVELES = {
-  bajo:     { label: '🟢 BAJO',     desc: 'DDC estándar — riesgo bajo', color: 'green',  years: 3 },
-  medio:    { label: '🟡 MEDIO',    desc: 'DDC estándar + seguimiento', color: 'yellow', years: 2 },
-  alto:     { label: '🟠 ALTO',     desc: 'DDC ampliada — Art. 23-24',  color: 'orange', years: 1 },
-  muy_alto: { label: '🔴 MUY ALTO', desc: 'DDC ampliada + alta gerencia', color: 'red', years: 1 },
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBCOMPONENTES
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,22 +45,11 @@ function Stepper({ paso }) {
   )
 }
 
-function NivelBadge({ nivel }) {
-  if (!nivel || !NIVELES[nivel]) return null
-  const n = NIVELES[nivel]
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold text-white ${
-      nivel === 'bajo' ? 'bg-green-600' : nivel === 'medio' ? 'bg-yellow-500' :
-      nivel === 'alto' ? 'bg-orange-600' : 'bg-red-700'
-    }`}>{n.label}</span>
-  )
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // REPORTE PDF
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivelFinal, checklist, catalogo, onClose }) {
+function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, checklist, catalogo, onClose }) {
   const { tenant, profile } = useAuth()
   const nombre = tipo === 'F' ? datos.nombre : datos.razon_social
 
@@ -151,7 +133,6 @@ function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, nivel
               <div className="flex gap-2"><span className="text-gray-500 w-32 flex-shrink-0">Elaborado por:</span><span className="font-semibold">{profile?.nombre || profile?.email}</span></div>
               <div className="flex gap-2"><span className="text-gray-500 w-32 flex-shrink-0">Sujeto Obligado:</span><span>{tenant?.nombre}</span></div>
               <div className="flex gap-2"><span className="text-gray-500 w-32 flex-shrink-0">Fecha:</span><span>{new Date().toLocaleString('es-CR')}</span></div>
-              <div className="flex gap-2"><span className="text-gray-500 w-32 flex-shrink-0">Nivel de riesgo:</span><NivelBadge nivel={nivelFinal} /></div>
               <div className="flex gap-2"><span className="text-gray-500 w-32 flex-shrink-0">Documentos:</span><span>{itemsOk}/{itemsTot} recopilados</span></div>
               <div className="flex gap-2"><span className="text-gray-500 w-32 flex-shrink-0">Personas consultadas:</span><span>{Object.keys(resultadosListas).length}</span></div>
             </div>
@@ -440,13 +421,11 @@ export default function DebilidaDiligencia() {
 
   // ── Paso 3: Perfil IA ──────────────────────────────────────────────────────
   const [perfil, setPerfil]     = useState('')
-  const [nivelIA, setNivelIA]   = useState('')
   const [cargandoIA, setCargandoIA] = useState(false)
   const [errorIA, setErrorIA]   = useState('')
 
   // ── Paso 4: Checklist + riesgo ─────────────────────────────────────────────
   const [checklist, setChecklist]     = useState({})
-  const [nivelFinal, setNivelFinal]   = useState('medio')
   const [justificacion, setJustificacion] = useState('')
 
   // Detectar PEP en resultados
@@ -500,10 +479,8 @@ export default function DebilidaDiligencia() {
       }
       setResultadosListas(nuevos)
 
-      // Sugerir nivel de riesgo automático según resultados
-      const hayAlerta  = Object.values(nuevos).some(r => r.nivel === 'ALERTA')
-      const hayRevisar = Object.values(nuevos).some(r => r.nivel === 'REVISAR' || r.esPEP)
-      setNivelFinal(hayAlerta ? 'muy_alto' : hayRevisar ? 'alto' : nivelFinal)
+      // La calificación de riesgo no se asigna acá: es competencia exclusiva
+      // del módulo de Calificación de Riesgo.
     } catch (e) {
       setError('Error al consultar listas: ' + e.message)
     } finally {
@@ -530,13 +507,9 @@ export default function DebilidaDiligencia() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al generar perfil')
+      // Solo el perfil narrativo: el nivel sugerido por la IA se ignora a
+      // propósito, la calificación se asigna en el módulo correspondiente.
       setPerfil(data.perfil)
-      setNivelIA((data.nivel_sugerido || 'MEDIO').toLowerCase().replace('muy_alto', 'muy_alto'))
-      // Actualizar sugerencia si no hay alerta previa
-      if (data.nivel_sugerido) {
-        const n = data.nivel_sugerido.toLowerCase()
-        if (!['muy_alto', 'alto'].includes(nivelFinal)) setNivelFinal(n)
-      }
     } catch (e) {
       setErrorIA(e.message)
     } finally {
@@ -555,8 +528,6 @@ export default function DebilidaDiligencia() {
         participantes,
         resultados_listas:   resultadosListas,
         perfil_ia:           perfil,
-        nivel_riesgo_ia:     nivelIA,
-        nivel_riesgo_final:  nivelFinal,
         justificacion_manual: justificacion,
         checklist,
         estado:              'completado',
@@ -586,7 +557,7 @@ export default function DebilidaDiligencia() {
       await logAudit({
         accion:      'crear',
         tabla:       'expedientes_dd',
-        descripcion: `Expediente DD: ${tipo === 'F' ? datos.nombre : datos.razon_social} — Riesgo: ${nivelFinal}`,
+        descripcion: `Expediente DD: ${tipo === 'F' ? datos.nombre : datos.razon_social}`,
       })
       setGuardadoOk(true)
     } catch (e) {
@@ -632,7 +603,7 @@ export default function DebilidaDiligencia() {
       <ReporteDD
         tipo={tipo} datos={datos} participantes={participantes}
         resultadosListas={resultadosListas} perfil={perfil}
-        nivelFinal={nivelFinal} checklist={checklist} catalogo={catalogoDoc}
+        checklist={checklist} catalogo={catalogoDoc}
         onClose={() => setShowPDF(false)}
       />
     )
@@ -1038,10 +1009,6 @@ export default function DebilidaDiligencia() {
 
             {perfil && !cargandoIA && (
               <div className="space-y-3">
-                <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-2.5 border border-gray-200">
-                  <span className="text-sm text-gray-600">Nivel de riesgo sugerido por IA:</span>
-                  <NivelBadge nivel={nivelIA} />
-                </div>
                 <div className="border border-gray-200 rounded-xl p-5 bg-gray-50">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Perfil Narrativo del Cliente</p>
                   <div className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{perfil}</div>
@@ -1097,9 +1064,8 @@ export default function DebilidaDiligencia() {
             <div className="text-5xl">📄</div>
             <div>
               <p className="font-bold text-gray-900 text-lg">Expediente listo</p>
-              <p className="text-gray-500 text-sm mt-1 flex items-center gap-2 justify-center flex-wrap">
-                <span>{tipo === 'F' ? datos.nombre : datos.razon_social}</span>
-                <NivelBadge nivel={nivelFinal} />
+              <p className="text-gray-500 text-sm mt-1">
+                {tipo === 'F' ? datos.nombre : datos.razon_social}
               </p>
             </div>
 
@@ -1143,8 +1109,8 @@ export default function DebilidaDiligencia() {
                   pais_residencia:'Costa Rica', fecha_nacimiento:'', ocupacion:'', proposito:'',
                   razon_social:'', cedula_juridica:'', pais_constitucion:'Costa Rica',
                   actividad_ciiu:'', fecha_constitucion:'', proposito_pj:'',
-                }); setParticipantes([]); setResultadosListas({}); setPerfil(''); setNivelIA('');
-                setChecklist({}); setNivelFinal('medio'); setJustificacion(''); setGuardadoOk(false);
+                }); setParticipantes([]); setResultadosListas({}); setPerfil('');
+                setChecklist({}); setJustificacion(''); setGuardadoOk(false);
               }} className="border border-gray-300 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
                 + Nuevo expediente
               </button>
