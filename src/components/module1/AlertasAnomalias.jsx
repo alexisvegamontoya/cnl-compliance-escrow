@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, traerTodo } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import { evaluarSeñalesAPNFD, etiquetaActividad } from '../../lib/señalesAlertaAPNFD'
 
@@ -47,12 +47,13 @@ export default function AlertasAnomalias({ periodo, onCount }) {
     const desde = periodo + '-01'
     const hasta = periodo + '-31'
 
-    const { data: txns } = await supabase
+    const { data: txns } = await traerTodo(() => supabase
       .from('transacciones')
       .select('*')
       .eq('tenant_id', tenant.id)
       .gte('periodo', desde)
       .lte('periodo', hasta)
+      .order('id'))
 
     if (!txns || txns.length === 0) {
       setAlertas([])

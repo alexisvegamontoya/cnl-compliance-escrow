@@ -4,7 +4,7 @@ import TransactionList from '../components/module1/TransactionList'
 import CargaMasivaTransacciones from '../components/carga/CargaMasivaTransacciones'
 import CalendarioReportes from '../components/module1/CalendarioReportes'
 import { useAuth } from '../lib/AuthContext'
-import { supabase } from '../lib/supabase'
+import { supabase, traerTodo } from '../lib/supabase'
 import { exportarExcel } from '../lib/exportExcel'
 import { logAudit } from '../lib/auditLog'
 
@@ -37,8 +37,9 @@ export default function Transacciones() {
           <button
             onClick={async () => {
               if (!tenant?.id) { alert('Seleccione un sujeto obligado primero.'); return }
-              const { data } = await supabase.from('transacciones').select('*')
-                .eq('tenant_id', tenant.id).order('fecha_transaccion', { ascending: false })
+              const { data } = await traerTodo(() => supabase.from('transacciones').select('*')
+                .eq('tenant_id', tenant.id)
+                .order('fecha_transaccion', { ascending: false }).order('id'))
               if (!data || !data.length) { alert('No hay transacciones para exportar.'); return }
               exportarExcel({
                 data: data.map(r => ({ ...r, enviado_sugef: r.enviado_sugef ? 'Si' : 'No' })),

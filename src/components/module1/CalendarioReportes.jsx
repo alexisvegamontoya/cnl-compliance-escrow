@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, traerTodo } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -179,14 +179,17 @@ export default function CalendarioReportes({ tenantId, refreshTrigger }) {
     const desde = periodos[0]
     const hasta = periodos[periodos.length - 1]
 
-    // Cargar transacciones y declaraciones en paralelo
+    // Cargar transacciones y declaraciones en paralelo.
+    // Las transacciones van paginadas: sin esto PostgREST corta en 1000 filas
+    // y los meses que caen fuera de ese corte aparecen como pendientes.
     const [{ data: txns }, { data: decls }] = await Promise.all([
-      supabase
+      traerTodo(() => supabase
         .from('transacciones')
         .select('periodo, monto_movimiento')
         .eq('tenant_id', tenantId)
         .gte('periodo', desde)
-        .lte('periodo', hasta),
+        .lte('periodo', hasta)
+        .order('id')),
       supabase
         .from('periodos_declarados')
         .select('*')
@@ -226,9 +229,11 @@ export default function CalendarioReportes({ tenantId, refreshTrigger }) {
       } else if (txn && txn.count > 0) {
         estado = 'reportado'
         tipo   = 'con_movimiento'
-      } else if (decl?.tipo === 'sin_movimiento') {
+      } else if (decl) {
+        // Cualquier declaración cuenta como período atendido, no solo las de
+        // "sin movimiento": las de "con movimiento" también se registran.
         estado = 'reportado'
-        tipo   = 'sin_movimiento'
+        tipo   = decl.tipo || 'sin_movimiento'
       } else {
         estado = 'pendiente'
       }

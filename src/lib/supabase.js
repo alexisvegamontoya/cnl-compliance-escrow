@@ -33,6 +33,31 @@ export async function tenantsDeLaApp(select = '*', orden = 'nombre') {
   return filtrada
 }
 
+/**
+ * Trae TODAS las filas de una consulta, en tandas.
+ *
+ * PostgREST corta en 1000 filas y no avisa: la respuesta llega igual de
+ * exitosa, solo que incompleta. En tablas grandes (transacciones, clientes)
+ * eso hace que los conteos y los agrupamientos salgan mal en silencio.
+ *
+ * Recibe una FÁBRICA de consultas porque cada builder de supabase-js se
+ * consume al ejecutarse y hay que construir uno nuevo por tanda. La consulta
+ * debe traer un .order() estable, o la paginación puede repetir u omitir filas.
+ *
+ *   const { data } = await traerTodo(() =>
+ *     supabase.from('transacciones').select('periodo').eq('tenant_id', id).order('id'))
+ */
+export async function traerTodo(fabricaConsulta, tam = 1000) {
+  const filas = []
+  for (let desde = 0; ; desde += tam) {
+    const { data, error } = await fabricaConsulta().range(desde, desde + tam - 1)
+    if (error) return { data: null, error }
+    filas.push(...(data || []))
+    if (!data || data.length < tam) break
+  }
+  return { data: filas, error: null }
+}
+
 /** ¿Este tenant pertenece a la app? Sin la columna, no se excluye a nadie. */
 export function esDeLaApp(t) {
   return !!t && t[APP_FLAG] !== false

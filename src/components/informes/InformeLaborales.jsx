@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, traerTodo } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import { imprimirDocumento, esc, escMultilinea, fechaLarga } from '../../utils/imprimirDocumento'
 
@@ -119,8 +119,10 @@ export default function InformeLaborales({ tenantEfectivo }) {
       // La columna es fecha_aprobacion_jd; se incluye también lo actualizado
       // en el período aunque su aprobación sea anterior.
       supabase.from('normativa').select('*').eq('tenant_id', tenant.id).eq('activo', true),
-      supabase.from('transacciones').select('*').eq('tenant_id', tenant.id)
-        .gte('periodo', desde).lte('periodo', hasta),
+      // Paginado: con el tope de 1000 filas los totales del año salían cortos.
+      traerTodo(() => supabase.from('transacciones').select('monto_movimiento, periodo')
+        .eq('tenant_id', tenant.id)
+        .gte('periodo', desde).lte('periodo', hasta).order('id')),
       supabase.from('periodos_declarados').select('*').eq('tenant_id', tenant.id)
         .gte('periodo', desde).lte('periodo', hasta),
       supabase.from('expedientes_dd').select('*').eq('tenant_id', tenant.id)

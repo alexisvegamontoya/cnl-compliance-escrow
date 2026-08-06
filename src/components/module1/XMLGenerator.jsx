@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase, tenantsDeLaApp } from '../../lib/supabase'
+import { supabase, tenantsDeLaApp, traerTodo } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import { generarXMLSICVECA, descargarXML } from '../../lib/xmlGenerator'
 import { TIPO_CARGA } from '../../lib/catalogos'
@@ -149,11 +149,13 @@ export default function XMLGenerator() {
       const [yr, mo] = periodo.split('-').map(Number)
       const hasta = `${periodo}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}`
 
-      const { data: txs, error: txErr } = await supabase
+      // Paginado: un XML incompleto por el tope de 1000 filas de PostgREST
+      // sería un reporte mal presentado ante SUGEF.
+      const { data: txs, error: txErr } = await traerTodo(() => supabase
         .from('transacciones').select('*')
         .eq('tenant_id', tenantActivo.id)
         .gte('periodo', desde).lte('periodo', hasta)
-        .order('created_at')
+        .order('created_at').order('id'))
 
       if (txErr) throw txErr
       if (!txs || txs.length === 0) {
