@@ -110,6 +110,7 @@ export function documentoHTML({ titulo, subtitulo = '', cuerpo, tenant, profile,
     table.datos tr.total td { background: #eef2fc; font-weight: bold; color: #0a1247; }
 
     .stats { display: grid; gap: 8px; margin-bottom: 9px; }
+    .stats.c2 { grid-template-columns: repeat(2, 1fr); }
     .stats.c3 { grid-template-columns: repeat(3, 1fr); }
     .stats.c4 { grid-template-columns: repeat(4, 1fr); }
     .stat { background: #f7f7f9; border: 1px solid #e4e4ea; border-radius: 6px; padding: 8px 10px; }
