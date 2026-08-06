@@ -77,15 +77,18 @@ WHERE confirmation_token         IS NULL
 -- PASO 3 (B) Crear los perfiles que faltan
 -- Solo para usuarios de Auth que YA tienen una membresía asignada
 -- (es decir, a los que un administrador ya dio acceso).
--- El nombre sale de los metadatos de Auth; el rol queda 'operador'
--- igual que en api/admin-invite-user.js. Es idempotente.
+-- El nombre sale de los metadatos de Auth. El rol es 'usuario': el CHECK de
+-- user_profiles.rol solo admite usuario / admin_tenant / superadmin. El valor
+-- 'operador' pertenece a user_tenant_memberships.rol, que es otra tabla — esa
+-- confusión es justamente la que impedía crear estos perfiles.
+-- Es idempotente.
 -- ────────────────────────────────────────────────────────────
 INSERT INTO user_profiles (id, email, nombre, rol, activo, tenant_id)
 SELECT
   au.id,
   lower(au.email),
   COALESCE(NULLIF(au.raw_user_meta_data->>'nombre', ''), au.email),
-  'operador',
+  'usuario',
   TRUE,
   (SELECT m.tenant_id
      FROM user_tenant_memberships m

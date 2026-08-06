@@ -67,7 +67,11 @@ export default async function handler(req, res) {
         id:     userId,
         email:  email.toLowerCase().trim(),
         nombre: nombre.trim(),
-        rol:    'operador',
+        // OJO: user_profiles.rol y user_tenant_memberships.rol NO comparten
+        // valores. Acá el CHECK solo admite usuario / admin_tenant / superadmin;
+        // 'operador' es de las membresías y hacía fallar el insert del perfil,
+        // dejando cuentas capaces de iniciar sesión pero sin perfil.
+        rol:    'usuario',
         activo: true,
       }, { onConflict: 'id' })
 
