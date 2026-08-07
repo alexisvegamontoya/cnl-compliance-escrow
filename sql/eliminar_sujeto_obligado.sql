@@ -18,6 +18,11 @@
 -- Al correr dentro de una sola transaccion, o se borra todo o no se
 -- borra nada.
 --
+-- OJO: eliminar_sujeto_obligado() se amplio despues en
+-- sql/retencion_ros_denuncias.sql, que la reemplaza para archivar los ROS y
+-- las denuncias antes de borrar. Si corre este archivo de nuevo, vuelva a
+-- correr aquel despues o perdera la retencion.
+--
 -- EJECUTAR en Supabase -> SQL Editor -> New query -> Run
 -- ============================================================
 

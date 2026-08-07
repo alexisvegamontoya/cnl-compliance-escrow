@@ -243,10 +243,20 @@ export default function SujetosObligados() {
         ? detalle.map(([tabla, n]) => `  • ${n} en ${tabla.replace(/^public\./, '')}`).join('\n')
         : '  • sin información asociada'
 
+      // Los ROS y las denuncias tienen plazo de retención propio: no se
+      // pierden, se archivan. Ver sql/retencion_ros_denuncias.sql
+      const retenidos = [
+        ['reportes_ros', 'ROS'], ['denuncias', 'denuncias'],
+      ].filter(([tabla]) => dependencias[`public.${tabla}`])
+        .map(([tabla, etiqueta]) => `${dependencias[`public.${tabla}`]} ${etiqueta}`)
+
       if (!confirm(
         `¿Eliminar "${t.nombre}" y TODA su información?\n\n` +
         `Se eliminarán:\n${inventario}\n\n` +
         `Incluye lo que tenga en el Evaluador de Riesgos y en Capacitación.\n` +
+        (retenidos.length
+          ? `Se conservan en el archivo legal: ${retenidos.join(' y ')}.\n`
+          : '') +
         `Antes se descargará un respaldo en Excel.\n\n` +
         `Esta acción no se puede deshacer.`
       )) return
