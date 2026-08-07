@@ -93,6 +93,12 @@ export function clasificarError(error) {
   const hint    = error.hint    || ''
   const msgLow  = (msg + details + hint).toLowerCase()
 
+  // 0. RAISE EXCEPTION de una función nuestra (P0001). El mensaje ya viene
+  // redactado para el usuario y explica qué hacer, así que se muestra tal cual.
+  if (code === 'P0001' && msg) {
+    return { tipo: 'operativo', mensaje: msg }
+  }
+
   // 1. Verificar por código PostgreSQL conocido como operativo
   if (CODIGOS_OPERATIVOS[code]) {
     const amigable = mensajeAmigable(msg)

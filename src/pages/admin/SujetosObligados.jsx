@@ -18,6 +18,28 @@ const EMPTY = {
   logo_url: '',
 }
 
+/**
+ * Tablas que se vuelcan al respaldo antes de eliminar, con el nombre de su
+ * hoja. Son las de esta app; lo que el sujeto obligado tenga en las otras dos
+ * queda listado en la hoja Inventario, con el conteo por tabla.
+ */
+const TABLAS_RESPALDO = [
+  ['transacciones',          'Transacciones'],
+  ['clientes',               'Clientes'],
+  ['periodos_declarados',    'Periodos'],
+  ['expedientes_dd',         'Debida diligencia'],
+  ['denuncias',              'Denuncias'],
+  ['reportes_ros',           'ROS'],
+  ['normativa',              'Normativa'],
+  ['informes_generados',     'Informes'],
+  ['consultas_listas',       'Consultas listas'],
+  ['compliance_seguimiento', 'Seguimiento'],
+  ['calificaciones_riesgo',  'Calificacion riesgo'],
+  ['cuestionarios_enviados', 'Cuestionarios'],
+  ['catalogo_documentos',    'Catalogo documentos'],
+  ['perfil_sujeto_obligado', 'Perfil'],
+]
+
 export default function SujetosObligados() {
   const [tenants, setTenants]         = useState([])
   const [loading, setLoading]         = useState(true)
@@ -164,44 +186,74 @@ export default function SujetosObligados() {
     load()
   }
 
-  async function eliminarConRespaldo(t) {
-    if (!confirm(`¿Eliminar "${t.nombre}" y TODA su información?\n\nSe generará un respaldo en Excel antes de eliminar. Esta acción no se puede deshacer.`)) return
+  async function descargarRespaldo(t, dependencias) {
+    const resultados = await Promise.all(
+      TABLAS_RESPALDO.map(([tabla]) => supabase.from(tabla).select('*').eq('tenant_id', t.id))
+    )
+    const { data: mems } = await supabase
+      .from('user_tenant_memberships')
+      .select('*, user_profiles(nombre, email)')
+      .eq('tenant_id', t.id)
 
+    const { utils, writeFile } = await import('xlsx')
+    const wb = utils.book_new()
+
+    utils.book_append_sheet(wb, utils.json_to_sheet([{
+      nombre: t.nombre, cedula_juridica: t.cedula_juridica,
+      actividad_apnfd: t.actividad_apnfd, tipo_sujeto: t.tipo_sujeto,
+      clase_dato: t.clase_dato, archivo: t.archivo,
+      email_oficial_cumplimiento: t.email_oficial_cumplimiento,
+      fecha_respaldo: new Date().toISOString(),
+    }]), 'Info')
+
+    // Inventario de TODO lo que se borra, incluidas las tablas del Evaluador
+    // y de Capacitación, que esta app no sabe leer.
+    utils.book_append_sheet(wb, utils.json_to_sheet(
+      Object.entries(dependencias).map(([tabla, filas]) => ({ tabla, filas }))
+    ), 'Inventario')
+
+    resultados.forEach(({ data }, i) => {
+      if (data?.length) utils.book_append_sheet(wb, utils.json_to_sheet(data), TABLAS_RESPALDO[i][1])
+    })
+    if (mems?.length) utils.book_append_sheet(wb, utils.json_to_sheet(
+      mems.map(m => ({ usuario: m.user_profiles?.nombre, email: m.user_profiles?.email, rol: m.rol }))
+    ), 'Usuarios')
+
+    const nombre = t.nombre.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40)
+    const fecha  = new Date().toISOString().substring(0, 10)
+    writeFile(wb, `RESPALDO_${nombre}_${fecha}.xlsx`)
+  }
+
+  /**
+   * El borrado corre en la base (eliminar_sujeto_obligado), no acá: hay 36
+   * tablas con tenant_id repartidas entre las tres apps y borrarlas una por
+   * una desde el navegador no es atómico. Ver sql/eliminar_sujeto_obligado.sql
+   */
+  async function eliminarConRespaldo(t) {
     setError('')
     setSaving(true)
     try {
-      const [{ data: txns }, { data: clientes }, { data: periodos }, { data: mems }] = await Promise.all([
-        supabase.from('transacciones').select('*').eq('tenant_id', t.id),
-        supabase.from('clientes').select('*').eq('tenant_id', t.id),
-        supabase.from('periodos_declarados').select('*').eq('tenant_id', t.id),
-        supabase.from('user_tenant_memberships').select('*, user_profiles(nombre, email)').eq('tenant_id', t.id),
-      ])
+      const { data: deps, error: depErr } = await supabase
+        .rpc('contar_dependencias_sujeto_obligado', { p_tenant: t.id })
+      if (depErr) throw depErr
 
-      const { utils, writeFile } = await import('xlsx')
-      const wb = utils.book_new()
+      const dependencias = deps || {}
+      const detalle = Object.entries(dependencias).sort((a, b) => b[1] - a[1])
+      const inventario = detalle.length
+        ? detalle.map(([tabla, n]) => `  • ${n} en ${tabla.replace(/^public\./, '')}`).join('\n')
+        : '  • sin información asociada'
 
-      const infoSheet = utils.json_to_sheet([{
-        nombre: t.nombre, cedula_juridica: t.cedula_juridica,
-        actividad_apnfd: t.actividad_apnfd, tipo_sujeto: t.tipo_sujeto,
-        clase_dato: t.clase_dato, archivo: t.archivo,
-        email_oficial_cumplimiento: t.email_oficial_cumplimiento,
-        fecha_respaldo: new Date().toISOString(),
-      }])
-      utils.book_append_sheet(wb, infoSheet, 'Info')
+      if (!confirm(
+        `¿Eliminar "${t.nombre}" y TODA su información?\n\n` +
+        `Se eliminarán:\n${inventario}\n\n` +
+        `Incluye lo que tenga en el Evaluador de Riesgos y en Capacitación.\n` +
+        `Antes se descargará un respaldo en Excel.\n\n` +
+        `Esta acción no se puede deshacer.`
+      )) return
 
-      if (txns?.length)     utils.book_append_sheet(wb, utils.json_to_sheet(txns),    'Transacciones')
-      if (clientes?.length) utils.book_append_sheet(wb, utils.json_to_sheet(clientes), 'Clientes')
-      if (periodos?.length) utils.book_append_sheet(wb, utils.json_to_sheet(periodos), 'Periodos')
-      if (mems?.length)     utils.book_append_sheet(wb, utils.json_to_sheet(
-        mems.map(m => ({ usuario: m.user_profiles?.nombre, email: m.user_profiles?.email, rol: m.rol }))
-      ), 'Usuarios')
+      await descargarRespaldo(t, dependencias)
 
-      const nombre = t.nombre.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40)
-      const fecha  = new Date().toISOString().substring(0, 10)
-      writeFile(wb, `RESPALDO_${nombre}_${fecha}.xlsx`)
-
-      await supabase.from('user_tenant_memberships').delete().eq('tenant_id', t.id)
-      const { error: delErr } = await supabase.from('tenants').delete().eq('id', t.id)
+      const { error: delErr } = await supabase.rpc('eliminar_sujeto_obligado', { p_tenant: t.id })
       if (delErr) throw delErr
 
       load()
