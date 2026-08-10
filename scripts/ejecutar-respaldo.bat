@@ -1,5 +1,8 @@
 @echo off
-cd /d "C:\Users\alexi\OneDrive\Cumplimiento\claude\Desarrollo de la app\cnl-compliance-app"
+:: Se sitúa en la raíz del proyecto a partir de la ubicación de este archivo.
+:: Antes tenía la ruta escrita a mano y apuntaba a OneDrive; al mudarse el
+:: proyecto a C:\Proyectos el respaldo dejó de correr sin que nadie lo notara.
+cd /d "%~dp0.."
 echo.
 echo ============================================
 echo   CNL Compliance - Respaldo de datos

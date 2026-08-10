@@ -21,7 +21,7 @@
  *   La variable SUPABASE_SERVICE_ROLE_KEY debe estar en .env.local
  */
 
-import { createWriteStream, mkdirSync, existsSync } from 'fs'
+import { createWriteStream, mkdirSync, existsSync, writeFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { readFileSync } from 'fs'
@@ -53,20 +53,79 @@ if (!SERVICE_KEY) {
 // ──────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────
+/** Errores acumulados: si hay alguno, el respaldo termina con código != 0. */
+const fallos = []
+
+/**
+ * Trae la tabla completa, paginando.
+ *
+ * PostgREST corta en `max_rows` (1000 en este proyecto) y NO avisa: devuelve
+ * 200 con las primeras mil filas. Pedir `limit=100000` no lo evita. Sin
+ * paginar, el respaldo de transacciones guardaba 1000 de 3320 y el de
+ * listas_sanciones 1000 de 20738, con cara de haber salido bien.
+ */
 async function fetchAll(table, filter = '') {
-  const url = `${SUPABASE_URL}/rest/v1/${table}?select=*${filter}&limit=100000`
-  const res = await fetch(url, {
-    headers: {
-      'apikey': SERVICE_KEY,
-      'Authorization': `Bearer ${SERVICE_KEY}`,
-    },
-  })
-  if (!res.ok) {
-    console.warn(`  ⚠ No se pudo leer ${table}: ${res.status}`)
-    return []
+  const PAGINA = 1000
+  const filas = []
+
+  for (let desde = 0; ; desde += PAGINA) {
+    const url = `${SUPABASE_URL}/rest/v1/${table}?select=*${filter}`
+    const res = await fetch(url, {
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        Range: `${desde}-${desde + PAGINA - 1}`,
+        'Range-Unit': 'items',
+      },
+    })
+
+    if (!res.ok && res.status !== 206) {
+      // Antes esto solo avisaba y devolvía []. La tabla quedaba registrada como
+      // "(vacía)" y el respaldo terminaba en éxito: así estuvo semanas la tabla
+      // ros_reportes, que ni siquiera existe (se llama reportes_ros).
+      const detalle = await res.text().catch(() => '')
+      fallos.push(`${table}: HTTP ${res.status} ${detalle.slice(0, 120)}`)
+      console.error(`  ❌ No se pudo leer ${table}: ${res.status}`)
+      return []
+    }
+
+    const lote = await res.json()
+    filas.push(...lote)
+    if (lote.length < PAGINA) return filas
+
+    if (desde > 5_000_000) {          // red de seguridad ante un bucle infinito
+      fallos.push(`${table}: se superó el máximo de páginas`)
+      return filas
+    }
   }
-  return await res.json()
 }
+
+/**
+ * Tablas a respaldar, leídas del propio esquema de la API.
+ *
+ * Se descubren en cada corrida en vez de mantenerse a mano: una lista fija se
+ * desactualiza en silencio cuando se agrega una tabla, y nadie lo nota hasta
+ * que hace falta el respaldo.
+ */
+async function descubrirTablas() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+  })
+  if (!res.ok) throw new Error(`No se pudo leer el esquema de la API: ${res.status}`)
+  const esquema = await res.json()
+
+  return Object.keys(esquema.definitions || {})
+    .filter((t) => !EXCLUIDAS.has(t))
+    .filter((t) => !/^(v_|vw_)/.test(t))   // las vistas se derivan de las tablas
+    .sort()
+}
+
+/**
+ * Fuera del respaldo por tamaño, y porque se regeneran desde su fuente
+ * original: el padrón de la SUGEF (8,5 millones de filas, no entra en Excel) y
+ * las listas de sanciones, que repone la función sync-listas.
+ */
+const EXCLUIDAS = new Set(['padron_sugef'])
 
 function hoy() {
   return new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19)
@@ -86,33 +145,69 @@ async function main() {
   console.log(`\n🔄 Iniciando respaldo CNL Compliance — ${fecha}`)
   console.log(`📁 Destino: ${carpeta}\n`)
 
-  // Tablas a respaldar
-  const tablas = [
-    { nombre: 'tenants',               hoja: 'Sujetos Obligados' },
-    { nombre: 'transacciones',         hoja: 'Transacciones' },
-    { nombre: 'clientes',              hoja: 'Clientes' },
-    { nombre: 'periodos_declarados',   hoja: 'Periodos Declarados' },
-    { nombre: 'user_profiles',         hoja: 'Usuarios' },
-    { nombre: 'user_tenant_memberships', hoja: 'Membresías' },
-    { nombre: 'ros_reportes',          hoja: 'ROS' },
-    { nombre: 'denuncias',             hoja: 'Denuncias' },
-    { nombre: 'audit_log',             hoja: 'Auditoría' },
-  ]
+  // Nombres legibles para las hojas del Excel. Las que no estén acá usan el
+  // nombre de la tabla; la lista es cosmética y no decide qué se respalda.
+  const HOJAS = {
+    tenants: 'Sujetos Obligados',
+    transacciones: 'Transacciones',
+    clientes: 'Clientes',
+    clientes_personas_relacionadas: 'Personas Relacionadas',
+    periodos_declarados: 'Periodos Declarados',
+    user_profiles: 'Usuarios',
+    user_tenant_memberships: 'Membresías',
+    user_app_access: 'Acceso por App',
+    reportes_ros: 'ROS',
+    reportes_ros_archivo: 'ROS Archivados',
+    denuncias: 'Denuncias',
+    denuncias_archivo: 'Denuncias Archivadas',
+    audit_log: 'Auditoría',
+    expedientes_dd: 'Debida Diligencia',
+    calificaciones_riesgo: 'Calificaciones Riesgo',
+    catalogo_documentos: 'Catálogo Documental',
+    compliance_seguimiento: 'Seguimiento',
+    informes_generados: 'Informes',
+    consultas_listas: 'Consultas Listas',
+    listas_sanciones: 'Listas Sanciones',
+    listas_metadata: 'Listas Metadata',
+    normativa: 'Normativa',
+    alertas_noticias: 'Alertas Noticias',
+    feed_items: 'Feed',
+    notificaciones: 'Notificaciones',
+    cuestionarios: 'Cuestionarios',
+    respuestas_cuestionario: 'Respuestas Cuestionario',
+    periodos_reporte: 'Periodos Reporte',
+    seguimiento_mensual: 'Seguimiento Mensual',
+    sync_listas_log: 'Log Sync Listas',
+  }
 
-  // 1. Un Excel completo con todas las tablas
+  const tablas = (await descubrirTablas()).map((nombre) => ({
+    nombre,
+    hoja: HOJAS[nombre] || nombre,
+  }))
+  console.log(`  ${tablas.length} tablas descubiertas en la API\n`)
+
+  // 1. Un Excel completo con todas las tablas, y un JSON por tabla.
+  //    El Excel es para leerlo; el JSON es el que sirve para restaurar, porque
+  //    conserva los tipos y no recorta filas ni columnas.
+  const carpetaJson = join(carpeta, 'json')
+  mkdirSync(carpetaJson, { recursive: true })
+
   const wb = XLSX.utils.book_new()
   let totalRegistros = 0
+  const conteos = {}
 
   for (const t of tablas) {
     process.stdout.write(`  ⏳ Leyendo ${t.nombre}…`)
     const data = await fetchAll(t.nombre)
+    conteos[t.nombre] = data.length
+    writeFileSync(join(carpetaJson, `${t.nombre}.json`), JSON.stringify(data, null, 1))
     if (data.length > 0) {
       const ws = XLSX.utils.json_to_sheet(data)
       XLSX.utils.book_append_sheet(wb, ws, t.hoja.substring(0, 31))
       totalRegistros += data.length
       console.log(` ✓ ${data.length} registros`)
     } else {
-      console.log(' (vacía)')
+      console.log(' (sin filas)')
     }
   }
 
@@ -156,7 +251,25 @@ async function main() {
     }
   }
 
-  console.log(`\n✅ Respaldo completado — ${totalRegistros} registros en total`)
+  // Manifiesto: deja por escrito qué se respaldó, para poder comprobarlo
+  // después sin abrir los archivos uno por uno.
+  writeFileSync(join(carpeta, 'manifiesto.json'), JSON.stringify({
+    fecha: new Date().toISOString(),
+    proyecto: SUPABASE_URL,
+    tablas: conteos,
+    total_registros: totalRegistros,
+    excluidas: [...EXCLUIDAS],
+    fallos,
+  }, null, 1))
+
+  if (fallos.length) {
+    console.error(`\n❌ Respaldo INCOMPLETO — ${fallos.length} tabla(s) fallaron:`)
+    fallos.forEach((f) => console.error(`   · ${f}`))
+    console.error(`📁 Lo que sí se pudo guardar quedó en: ${carpeta}\n`)
+    process.exit(1)
+  }
+
+  console.log(`\n✅ Respaldo completado — ${totalRegistros} registros en ${tablas.length} tablas`)
   console.log(`📁 Archivos guardados en: ${carpeta}\n`)
 }
 
