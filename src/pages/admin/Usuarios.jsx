@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase, tenantsDeLaApp } from '../../lib/supabase'
-import { apiFetch } from '../../lib/apiFetch'
+import { apiFetch, apiJson } from '../../lib/apiFetch'
 import { useAuth } from '../../lib/AuthContext'
 import ErrorBanner from '../../components/ui/ErrorBanner'
 import { clasificarError } from '../../lib/errorHandler'
+import { generarClave } from '../../lib/generarClave'
 
 const ROL_TENANT_LABEL = {
   operador:    { label: 'Operador',    color: 'bg-gray-100 text-gray-700' },
@@ -392,6 +393,117 @@ function MembresiasUsuario({ userId, tenantsDisponibles, onCambio }) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Restablecer la contraseña de otro usuario (solo superadmin)
+//
+// La contraseña anterior no se puede recuperar —Supabase solo guarda el
+// hash—, así que la única forma de devolverle el acceso a alguien es
+// reemplazarla. Se muestra en pantalla para que el administrador se la pase
+// por un canal aparte; el usuario deberá cambiarla al ingresar.
+// ──────────────────────────────────────────────────────────────
+function PanelClaveUsuario({ usuario }) {
+  const [clave, setClave]       = useState('')
+  const [mostrar, setMostrar]   = useState(false)
+  const [forzar, setForzar]     = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError]       = useState(null)
+  const [aplicada, setAplicada] = useState(null)
+
+  async function aplicar(nueva) {
+    setError(null)
+    if (nueva.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    setGuardando(true)
+    try {
+      await apiJson('/api/admin-set-password', {
+        method: 'POST',
+        body: JSON.stringify({ userId: usuario.id, password: nueva, forzarCambio: forzar }),
+      })
+      setAplicada(nueva)
+      setClave('')
+      setMostrar(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="mx-4 mb-3 mt-1 pt-3 border-t border-gray-200">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium text-gray-500">🔑 Contraseña de acceso</p>
+        {!aplicada && (
+          <button
+            type="button"
+            disabled={guardando}
+            onClick={() => aplicar(generarClave())}
+            className="text-xs text-brand-700 border border-brand-200 hover:bg-brand-50 px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-60"
+          >
+            {guardando ? '…' : 'Generar una segura'}
+          </button>
+        )}
+      </div>
+
+      {aplicada ? (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 space-y-1">
+          <p className="text-xs text-green-800">
+            ✅ Contraseña actualizada. Cópiela y entréguesela a {usuario.nombre || usuario.email} por un
+            medio seguro: no se vuelve a mostrar.
+          </p>
+          <code className="block select-all font-mono text-base text-gray-900 bg-white border border-green-200 rounded px-3 py-1.5">
+            {aplicada}
+          </code>
+          {forzar && (
+            <p className="text-xs text-green-700">
+              Se le pedirá establecer una contraseña personal en su próximo ingreso.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={mostrar ? 'text' : 'password'}
+                value={clave}
+                onChange={e => setClave(e.target.value)}
+                placeholder="Nueva contraseña (mínimo 8 caracteres)"
+                autoComplete="new-password"
+                className="w-full border border-gray-200 rounded-lg px-3 pr-14 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <button
+                type="button"
+                onClick={() => setMostrar(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 px-1"
+              >
+                {mostrar ? 'Ocultar' : 'Ver'}
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={guardando || !clave}
+              onClick={() => aplicar(clave)}
+              className="btn-primary text-xs py-1 px-3 whitespace-nowrap disabled:opacity-60"
+            >
+              {guardando ? 'Aplicando…' : 'Cambiar'}
+            </button>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-500">
+            <input type="checkbox" checked={forzar} onChange={e => setForzar(e.target.checked)} />
+            Pedirle que la cambie en su próximo ingreso
+          </label>
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">⚠ {error}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
 // Página principal
 // ──────────────────────────────────────────────────────────────
 export default function Usuarios() {
@@ -633,6 +745,16 @@ export default function Usuarios() {
                     ) : (
                       <p className="text-xs text-gray-400 px-14 py-3">
                         El Super Admin tiene acceso global a todos los sujetos obligados.
+                      </p>
+                    )}
+
+                    {/* Contraseña — el superadmin se la puede cambiar a cualquiera,
+                        incluido otro superadmin. Sobre sí mismo no: para eso está
+                        Mi Perfil, que no requiere pasar por el servidor. */}
+                    {isSuperAdmin && !esYo && <PanelClaveUsuario usuario={u} />}
+                    {isSuperAdmin && esYo && (
+                      <p className="text-xs text-gray-400 px-4 pb-3 pt-1">
+                        🔑 Para cambiar su propia contraseña use <strong>Mi Perfil → Contraseña</strong>.
                       </p>
                     )}
 
