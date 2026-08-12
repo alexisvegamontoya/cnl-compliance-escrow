@@ -17,10 +17,14 @@ CREATE TABLE IF NOT EXISTS padron_sugef (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_padron_identificacion
   ON padron_sugef (identificacion);
 
--- Índice para búsqueda por nombre (trigrama)
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX IF NOT EXISTS idx_padron_nombre_trgm
-  ON padron_sugef USING GiST (lower(nombre_completo) gist_trgm_ops);
+-- NOTA (2026-08-10): se ELIMINÓ el índice trigram por nombre.
+-- Ocupaba 1,18 GB (más que la tabla entera) y tenía 0 usos: ninguna consulta
+-- busca el padrón por nombre, solo por cédula (ver función buscar_padron abajo).
+-- La búsqueda difusa por nombre vive en listas_sanciones, no aquí.
+-- Si algún día se necesita, recrearlo con GIN (más liviano que GiST):
+--   CREATE INDEX idx_padron_nombre_trgm
+--     ON padron_sugef USING GIN (lower(nombre_completo) gin_trgm_ops);
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- (pg_trgm ya lo usa el módulo PEP)
 
 -- RLS: usuarios autenticados pueden leer
 ALTER TABLE padron_sugef ENABLE ROW LEVEL SECURITY;
