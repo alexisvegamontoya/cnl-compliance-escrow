@@ -89,6 +89,11 @@ export default function InformeLaborales({ tenantEfectivo }) {
   const [datos, setDatos]       = useState(null)
   const [guardado, setGuardado] = useState(false)
 
+  // Depuración de duplicados del historial (Sección X) y ajuste manual de calificaciones (VIII)
+  const [selInformes, setSelInformes] = useState(() => new Set())
+  const [borrando, setBorrando]       = useState(false)
+  const [calOverride, setCalOverride] = useState('')
+
   // Todos los textos narrativos del informe, editables. Vacío = usar sugerido.
   const [textos, setTextos] = useState({})
   const setTexto = (k, v) => setTextos(p => ({ ...p, [k]: v }))
@@ -195,6 +200,64 @@ export default function InformeLaborales({ tenantEfectivo }) {
     setGuardado(true)
   }, [tenant, anio, profile])
 
+  // ── Cantidad de calificaciones: la real, salvo que el Oficial la ajuste a mano ──
+  const calCount = useMemo(() => {
+    const n = Number(calOverride)
+    return (calOverride.trim() !== '' && Number.isFinite(n) && n >= 0)
+      ? n : (datos?.calificaciones.length || 0)
+  }, [calOverride, datos])
+
+  // ── Copias duplicadas del historial (mismo tipo + período): todas menos la
+  //    más reciente de cada grupo. Sirven para resaltar y para "Marcar duplicados". ──
+  const dupIds = useMemo(() => {
+    if (!datos) return new Set()
+    const todos = [...datos.informesMonitoreo, ...datos.informesPlanTrabajo, ...datos.informesCapacitacion]
+    const grupos = {}
+    todos.forEach(i => { (grupos[`${i.tipo_informe}|${i.periodo}`] ||= []).push(i) })
+    const s = new Set()
+    Object.values(grupos).forEach(g => {
+      if (g.length <= 1) return
+      ;[...g].sort((a, b) => new Date(b.fecha_generacion || b.created_at || 0) - new Date(a.fecha_generacion || a.created_at || 0))
+        .slice(1).forEach(i => s.add(i.id))
+    })
+    return s
+  }, [datos])
+
+  const toggleSelInforme = id => setSelInformes(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
+
+  const marcarDuplicados = () => {
+    setSelInformes(new Set(dupIds))
+    if (dupIds.size === 0) alert('No hay duplicados: cada tipo de informe aparece una sola vez por período.')
+  }
+
+  const eliminarSeleccionados = async () => {
+    if (selInformes.size === 0) return
+    if (!window.confirm(`¿Eliminar ${selInformes.size} registro(s) del historial de informes? Esta acción no se puede deshacer.`)) return
+    setBorrando(true)
+    const ids = [...selInformes]
+    const { data: borradas, error } = await supabase
+      .from('informes_generados').delete().in('id', ids).select('id')
+    setBorrando(false)
+    if (error) { alert('No se pudieron eliminar: ' + error.message); return }
+    const quitados = new Set((borradas || []).map(r => r.id))
+    if (quitados.size === 0) {
+      alert('No se eliminó ningún registro (posible falta de permisos sobre estos informes).')
+      return
+    }
+    const filtra = arr => arr.filter(i => !quitados.has(i.id))
+    setDatos(prev => ({
+      ...prev,
+      informesMonitoreo:    filtra(prev.informesMonitoreo),
+      informesPlanTrabajo:  filtra(prev.informesPlanTrabajo),
+      informesCapacitacion: filtra(prev.informesCapacitacion),
+    }))
+    setSelInformes(new Set())
+    if (quitados.size < ids.length)
+      alert(`Se eliminaron ${quitados.size} de ${ids.length}. Los demás no se pudieron borrar.`)
+  }
+
   // ── Redacciones sugeridas, calculadas a partir de los datos del período ──
   const sug = useMemo(() => {
     const d = datos
@@ -223,7 +286,7 @@ export default function InformeLaborales({ tenantEfectivo }) {
         ? `Durante el período ${anio} se recibieron ${plural(d.denuncias.length, 'denuncia', 'denuncias')} a través del canal confidencial, las cuales fueron atendidas conforme al procedimiento interno establecido.`
         : `No se recibieron denuncias a través del canal confidencial durante el período ${anio}.`,
 
-      calificacion: `Se practicaron ${plural(d.calificaciones.length, 'calificación de riesgo', 'calificaciones de riesgo')} de clientes durante el período, aplicando la Metodología N06 conforme al Acuerdo SUGEF 13-19, de las cuales ${plural(d.calificaciones.filter(esAlto).length, 'resultó', 'resultaron')} en nivel alto.`,
+      calificacion: `Se practicaron ${plural(calCount, 'calificación de riesgo', 'calificaciones de riesgo')} de clientes durante el período, aplicando la Metodología N06 conforme al Acuerdo SUGEF 13-19, de las cuales ${plural(d.calificaciones.filter(esAlto).length, 'resultó', 'resultaron')} en nivel alto.`,
 
       cumplimiento: [
         d.uifActualizada
@@ -249,7 +312,7 @@ Se recomienda a la Junta Directiva:
 2. Aprobar el Plan de Trabajo y el Plan de Capacitación para el año ${anio + 1}.
 3. Mantener actualizados los expedientes de debida diligencia de clientes de alto riesgo.`,
     }
-  }, [datos, anio, tenant])
+  }, [datos, anio, tenant, calCount])
 
   // Texto final de cada bloque: lo escrito por el usuario o la sugerencia
   const t = k => (textos[k]?.trim() ? textos[k] : (sug[k] || ''))
@@ -393,7 +456,7 @@ Se recomienda a la Junta Directiva:
       <section class="bloque">
         <h3>VIII. Calificación de Riesgo de Clientes</h3>
         <div class="stats c3">
-          ${stat(d.calificaciones.length, 'Calificaciones realizadas')}
+          ${stat(calCount, 'Calificaciones realizadas')}
           ${stat(d.calificaciones.filter(esAlto).length, 'Riesgo alto / muy alto', 'rojo')}
           ${stat(d.calificaciones.filter(c => !esAlto(c)).length, 'Riesgo bajo/medio', 'verde')}
         </div>
@@ -458,6 +521,7 @@ Se recomienda a la Junta Directiva:
   }
 
   const d = datos
+  const listaInformes = d ? [...d.informesMonitoreo, ...d.informesPlanTrabajo, ...d.informesCapacitacion] : []
 
   return (
     <div className="p-6 max-w-5xl space-y-6">
@@ -659,10 +723,30 @@ Se recomienda a la Junta Directiva:
           {/* ── CALIFICACIÓN ── */}
           <Seccion num="VIII" titulo="Calificación de Riesgo de Clientes">
             <Stats items={[
-              { label: 'Calificaciones realizadas', val: d.calificaciones.length },
+              { label: 'Calificaciones realizadas', val: calCount },
               { label: 'Riesgo alto / muy alto', val: d.calificaciones.filter(esAlto).length, color: 'text-red-600' },
               { label: 'Riesgo bajo/medio', val: d.calificaciones.filter(c => !esAlto(c)).length, color: 'text-green-700' },
             ]} />
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 print:hidden">
+              <label className="label text-xs">Ajustar cantidad de calificaciones realizadas</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number" min="0"
+                  className="input-field text-sm w-32"
+                  placeholder={String(d.calificaciones.length)}
+                  value={calOverride}
+                  onChange={e => setCalOverride(e.target.value)}
+                />
+                <span className="text-xs text-gray-500">
+                  Real en el sistema: {d.calificaciones.length}.
+                  {calOverride.trim() !== '' && ' Se usa el valor ajustado en el conteo y en el texto.'}
+                </span>
+                {calOverride.trim() !== '' && (
+                  <button type="button" className="text-xs text-blue-600 underline"
+                    onClick={() => setCalOverride('')}>restablecer</button>
+                )}
+              </div>
+            </div>
             <TextoEditable valor={textos.calificacion || ''} onChange={v => setTexto('calificacion', v)} sugerido={sug.calificacion} />
           </Seccion>
 
@@ -696,25 +780,51 @@ Se recomienda a la Junta Directiva:
               { label: 'Planes de capacitación', val: d.informesCapacitacion.length },
             ]} />
             <TextoEditable valor={textos.informes || ''} onChange={v => setTexto('informes', v)} sugerido={sug.informes} />
-            {[...d.informesMonitoreo, ...d.informesPlanTrabajo, ...d.informesCapacitacion].length > 0 ? (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-gray-200 text-gray-500">
-                  <th className="text-left py-2 px-2">Informe</th>
-                  <th className="text-left py-2 px-2">Período</th>
-                  <th className="text-left py-2 px-2">Fecha</th>
-                  <th className="text-left py-2 px-2">Elaborado por</th>
-                </tr></thead>
-                <tbody className="divide-y divide-gray-100">
-                  {[...d.informesMonitoreo, ...d.informesPlanTrabajo, ...d.informesCapacitacion].map(i => (
-                    <tr key={i.id}>
-                      <td className="py-2 px-2 font-medium text-gray-800">{TIPO_INFORME_LABEL[i.tipo_informe] || i.tipo_informe}</td>
-                      <td className="py-2 px-2 text-gray-500">{i.periodo || '—'}</td>
-                      <td className="py-2 px-2 text-gray-600">{fmtFecha(String(i.fecha_generacion || i.created_at || '').substring(0, 10))}</td>
-                      <td className="py-2 px-2 text-gray-500">{i.generado_por_nombre || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {listaInformes.length > 0 ? (
+              <>
+                {/* Barra de depuración de duplicados — no aparece en la impresión */}
+                <div className="flex flex-wrap items-center gap-2 print:hidden">
+                  <button type="button" onClick={marcarDuplicados}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                    Marcar duplicados (deja el más reciente)
+                  </button>
+                  <button type="button" onClick={eliminarSeleccionados}
+                    disabled={selInformes.size === 0 || borrando}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white disabled:opacity-40 hover:bg-red-700">
+                    {borrando ? 'Eliminando…' : `🗑 Eliminar seleccionados (${selInformes.size})`}
+                  </button>
+                  {dupIds.size > 0 && (
+                    <span className="text-xs text-amber-600">
+                      Se detectaron {dupIds.size} copia(s) duplicada(s).
+                    </span>
+                  )}
+                </div>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-200 text-gray-500">
+                    <th className="py-2 px-2 print:hidden w-8"></th>
+                    <th className="text-left py-2 px-2">Informe</th>
+                    <th className="text-left py-2 px-2">Período</th>
+                    <th className="text-left py-2 px-2">Fecha</th>
+                    <th className="text-left py-2 px-2">Elaborado por</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {listaInformes.map(i => (
+                      <tr key={i.id} className={selInformes.has(i.id) ? 'bg-red-50' : (dupIds.has(i.id) ? 'bg-amber-50' : '')}>
+                        <td className="py-2 px-2 print:hidden">
+                          <input type="checkbox" checked={selInformes.has(i.id)} onChange={() => toggleSelInforme(i.id)} />
+                        </td>
+                        <td className="py-2 px-2 font-medium text-gray-800">
+                          {TIPO_INFORME_LABEL[i.tipo_informe] || i.tipo_informe}
+                          {dupIds.has(i.id) && <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600 print:hidden">duplicado</span>}
+                        </td>
+                        <td className="py-2 px-2 text-gray-500">{i.periodo || '—'}</td>
+                        <td className="py-2 px-2 text-gray-600">{fmtFecha(String(i.fecha_generacion || i.created_at || '').substring(0, 10))}</td>
+                        <td className="py-2 px-2 text-gray-500">{i.generado_por_nombre || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             ) : (
               <p className="text-sm text-gray-400 italic">No se registraron informes de monitoreo, plan de trabajo ni plan de capacitación durante {anio}.</p>
             )}
