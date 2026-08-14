@@ -32,12 +32,12 @@ export const PESOS_CONSOLIDADO = {
 // ------------------------------------
 export const CRITERIOS_CLIENTE = {
   // Persona física — términos orientados a la persona
+  // (No incluye "estructura administrativa": es un concepto de empresa.)
   fisica: [
     { key: 'acceso_info',     label: 'Acceso a la información de la persona',       peso: 0.10 },
     { key: 'pep',             label: 'PEP — Persona Expuesta Políticamente',        peso: 0.10 },
     { key: 'listas_obs',      label: 'Aparece en listas de observados',             peso: 0.20 },
-    { key: 'struct_admin',    label: 'Estructura Administrativa',                   peso: 0.05 },
-    { key: 'profesion',       label: 'Profesión u oficio',                          peso: 0.10 },
+    { key: 'profesion',       label: 'Profesión u oficio',                          peso: 0.15 },
     { key: 'info_ingreso',    label: 'Respaldo de la información del ingreso',       peso: 0.10 },
     { key: 'protectoras',     label: 'Información de protectoras de crédito',        peso: 0.15 },
     { key: 'ingreso_mensual', label: 'Ingreso promedio mensual de la persona',      peso: 0.15 },
@@ -158,11 +158,11 @@ export const OPCIONES = {
     { valor: 3, label: 'Con cobros judiciales' },
   ],
   ingreso_mensual: [
-    { valor: 1,   label: 'Más de ₡6,000 o persona jurídica > $1,000,001' },
-    { valor: 1.5, label: 'De ₡4,001 a ₡6,000 / P. Jurídica $500,001-$1,000,000' },
-    { valor: 2,   label: 'De ₡2,001 a ₡4,000 / P. Jurídica $100,001-$500,000' },
-    { valor: 2.5, label: 'De ₡1,001 a ₡2,000 / P. Jurídica $25,001-$100,000' },
-    { valor: 3,   label: 'De ₡1 a ₡1,000 / P. Jurídica $0-$25,000 o sin datos' },
+    { valor: 1,   label: 'Más de $6,000 / P. Jurídica > $1,000,001' },
+    { valor: 1.5, label: 'De $4,001 a $6,000 / P. Jurídica $500,001-$1,000,000' },
+    { valor: 2,   label: 'De $2,001 a $4,000 / P. Jurídica $100,001-$500,000' },
+    { valor: 2.5, label: 'De $1,001 a $2,000 / P. Jurídica $25,001-$100,000' },
+    { valor: 3,   label: 'De $1 a $1,000 / P. Jurídica $0-$25,000 o sin datos' },
   ],
   anos_operacion: [
     { valor: 0.5, label: 'Más de 8 años' },
