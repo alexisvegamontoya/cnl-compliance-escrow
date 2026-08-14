@@ -9,6 +9,7 @@ import {
   ACTIVIDADES_PROFESIONES, CANTONES_CR, PROVINCIAS_CR,
   perfilEfectivo, pesosPerfil, listaPaisPerfil, criteriosPerfil, aplicarPisoRiesgo, variantesDe,
 } from '../lib/metodologiaRiesgo'
+import { fetchTipoCambio, toUSD } from '../lib/sicvecaRules'
 
 // ------------------------------------
 // Helpers UI
@@ -759,18 +760,20 @@ export default function CalificacionRiesgo() {
     const listasVal = (listasNivel === 'COINCIDENCIA' || listasNivel === 'REVISAR') ? 3 : 1
 
     // Volumen y cantidad de transacciones (SICVECA): promedio mensual, ventana 12 meses.
+    // Montos convertidos a USD con el tipo de cambio del BCCR (vía API de Hacienda).
     // Si hay pocas o ninguna transacción, el promedio es bajo => menor riesgo.
-    // NOTA: se suma monto_movimiento asumiendo USD (pendiente conversión por moneda).
     let volVal = 0.5, cantVal = 0.5
     try {
+      const tc = (await fetchTipoCambio()) || 530  // CRC por 1 USD (respaldo si la API falla)
       const desde = new Date(); desde.setMonth(desde.getMonth() - 12)
       const { data: txs } = await supabase
         .from('transacciones')
-        .select('monto_movimiento')
+        .select('monto_movimiento, tipo_moneda_movimiento')
         .eq('cliente_id', c.id)
         .gte('fecha_transaccion', desde.toISOString().slice(0, 10))
       const lista = txs || []
-      const volMes  = lista.reduce((s, t) => s + (Number(t.monto_movimiento) || 0), 0) / 12
+      const totalUSD = lista.reduce((s, t) => s + toUSD(t.monto_movimiento, t.tipo_moneda_movimiento, tc), 0)
+      const volMes  = totalUSD / 12
       const cantMes = lista.length / 12
       volVal  = volMes  > 500000 ? 3 : volMes  > 300000 ? 2 : volMes  > 100000 ? 1 : 0.5
       cantVal = cantMes > 500    ? 3 : cantMes > 100    ? 2 : cantMes > 50     ? 1 : 0.5
