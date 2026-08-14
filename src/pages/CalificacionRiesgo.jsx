@@ -48,8 +48,8 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
   function renderSelect(criterio) {
     let opciones = OPCIONES[criterio.key] || OPCIONES['pais_riesgo']
 
-    // ── Actividad económica / profesión: dropdown de 152 actividades agrupadas ──
-    if (['actividad_eco', 'profesion'].includes(criterio.key)) {
+    // ── Actividad / profesión / servicio: dropdown de actividades agrupadas por riesgo ──
+    if (['actividad_eco', 'profesion', 'servicios'].includes(criterio.key)) {
       const selNombre = respuestas[criterio.key + '_nombre'] || ''
       const selValor  = respuestas[criterio.key] || ''
       return (
@@ -367,7 +367,7 @@ function getValorMostrado(respuestas, criterio) {
   if (['pais_origen','residencia','ubicacion_geo','casa_matriz'].includes(key) && nombreGuardado) {
     return { texto: nombreGuardado, valor: val }
   }
-  if (['actividad_eco','profesion'].includes(key) && respuestas[key + '_nombre']) {
+  if (['actividad_eco','profesion','servicios'].includes(key) && respuestas[key + '_nombre']) {
     return { texto: respuestas[key + '_nombre'], valor: val }
   }
   if (key === 'op_nacional' && respuestas['op_nacional_canton']) {
@@ -746,15 +746,18 @@ export default function CalificacionRiesgo() {
       : (Number(c?.actividad_eco_valor) || (c?.actividad_eco_nombre ? (ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === c.actividad_eco_nombre.toLowerCase())?.valor || 1) : 1))
     const ing = parseFloat(c?.ingreso_mensual_est) || 0
     const ingVal = ing > 6000 ? 1 : ing > 4000 ? 1.5 : ing > 2000 ? 2 : ing > 1000 ? 2.5 : ing > 0 ? 3 : 1
+    const actNombre = esFisica ? (c?.profesion_nombre || '') : (c?.actividad_eco_nombre || '')
     setRespCliente({
-      profesion: actVal, actividad_eco: actVal, servicios: actVal,
+      profesion: actVal, profesion_nombre: c?.profesion_nombre || '',
+      actividad_eco: actVal, actividad_eco_nombre: c?.actividad_eco_nombre || '',
       ingreso_mensual: ingVal, info_ingreso: ingVal,
       pep: c?.pep ? 3 : 1,
       acceso_info: 1, listas_obs: 1,
       struct_admin: esFisica ? undefined : 1,
       struct_acc: 1, anos_exp: 1, anos_operacion: 1,
     })
-    setRespProductos({})
+    // Factor PRODUCTOS: el servicio/producto se toma de la actividad del cliente
+    setRespProductos({ servicios: actVal, servicios_nombre: actNombre })
     setRespCanales({})
     setCalificacionManual('')
     setObservaciones('')
