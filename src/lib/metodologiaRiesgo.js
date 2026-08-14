@@ -630,7 +630,7 @@ export const PAISES_RIESGO = [
   { pais: 'China', riesgo: 3 },
   { pais: 'Colombia', riesgo: 3 },
   { pais: 'Corea del Norte', riesgo: 3 },
-  { pais: 'Costa Rica', riesgo: 3 },
+  { pais: 'Costa Rica', riesgo: 1 }, // Ajustado a Bajo: no penalizar a la cartera local por el índice internacional
   { pais: 'Dominicana, República', riesgo: 3 },
   { pais: 'Ecuador', riesgo: 3 },
   { pais: 'Egipto', riesgo: 3 },
