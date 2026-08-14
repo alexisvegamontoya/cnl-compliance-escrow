@@ -228,16 +228,20 @@ export const OPCIONES = {
     { valor: 3,   label: 'De 0 a 2 años' },
   ],
   posicion_mkt: [
-    { valor: 0.5, label: 'Líder en el mercado' },
-    { valor: 1,   label: 'Representativo / reconocido' },
-    { valor: 2,   label: 'Mediano posicionamiento' },
+    { valor: 0.5, label: 'Líder o marca consolidada a nivel nacional' },
+    { valor: 1,   label: 'Reconocido y consolidado en su sector' },
+    { valor: 1.5, label: 'Posicionamiento medio-alto, en expansión' },
+    { valor: 2,   label: 'Mediano posicionamiento / nicho establecido' },
+    { valor: 2.5, label: 'En crecimiento reciente / poca trayectoria' },
     { valor: 3,   label: 'Iniciando / sin posicionamiento' },
   ],
   struct_ventas: [
     { valor: 0.5, label: 'Departamento comercial consolidado' },
-    { valor: 1,   label: 'Estructura organizada' },
+    { valor: 1,   label: 'Equipo de ventas propio y formal' },
+    { valor: 1.5, label: 'Estructura organizada, en consolidación' },
     { valor: 2,   label: 'Estructura media / en desarrollo' },
-    { valor: 3,   label: 'Iniciando / sin estructura' },
+    { valor: 2.5, label: 'Estructura básica / pocos vendedores' },
+    { valor: 3,   label: 'Iniciando / sin estructura de ventas' },
   ],
 
   // Canales de Distribución
@@ -251,11 +255,13 @@ export const OPCIONES = {
     { valor: 2,   label: 'De 2 a 3 lugares' },
     { valor: 3,   label: '4 o más lugares distintos' },
   ],
+  // Más sucursales/lugares = más difícil de controlar = mayor riesgo (metodología N04).
+  // "Sin sucursales / un solo local" es el menor riesgo, no el mayor.
   cant_sucursales: [
-    { valor: 0.5, label: 'Más de 5 sucursales (red amplia)' },
-    { valor: 1,   label: 'De 3 a 5 sucursales' },
-    { valor: 2,   label: 'De 1 a 2 sucursales' },
-    { valor: 3,   label: 'Sin sucursales' },
+    { valor: 1,   label: 'Sin sucursales / un solo establecimiento' },
+    { valor: 1.5, label: 'De 1 a 2 sucursales' },
+    { valor: 2,   label: 'De 3 a 5 sucursales' },
+    { valor: 3,   label: 'Más de 5 sucursales (red amplia, control más difícil)' },
   ],
   tipo_vendedor: [
     { valor: 0.5, label: 'Vendedores propios en planilla' },
