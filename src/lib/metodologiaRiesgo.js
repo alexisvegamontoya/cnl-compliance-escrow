@@ -23,7 +23,8 @@ export function clasificar(score) {
 // Pesos consolidados por tipo de persona
 // ------------------------------------
 export const PESOS_CONSOLIDADO = {
-  fisica:   { cliente: 0.6, geo: 0.4, productos: 0,    canales: 0    },
+  // Física: productos y canales SIEMPRE presentes (con peso) para que se incorporen
+  fisica:   { cliente: 0.5, geo: 0.3, productos: 0.1, canales: 0.1  },
   juridica: { cliente: 0.5, geo: 0.15, productos: 0.2, canales: 0.15 },
 }
 
@@ -35,12 +36,12 @@ export const CRITERIOS_CLIENTE = {
   // (No incluye "estructura administrativa": es un concepto de empresa.)
   fisica: [
     { key: 'acceso_info',     label: 'Acceso a la información de la persona',       peso: 0.10 },
-    { key: 'pep',             label: 'PEP — Persona Expuesta Políticamente',        peso: 0.10 },
-    { key: 'listas_obs',      label: 'Aparece en listas de observados',             peso: 0.20 },
+    { key: 'pep',             label: 'PEP — Persona Expuesta Políticamente',        peso: 0.15 },
+    { key: 'listas_obs',      label: 'Aparece en listas de observados',             peso: 0.25 },
     { key: 'profesion',       label: 'Profesión u oficio',                          peso: 0.15 },
     { key: 'info_ingreso',    label: 'Respaldo de la información del ingreso',       peso: 0.10 },
-    { key: 'protectoras',     label: 'Información de protectoras de crédito',        peso: 0.15 },
-    { key: 'ingreso_mensual', label: 'Ingreso promedio mensual de la persona',      peso: 0.15 },
+    { key: 'protectoras',     label: 'Información de protectoras de crédito',        peso: 0.10 },
+    { key: 'ingreso_mensual', label: 'Ingreso promedio mensual de la persona',      peso: 0.10 },
     { key: 'efectivo',        label: 'Manejo de dinero en efectivo',                peso: 0.05 },
   ],
   // Persona jurídica — términos orientados a la empresa
@@ -958,7 +959,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   48: {
     nombre: 'Servicios Fiduciarios', listaPais: 'LC', pisoRiesgo: 'medio',
     pesos: {
-      fisica:   { cliente: 0.55, geo: 0.30, productos: 0.15, canales: 0 },
+      fisica:   { cliente: 0.55, geo: 0.25, productos: 0.15, canales: 0.05 },
       juridica: { cliente: 0.55, geo: 0.15, productos: 0.15, canales: 0.15 },
     },
     pesosCriterio: { cliente: { struct_acc: 0.25, acceso_info: 0.15 } },
