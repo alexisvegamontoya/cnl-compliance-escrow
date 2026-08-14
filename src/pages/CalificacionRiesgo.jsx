@@ -714,7 +714,7 @@ export default function CalificacionRiesgo() {
 
   // Cuando se selecciona un cliente
   // Pre-llenar todos los factores desde los datos del cliente en BD
-  function preLlenarDesdeDB(c) {
+  async function preLlenarDesdeDB(c) {
     if (!c) return
     const tipoId = Number(c?.tipo_identificacion)
     const esFisica = [1, 3, 5].includes(tipoId)
@@ -747,17 +747,49 @@ export default function CalificacionRiesgo() {
     const ing = parseFloat(c?.ingreso_mensual_est) || 0
     const ingVal = ing > 6000 ? 1 : ing > 4000 ? 1.5 : ing > 2000 ? 2 : ing > 1000 ? 2.5 : ing > 0 ? 3 : 1
     const actNombre = esFisica ? (c?.profesion_nombre || '') : (c?.actividad_eco_nombre || '')
+
+    // Años de operación / experiencia (jurídica) desde la fecha de constitución
+    let anosVal = 1
+    if (c?.fecha_constitucion) {
+      const años = (Date.now() - new Date(c.fecha_constitucion).getTime()) / (365.25 * 24 * 3600 * 1000)
+      anosVal = años > 8 ? 0.5 : años >= 6 ? 1 : años >= 3 ? 2 : 3
+    }
+
+    // Listas de observados: resultado de la consulta ALA/CFT ya realizada
+    const listasVal = (listasNivel === 'COINCIDENCIA' || listasNivel === 'REVISAR') ? 3 : 1
+
+    // Volumen y cantidad de transacciones (SICVECA): promedio mensual, ventana 12 meses.
+    // Si hay pocas o ninguna transacción, el promedio es bajo => menor riesgo.
+    // NOTA: se suma monto_movimiento asumiendo USD (pendiente conversión por moneda).
+    let volVal = 0.5, cantVal = 0.5
+    try {
+      const desde = new Date(); desde.setMonth(desde.getMonth() - 12)
+      const { data: txs } = await supabase
+        .from('transacciones')
+        .select('monto_movimiento')
+        .eq('cliente_id', c.id)
+        .gte('fecha_transaccion', desde.toISOString().slice(0, 10))
+      const lista = txs || []
+      const volMes  = lista.reduce((s, t) => s + (Number(t.monto_movimiento) || 0), 0) / 12
+      const cantMes = lista.length / 12
+      volVal  = volMes  > 500000 ? 3 : volMes  > 300000 ? 2 : volMes  > 100000 ? 1 : 0.5
+      cantVal = cantMes > 500    ? 3 : cantMes > 100    ? 2 : cantMes > 50     ? 1 : 0.5
+    } catch { /* sin datos de transacciones => menor riesgo */ }
+
     setRespCliente({
       profesion: actVal, profesion_nombre: c?.profesion_nombre || '',
       actividad_eco: actVal, actividad_eco_nombre: c?.actividad_eco_nombre || '',
       ingreso_mensual: ingVal, info_ingreso: ingVal,
       pep: c?.pep ? 3 : 1,
-      acceso_info: 1, listas_obs: 1,
+      acceso_info: 1,
+      listas_obs: listasVal,
       struct_admin: esFisica ? undefined : 1,
-      struct_acc: 1, anos_exp: 1, anos_operacion: 1,
+      struct_acc: 1,
+      anos_operacion: anosVal,
+      vol_trans: volVal, cant_trans: cantVal,
     })
-    // Factor PRODUCTOS: el servicio/producto se toma de la actividad del cliente
-    setRespProductos({ servicios: actVal, servicios_nombre: actNombre })
+    // Factor PRODUCTOS: servicio/producto y años de experiencia desde la actividad del cliente
+    setRespProductos({ servicios: actVal, servicios_nombre: actNombre, anos_exp: anosVal })
     setRespCanales({})
     setCalificacionManual('')
     setObservaciones('')
