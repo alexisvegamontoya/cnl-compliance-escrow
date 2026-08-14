@@ -31,29 +31,31 @@ export const PESOS_CONSOLIDADO = {
 // FACTOR CLIENTE — Ponderaciones por criterio
 // ------------------------------------
 export const CRITERIOS_CLIENTE = {
+  // Persona física — términos orientados a la persona
   fisica: [
-    { key: 'acceso_info',     label: 'Acceso a la información',                   peso: 0.10 },
-    { key: 'pep',             label: 'PEP',                                        peso: 0.10 },
-    { key: 'listas_obs',      label: 'Aparece en otras listas de investigación',   peso: 0.20 },
-    { key: 'struct_admin',    label: 'Estructura Administrativa',                  peso: 0.05 },
-    { key: 'profesion',       label: 'Profesión',                                  peso: 0.10 },
-    { key: 'info_ingreso',    label: 'Información del Ingreso',                    peso: 0.10 },
-    { key: 'protectoras',     label: 'Información de Protectoras de Crédito',      peso: 0.15 },
-    { key: 'ingreso_mensual', label: 'Ingreso Promedio Mensual',                   peso: 0.15 },
-    { key: 'efectivo',        label: 'Dinero en Efectivo',                         peso: 0.05 },
+    { key: 'acceso_info',     label: 'Acceso a la información de la persona',       peso: 0.10 },
+    { key: 'pep',             label: 'PEP — Persona Expuesta Políticamente',        peso: 0.10 },
+    { key: 'listas_obs',      label: 'Aparece en listas de observados',             peso: 0.20 },
+    { key: 'struct_admin',    label: 'Estructura Administrativa',                   peso: 0.05 },
+    { key: 'profesion',       label: 'Profesión u oficio',                          peso: 0.10 },
+    { key: 'info_ingreso',    label: 'Respaldo de la información del ingreso',       peso: 0.10 },
+    { key: 'protectoras',     label: 'Información de protectoras de crédito',        peso: 0.15 },
+    { key: 'ingreso_mensual', label: 'Ingreso promedio mensual de la persona',      peso: 0.15 },
+    { key: 'efectivo',        label: 'Manejo de dinero en efectivo',                peso: 0.05 },
   ],
+  // Persona jurídica — términos orientados a la empresa
   juridica: [
-    { key: 'acceso_info',     label: 'Acceso a la información',                   peso: 0.10 },
-    { key: 'pep',             label: 'PEP (Personas Expuestas Políticamente)',     peso: 0.10 },
-    { key: 'actividad_eco',   label: 'Actividad Económica / Laboral',              peso: 0.10 },
-    { key: 'listas_obs',      label: 'Aparece en otras listas de investigación',   peso: 0.20 },
-    { key: 'struct_acc',      label: 'Estructura Accionaria',                      peso: 0.10 },
-    { key: 'struct_admin',    label: 'Estructura Administrativa',                  peso: 0.05 },
-    { key: 'anos_operacion',  label: 'Años de Operación',                          peso: 0.10 },
-    { key: 'ingreso_mensual', label: 'Ingreso Promedio Mensual P. Jurídica',       peso: 0.10 },
-    { key: 'efectivo',        label: 'Dinero en Efectivo',                         peso: 0.05 },
-    { key: 'vol_trans',       label: 'Volumen de Transacciones',                   peso: 0.05 },
-    { key: 'cant_trans',      label: 'Cantidad de Transacciones',                  peso: 0.05 },
+    { key: 'acceso_info',     label: 'Acceso a la información de la empresa',        peso: 0.10 },
+    { key: 'pep',             label: 'PEP en socios o representantes',               peso: 0.10 },
+    { key: 'actividad_eco',   label: 'Actividad económica de la empresa',           peso: 0.10 },
+    { key: 'listas_obs',      label: 'La empresa o sus socios en listas de observados', peso: 0.20 },
+    { key: 'struct_acc',      label: 'Estructura accionaria',                       peso: 0.10 },
+    { key: 'struct_admin',    label: 'Estructura administrativa',                   peso: 0.05 },
+    { key: 'anos_operacion',  label: 'Años de operación de la empresa',             peso: 0.10 },
+    { key: 'ingreso_mensual', label: 'Ingreso promedio mensual de la empresa',      peso: 0.10 },
+    { key: 'efectivo',        label: 'Operación en efectivo del negocio',           peso: 0.05 },
+    { key: 'vol_trans',       label: 'Volumen de transacciones',                    peso: 0.05 },
+    { key: 'cant_trans',      label: 'Cantidad de transacciones',                   peso: 0.05 },
   ],
 }
 
@@ -80,14 +82,14 @@ export const CRITERIOS_GEO = {
 // ------------------------------------
 export const CRITERIOS_PRODUCTOS = {
   fisica: [
-    { key: 'servicios',       label: 'Servicios o productos que comercializa',    peso: 0.50 },
-    { key: 'anos_exp',        label: 'Años de experiencia / comercialización',     peso: 0.50 },
+    { key: 'servicios',       label: 'Servicios o productos que ofrece',          peso: 0.50 },
+    { key: 'anos_exp',        label: 'Años de experiencia en la actividad',        peso: 0.50 },
   ],
   juridica: [
     { key: 'servicios',       label: 'Servicios o productos que comercializa',    peso: 0.40 },
-    { key: 'anos_exp',        label: 'Años de experiencia / comercialización',     peso: 0.20 },
+    { key: 'anos_exp',        label: 'Años de comercialización de la empresa',     peso: 0.20 },
     { key: 'posicion_mkt',    label: 'Posicionamiento en el mercado',              peso: 0.20 },
-    { key: 'struct_ventas',   label: 'Estructura de Ventas',                       peso: 0.20 },
+    { key: 'struct_ventas',   label: 'Estructura de ventas',                       peso: 0.20 },
   ],
 }
 
