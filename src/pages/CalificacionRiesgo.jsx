@@ -149,9 +149,12 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
 
     // Para criterios geográficos de país: mostrar lista de países
     if (esGeo && ['pais_origen', 'residencia', 'ubicacion_geo', 'casa_matriz'].includes(criterio.key)) {
-      const listaPaises = esONG ? PAISES_RIESGO : PAISES_RIESGO
       const paisSeleccionado = respuestas[criterio.key + '_nombre'] || ''
-      const riesgoPais = PAISES_RIESGO.find(p => p.pais === paisSeleccionado)?.riesgo
+      // ONG/OSFL: un país en la lista FT (FATF) se toma como Alto (3); en otro
+      // caso, el riesgo de la lista general (LC/UIF). Los demás sujetos usan LC.
+      const riesgoPais = (esONG && PAISES_ALTO_RIESGO_FT.includes(paisSeleccionado))
+        ? 3
+        : PAISES_RIESGO.find(p => p.pais === paisSeleccionado)?.riesgo
 
       return (
         <div key={criterio.key} className="space-y-1">
@@ -161,17 +164,16 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
             value={paisSeleccionado}
             onChange={e => {
               const pais = e.target.value
-              const riesgo = PAISES_RIESGO.find(p => p.pais === pais)?.riesgo || null
-              // Para ONG verificar lista FT
+              // ONG/OSFL: país en lista FT (FATF) → Alto (3); si no, el riesgo LC.
               const esFT = esONG && PAISES_ALTO_RIESGO_FT.includes(pais)
-              const valorFinal = riesgo || (esFT ? 3 : null)
+              const valorFinal = esFT ? 3 : (PAISES_RIESGO.find(p => p.pais === pais)?.riesgo || null)
               onChange(criterio.key + '_nombre', pais)
               onChange(criterio.key, valorFinal)
             }}
           >
             <option value="">— Seleccione país —</option>
             <option value="Nacional / Costa Rica">Nacional / Costa Rica (Bajo riesgo)</option>
-            <optgroup label="Bajo riesgo (Basel AML Index 2023)">
+            <optgroup label="Bajo riesgo (lista UIF)">
               {PAISES_RIESGO.filter(p => p.riesgo === 1).map(p => (
                 <option key={p.pais} value={p.pais}>{p.pais}</option>
               ))}
@@ -181,7 +183,7 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
                 <option key={p.pais} value={p.pais}>{p.pais}</option>
               ))}
             </optgroup>
-            <optgroup label="Alto Riesgo (GAFI / Basel)">
+            <optgroup label="Alto riesgo (lista UIF)">
               {PAISES_RIESGO.filter(p => p.riesgo === 3).map(p => (
                 <option key={p.pais} value={p.pais}>{p.pais}</option>
               ))}

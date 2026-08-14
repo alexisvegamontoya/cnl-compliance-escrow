@@ -702,13 +702,18 @@ export const PAISES_RIESGO = [
   { pais: 'Zambia', riesgo: 3 },
 ].sort((a, b) => a.pais.localeCompare(b.pais, 'es'))
 
-// GAFI — Jurisdicciones bajo mayor monitoreo (uso para ONG/FT)
+// GAFI/FATF — Jurisdicciones de alto riesgo FT (usar SOLO para sujetos obligados ONG/OSFL)
+// Grey list (mayor monitoreo) + Black list (llamado a la acción). Fuente: FATF, junio 2026.
+// Nombres alineados con PAISES_RIESGO para que el cruce por país funcione.
 export const PAISES_ALTO_RIESGO_FT = [
-  'Birmania (Myanmar)', 'Burkina Faso', 'Camerún', 'República Democrática del Congo',
-  'Haití', 'Irán', 'Corea del Norte', 'Malí', 'Mozambique', 'Nicaragua', 'Nigeria',
-  'Pakistán', 'Panamá', 'Filipinas', 'Rusia', 'Senegal', 'Somalia', 'Sudán del Sur',
-  'Siria', 'Tanzania', 'Trinidad y Tobago', 'Uganda', 'Emiratos Árabes Unidos', 'Yemen',
-  'Venezuela', 'Vietnam', 'Zimbabue',
+  // Grey list (jurisdicciones bajo mayor monitoreo)
+  'Angola', 'Bolivia', 'Bosnia-Herzegovina', 'Bulgaria', 'Camerún',
+  'Costa de Marfil', 'República Democrática del Congo', 'Haiti', 'Iraq', 'Kenia',
+  'Kuwait', 'Laos; oficialmente: República Democrática Popular Lao', 'Líbano',
+  'Mónaco', 'Nepal', 'Papúa-Nueva Guinea', 'Sudán del Sur', 'Siria',
+  'Venezuela', 'Vietnam', 'Islas Vírgenes Británicas', 'Yemen',
+  // Black list (llamado a la acción)
+  'Irán', 'Corea del Norte', 'Myanmar, Birmania',
 ]
 
 // ------------------------------------
