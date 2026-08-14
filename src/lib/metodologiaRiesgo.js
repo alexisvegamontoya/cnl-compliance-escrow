@@ -799,19 +799,90 @@ export const PERFIL_SUJETO_OBLIGADO = {
     },
   },
   // 42 — Organizaciones Sin Fines de Lucro (ONG) — riesgo FT
+  //   Alineado con la metodología N04 y el formulario F08 de Fundación Visión Mundial:
+  //   - Sub-tipos (categorías del cliente): Donante (>= $1.000 / mayor),
+  //     Donante Cooperación Internacional y Beneficiario Externo.
+  //   - Persona física: solo 6 criterios de cliente (se ocultan protectoras,
+  //     info del ingreso y estructura administrativa).
+  //   - "Aparece negativo en el BPS" = listas de observados.
+  //   Los umbrales que definen si un donante se califica o es bajo automático
+  //   (anónimo < $300; por debajo < $1.000) son una regla de negocio aparte.
   42: {
     nombre: 'Organizaciones Sin Fines de Lucro', listaPais: 'FT', pisoRiesgo: 'medio',
+    // Esquema base = Donante / Beneficiario externo (lo sobreescribe cada variante)
     pesos: {
-      fisica:   { cliente: 0.45, geo: 0.45, productos: 0.10, canales: 0 },
-      juridica: { cliente: 0.45, geo: 0.35, productos: 0.10, canales: 0.10 },
+      fisica:   { cliente: 0.40, geo: 0.20, productos: 0.20, canales: 0.20 },
+      juridica: { cliente: 0.50, geo: 0.15, productos: 0.20, canales: 0.15 },
     },
     ocultar: { cliente: ['protectoras', 'info_ingreso'] },
+    ocultarPorTipo: {
+      fisica:   { cliente: ['struct_admin'] },   // física FVM usa 6 criterios
+      juridica: { geo: ['op_nacional'] },         // FVM jurídica no usa operación nacional
+    },
+    // Pesos de criterio exactos de la metodología FVM (por tipo de persona)
+    pesosCriterioPorTipo: {
+      fisica: {
+        cliente: { acceso_info: 0.15, pep: 0.20, listas_obs: 0.15, profesion: 0.20, ingreso_mensual: 0.15, efectivo: 0.15 },
+      },
+      juridica: {
+        cliente: { acceso_info: 0.10, pep: 0.10, actividad_eco: 0.10, listas_obs: 0.10, struct_acc: 0.10, struct_admin: 0.10, anos_operacion: 0.10, ingreso_mensual: 0.10, efectivo: 0.10, vol_trans: 0.05, cant_trans: 0.05 },
+        geo:     { ubicacion_geo: 0.30, casa_matriz: 0.30, transfronterizo: 0.20, op_internacional: 0.20 },
+      },
+    },
     labels: {
-      ingreso_mensual: 'Monto de fondos / donaciones recibidos',
-      actividad_eco:   'Fin o actividad de la organización',
-      profesion:       'Actividad del aportante / donante',
-      efectivo:        'Donaciones o fondos en efectivo',
-      transfronterizo: 'Fondos transfronterizos (origen / destino)',
+      listas_obs:      'Aparece negativo en el BPS',
+      ingreso_mensual: 'Ingreso / monto promedio mensual',
+      actividad_eco:   'Actividad económica',
+      efectivo:        'Dinero en efectivo',
+      transfronterizo: 'Dinero transfronterizo',
+      anos_operacion:  'Años de operación',
+    },
+    // Categorías del cliente de la ONG (F02–F05). Cada una cambia foco y pesos.
+    variantes: {
+      donante: {
+        etiqueta: 'Donante (≥ $1.000 / mayor)',
+        pesos: {
+          fisica:   { cliente: 0.40, geo: 0.20, productos: 0.20, canales: 0.20 },
+          juridica: { cliente: 0.50, geo: 0.15, productos: 0.20, canales: 0.15 },
+        },
+        labels: {
+          ingreso_mensual: 'Monto y origen de la donación',
+          profesion:       'Actividad económica del donante',
+          actividad_eco:   'Actividad económica del donante',
+          pais_origen:     'País de origen de los fondos',
+          ubicacion_geo:   'País de origen de los fondos',
+          transfronterizo: 'Origen transfronterizo de los fondos',
+        },
+      },
+      coop_internacional: {
+        etiqueta: 'Cooperación Internacional',
+        // FVM: la zona geográfica domina para la cooperación internacional
+        pesos: {
+          fisica:   { cliente: 0.30, geo: 0.40, productos: 0.15, canales: 0.15 },
+          juridica: { cliente: 0.30, geo: 0.40, productos: 0.15, canales: 0.15 },
+        },
+        labels: {
+          actividad_eco:   'Tipo de cooperante (gobierno / organismo / fundación)',
+          ubicacion_geo:   'País / sede del cooperante',
+          casa_matriz:     'País de la casa matriz del cooperante',
+          transfronterizo: 'Fondos transfronterizos de cooperación',
+        },
+      },
+      beneficiario: {
+        etiqueta: 'Beneficiario Externo',
+        pesos: {
+          fisica:   { cliente: 0.40, geo: 0.20, productos: 0.20, canales: 0.20 },
+          juridica: { cliente: 0.50, geo: 0.15, productos: 0.20, canales: 0.15 },
+        },
+        labels: {
+          ingreso_mensual: 'Monto de fondos recibidos del proyecto',
+          profesion:       'Destino / uso de los fondos',
+          actividad_eco:   'Destino / uso de los fondos',
+          pais_origen:     'País de destino de los fondos',
+          ubicacion_geo:   'País de destino de los fondos',
+          transfronterizo: 'Destino transfronterizo de los fondos',
+        },
+      },
     },
   },
   // 43 — Casinos
@@ -919,23 +990,61 @@ export function perfilSujeto(claseDato) {
   return PERFIL_SUJETO_OBLIGADO[Number(claseDato)] || PERFIL_SUJETO_OBLIGADO.default
 }
 
-// Pesos de factores para (actividad, tipo de persona)
-export function pesosPerfil(claseDato, tipo) {
-  const p = perfilSujeto(claseDato)
+// Sub-tipos disponibles del cliente para esta actividad (p. ej. donante/beneficiario en ONG)
+export function variantesDe(claseDato) {
+  const v = perfilSujeto(claseDato).variantes
+  return v ? Object.keys(v).map(k => ({ key: k, etiqueta: v[k].etiqueta || k })) : []
+}
+
+// Perfil efectivo = perfil de la actividad con la variante (sub-tipo) fusionada encima
+export function perfilEfectivo(claseDato, variante) {
+  const base = perfilSujeto(claseDato)
+  const v = variante && base.variantes && base.variantes[variante]
+  if (!v) return base
+  const mergeFactorMap = (a = {}, b = {}) => {
+    const out = {}
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (Array.isArray(a[k]) || Array.isArray(b[k])) out[k] = [...(a[k] || []), ...(b[k] || [])]
+      else out[k] = { ...(a[k] || {}), ...(b[k] || {}) }
+    }
+    return out
+  }
+  return {
+    ...base,
+    listaPais:     v.listaPais || base.listaPais,
+    pisoRiesgo:    v.pisoRiesgo !== undefined ? v.pisoRiesgo : base.pisoRiesgo,
+    pesos:         v.pesos || base.pesos,
+    ocultar:       mergeFactorMap(base.ocultar, v.ocultar),
+    pesosCriterio: mergeFactorMap(base.pesosCriterio, v.pesosCriterio),
+    labels:        { ...(base.labels || {}), ...(v.labels || {}) },
+  }
+}
+
+// Pesos de factores para (actividad, tipo de persona, variante)
+export function pesosPerfil(claseDato, tipo, variante) {
+  const p = perfilEfectivo(claseDato, variante)
   return (p.pesos && p.pesos[tipo]) || PESOS_CONSOLIDADO[tipo]
 }
 
 // Lista de país aplicable ('LC' | 'FT' | 'FT+LC')
-export function listaPaisPerfil(claseDato) {
-  return perfilSujeto(claseDato).listaPais || 'LC'
+export function listaPaisPerfil(claseDato, variante) {
+  return perfilEfectivo(claseDato, variante).listaPais || 'LC'
 }
 
-// Criterios visibles de un factor, ya con ocultamiento, pesos y terminología aplicados
-export function criteriosPerfil(claseDato, tipo, factor) {
+// Criterios visibles de un factor, ya con ocultamiento, pesos y terminología aplicados.
+// El ocultamiento y los pesos por criterio pueden ser compartidos (por factor) o
+// específicos por tipo de persona (ocultarPorTipo / pesosCriterioPorTipo).
+export function criteriosPerfil(claseDato, tipo, factor, variante) {
   const base = (_BASE_CRITERIOS[factor] && _BASE_CRITERIOS[factor][tipo]) || []
-  const p = perfilSujeto(claseDato)
-  const ocultar = (p.ocultar && p.ocultar[factor]) || []
-  const pesosOv = (p.pesosCriterio && p.pesosCriterio[factor]) || {}
+  const p = perfilEfectivo(claseDato, variante)
+  const ocultar = [
+    ...((p.ocultar && p.ocultar[factor]) || []),
+    ...((p.ocultarPorTipo && p.ocultarPorTipo[tipo] && p.ocultarPorTipo[tipo][factor]) || []),
+  ]
+  const pesosOv = {
+    ...((p.pesosCriterio && p.pesosCriterio[factor]) || {}),
+    ...((p.pesosCriterioPorTipo && p.pesosCriterioPorTipo[tipo] && p.pesosCriterioPorTipo[tipo][factor]) || {}),
+  }
   const labels  = p.labels || {}
   return base
     .filter(c => !ocultar.includes(c.key))

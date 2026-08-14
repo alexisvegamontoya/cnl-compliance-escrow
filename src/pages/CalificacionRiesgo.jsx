@@ -7,7 +7,7 @@ import {
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
   calcularScoreFactor, calcularScoreTotal, clasificar,
   ACTIVIDADES_PROFESIONES, CANTONES_CR, PROVINCIAS_CR,
-  perfilSujeto, pesosPerfil, listaPaisPerfil, criteriosPerfil, aplicarPisoRiesgo,
+  perfilEfectivo, pesosPerfil, listaPaisPerfil, criteriosPerfil, aplicarPisoRiesgo, variantesDe,
 } from '../lib/metodologiaRiesgo'
 
 // ------------------------------------
@@ -431,18 +431,18 @@ function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
 // ------------------------------------
 // Reporte imprimible (solo visible en @media print)
 // ------------------------------------
-function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, claseDato, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
+function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, claseDato, variante, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
   if (!clienteActual) return null
   const nivelColor = calificacionFinal === 'alto' ? '#c31b26' : calificacionFinal === 'medio' ? '#a87813' : '#1f6d45'
   const nivelBg    = calificacionFinal === 'alto' ? '#fdf3f3' : calificacionFinal === 'medio' ? '#fdf8ec' : '#eff7f1'
 
-  const pp  = pesosPerfil(claseDato, tipoPersona)
+  const pp  = pesosPerfil(claseDato, tipoPersona, variante)
   const fmt = v => v > 0 ? `${Math.round(v * 100)}%` : 'N/A'
   const pesos = { cli: fmt(pp.cliente), geo: fmt(pp.geo), prod: fmt(pp.productos), can: fmt(pp.canales) }
-  const criteriosCli  = criteriosPerfil(claseDato, tipoPersona, 'cliente')
-  const criteriosGeo  = criteriosPerfil(claseDato, tipoPersona, 'geo')
-  const criteriosProd = criteriosPerfil(claseDato, tipoPersona, 'productos')
-  const criteriosCan  = criteriosPerfil(claseDato, tipoPersona, 'canales')
+  const criteriosCli  = criteriosPerfil(claseDato, tipoPersona, 'cliente', variante)
+  const criteriosGeo  = criteriosPerfil(claseDato, tipoPersona, 'geo', variante)
+  const criteriosProd = criteriosPerfil(claseDato, tipoPersona, 'productos', variante)
+  const criteriosCan  = criteriosPerfil(claseDato, tipoPersona, 'canales', variante)
 
   return (
     <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#14141a', maxWidth: '780px', margin: '0 auto' }}>
@@ -628,6 +628,8 @@ export default function CalificacionRiesgo() {
 
   // Tipo de persona
   const [tipoPersona, setTipoPersona] = useState('fisica')
+  // Sub-tipo del cliente según la actividad (p. ej. donante / beneficiario en ONG)
+  const [subtipoCliente, setSubtipoCliente] = useState('donante')
 
   // Respuestas por factor
   const [respCliente, setRespCliente] = useState({})
@@ -664,9 +666,11 @@ export default function CalificacionRiesgo() {
 
   // Perfil de riesgo según el sujeto obligado (clase_dato del tenant efectivo)
   const claseDato = Number(tenantEfectivo?.clase_dato) || 0
-  const perfil    = perfilSujeto(claseDato)
-  const listaPais = listaPaisPerfil(claseDato)
-  const pesosFactores = pesosPerfil(claseDato, tipoPersona)
+  const variantes = variantesDe(claseDato)
+  const variante  = variantes.length ? subtipoCliente : null
+  const perfil    = perfilEfectivo(claseDato, variante)
+  const listaPais = listaPaisPerfil(claseDato, variante)
+  const pesosFactores = pesosPerfil(claseDato, tipoPersona, variante)
 
   const loadClientes = useCallback(async () => {
     const tid = isSuperAdmin ? tenantId : tenant?.id
@@ -807,10 +811,10 @@ export default function CalificacionRiesgo() {
   function setRespF(setFn, key, val) { setFn(prev => ({ ...prev, [key]: val })) }
 
   // Calcular scores en tiempo real (criterios y pesos según el sujeto obligado)
-  const scoreCli = calcularScoreFactor(respCliente, criteriosPerfil(claseDato, tipoPersona, 'cliente'))
-  const scoreGeo = calcularScoreFactor(respGeo, criteriosPerfil(claseDato, tipoPersona, 'geo'))
-  const scoreProd = calcularScoreFactor(respProductos, criteriosPerfil(claseDato, tipoPersona, 'productos'))
-  const scoreCan = calcularScoreFactor(respCanales, criteriosPerfil(claseDato, tipoPersona, 'canales'))
+  const scoreCli = calcularScoreFactor(respCliente, criteriosPerfil(claseDato, tipoPersona, 'cliente', variante))
+  const scoreGeo = calcularScoreFactor(respGeo, criteriosPerfil(claseDato, tipoPersona, 'geo', variante))
+  const scoreProd = calcularScoreFactor(respProductos, criteriosPerfil(claseDato, tipoPersona, 'productos', variante))
+  const scoreCan = calcularScoreFactor(respCanales, criteriosPerfil(claseDato, tipoPersona, 'canales', variante))
   const scoreTotal = calcularScoreTotal({ cliente: scoreCli, geo: scoreGeo, productos: scoreProd, canales: scoreCan }, tipoPersona, pesosFactores)
   const calificacionAuto = aplicarPisoRiesgo(clasificar(scoreTotal), perfil.pisoRiesgo)
   const calificacionFinal = calificacionManual || calificacionAuto
@@ -1047,6 +1051,21 @@ export default function CalificacionRiesgo() {
                         </button>
                       ))}
                     </div>
+                    {/* Sub-tipo del cliente (p. ej. donante / beneficiario en ONG) */}
+                    {variantes.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[11px] text-gray-400 mb-1">Relación con el sujeto obligado:</p>
+                        <div className="flex gap-2">
+                          {variantes.map(v => (
+                            <button key={v.key}
+                              onClick={() => setSubtipoCliente(v.key)}
+                              className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors ${subtipoCliente === v.key ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 text-gray-500'}`}>
+                              {v.etiqueta}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Botón pre-llenado automático */}
@@ -1175,7 +1194,7 @@ export default function CalificacionRiesgo() {
                 {/* Factor Cliente */}
                 <FactorForm
                   titulo={`Factor Cliente — ${tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'} (${Math.round(pesosFactores.cliente * 100)}%)`}
-                  criterios={criteriosPerfil(claseDato, tipoPersona, 'cliente')}
+                  criterios={criteriosPerfil(claseDato, tipoPersona, 'cliente', variante)}
                   respuestas={respCliente}
                   onChange={(k, v) => setRespF(setRespCliente, k, v)}
                   tipo={tipoPersona}
@@ -1185,7 +1204,7 @@ export default function CalificacionRiesgo() {
                 {/* Factor Zona Geográfica */}
                 <FactorForm
                   titulo={`Factor Zona Geográfica (${Math.round(pesosFactores.geo * 100)}%)`}
-                  criterios={criteriosPerfil(claseDato, tipoPersona, 'geo')}
+                  criterios={criteriosPerfil(claseDato, tipoPersona, 'geo', variante)}
                   respuestas={respGeo}
                   onChange={(k, v) => setRespF(setRespGeo, k, v)}
                   tipo={tipoPersona}
@@ -1197,7 +1216,7 @@ export default function CalificacionRiesgo() {
                 {pesosFactores.productos > 0 && (
                   <FactorForm
                     titulo={`Factor Productos / Servicios (${Math.round(pesosFactores.productos * 100)}%)`}
-                    criterios={criteriosPerfil(claseDato, tipoPersona, 'productos')}
+                    criterios={criteriosPerfil(claseDato, tipoPersona, 'productos', variante)}
                     respuestas={respProductos}
                     onChange={(k, v) => setRespF(setRespProductos, k, v)}
                     tipo={tipoPersona}
@@ -1209,7 +1228,7 @@ export default function CalificacionRiesgo() {
                 {pesosFactores.canales > 0 && (
                   <FactorForm
                     titulo={`Factor Canales de Distribución (${Math.round(pesosFactores.canales * 100)}%)`}
-                    criterios={criteriosPerfil(claseDato, tipoPersona, 'canales')}
+                    criterios={criteriosPerfil(claseDato, tipoPersona, 'canales', variante)}
                     respuestas={respCanales}
                     onChange={(k, v) => setRespF(setRespCanales, k, v)}
                     tipo={tipoPersona}
@@ -1228,6 +1247,7 @@ export default function CalificacionRiesgo() {
         nombreCliente={nombreCliente}
         tipoPersona={tipoPersona}
         claseDato={claseDato}
+        variante={variante}
         calificacionFinal={calificacionFinal}
         calificacionAuto={calificacionAuto}
         calificacionManual={calificacionManual}
