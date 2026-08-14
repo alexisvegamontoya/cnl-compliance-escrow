@@ -4,10 +4,10 @@ import { useAuth } from '../lib/AuthContext'
 import PanelPeriodicidad from '../components/informes/PanelPeriodicidad'
 import { imprimirNodo } from '../utils/imprimirDocumento'
 import {
-  CRITERIOS_CLIENTE, CRITERIOS_GEO, CRITERIOS_PRODUCTOS, CRITERIOS_CANALES,
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
   calcularScoreFactor, calcularScoreTotal, clasificar,
   ACTIVIDADES_PROFESIONES, CANTONES_CR, PROVINCIAS_CR,
+  perfilSujeto, pesosPerfil, listaPaisPerfil, criteriosPerfil, aplicarPisoRiesgo,
 } from '../lib/metodologiaRiesgo'
 
 // ------------------------------------
@@ -43,7 +43,8 @@ function ScoreBar({ score, max = 3 }) {
 // ------------------------------------
 // Formulario de un factor de riesgo
 // ------------------------------------
-function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = false, esONG = false }) {
+function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = false, listaPais = 'LC' }) {
+  const usaFT = !!listaPais && listaPais.includes('FT')
   function renderSelect(criterio) {
     let opciones = OPCIONES[criterio.key] || OPCIONES['pais_riesgo']
 
@@ -150,9 +151,9 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
     // Para criterios geográficos de país: mostrar lista de países
     if (esGeo && ['pais_origen', 'residencia', 'ubicacion_geo', 'casa_matriz'].includes(criterio.key)) {
       const paisSeleccionado = respuestas[criterio.key + '_nombre'] || ''
-      // ONG/OSFL: un país en la lista FT (FATF) se toma como Alto (3); en otro
-      // caso, el riesgo de la lista general (LC/UIF). Los demás sujetos usan LC.
-      const riesgoPais = (esONG && PAISES_ALTO_RIESGO_FT.includes(paisSeleccionado))
+      // Sujetos con lista FT (p. ej. ONG, Remesas): un país en la lista FT (FATF)
+      // se toma como Alto (3); si no, el riesgo de la lista general (LC/UIF).
+      const riesgoPais = (usaFT && PAISES_ALTO_RIESGO_FT.includes(paisSeleccionado))
         ? 3
         : PAISES_RIESGO.find(p => p.pais === paisSeleccionado)?.riesgo
 
@@ -164,8 +165,8 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
             value={paisSeleccionado}
             onChange={e => {
               const pais = e.target.value
-              // ONG/OSFL: país en lista FT (FATF) → Alto (3); si no, el riesgo LC.
-              const esFT = esONG && PAISES_ALTO_RIESGO_FT.includes(pais)
+              // Sujetos con lista FT: país en lista FATF → Alto (3); si no, el riesgo LC.
+              const esFT = usaFT && PAISES_ALTO_RIESGO_FT.includes(pais)
               const valorFinal = esFT ? 3 : (PAISES_RIESGO.find(p => p.pais === pais)?.riesgo || null)
               onChange(criterio.key + '_nombre', pais)
               onChange(criterio.key, valorFinal)
@@ -192,7 +193,7 @@ function FactorForm({ titulo, criterios, respuestas, onChange, tipo, esGeo = fal
           {riesgoPais && (
             <p className={`text-xs font-medium ${riesgoPais === 1 ? 'text-green-600' : riesgoPais === 2 ? 'text-yellow-600' : 'text-red-600'}`}>
               {riesgoPais === 1 ? '🟢 Bajo riesgo' : riesgoPais === 2 ? '🟡 Riesgo medio' : '🔴 Alto riesgo (GAFI)'}
-              {esONG && PAISES_ALTO_RIESGO_FT.includes(paisSeleccionado) && ' — ⚠ Lista FT'}
+              {usaFT && PAISES_ALTO_RIESGO_FT.includes(paisSeleccionado) && ' — ⚠ Lista FT'}
             </p>
           )}
         </div>
@@ -430,18 +431,18 @@ function TablaFactor({ titulo, criterios, respuestas, scoreF, pesoLabel }) {
 // ------------------------------------
 // Reporte imprimible (solo visible en @media print)
 // ------------------------------------
-function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
+function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, claseDato, calificacionFinal, calificacionAuto, calificacionManual, scoreTotal, scoreCli, scoreGeo, scoreProd, scoreCan, observaciones, listasNivel, respCliente, respGeo, respProductos, respCanales, fecha }) {
   if (!clienteActual) return null
   const nivelColor = calificacionFinal === 'alto' ? '#c31b26' : calificacionFinal === 'medio' ? '#a87813' : '#1f6d45'
   const nivelBg    = calificacionFinal === 'alto' ? '#fdf3f3' : calificacionFinal === 'medio' ? '#fdf8ec' : '#eff7f1'
 
-  const pesosFisica   = { cli: '60%', geo: '40%', prod: 'N/A', can: 'N/A' }
-  const pesosJuridica = { cli: '50%', geo: '15%', prod: '20%', can: '15%' }
-  const pesos = tipoPersona === 'fisica' ? pesosFisica : pesosJuridica
-  const criteriosCli  = CRITERIOS_CLIENTE[tipoPersona]  || []
-  const criteriosGeo  = CRITERIOS_GEO[tipoPersona]      || []
-  const criteriosProd = CRITERIOS_PRODUCTOS[tipoPersona] || []
-  const criteriosCan  = CRITERIOS_CANALES[tipoPersona]  || []
+  const pp  = pesosPerfil(claseDato, tipoPersona)
+  const fmt = v => v > 0 ? `${Math.round(v * 100)}%` : 'N/A'
+  const pesos = { cli: fmt(pp.cliente), geo: fmt(pp.geo), prod: fmt(pp.productos), can: fmt(pp.canales) }
+  const criteriosCli  = criteriosPerfil(claseDato, tipoPersona, 'cliente')
+  const criteriosGeo  = criteriosPerfil(claseDato, tipoPersona, 'geo')
+  const criteriosProd = criteriosPerfil(claseDato, tipoPersona, 'productos')
+  const criteriosCan  = criteriosPerfil(claseDato, tipoPersona, 'canales')
 
   return (
     <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#14141a', maxWidth: '780px', margin: '0 auto' }}>
@@ -516,10 +517,10 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
         </thead>
         <tbody>
           {[
-            { label: 'Factor Cliente',           score: scoreCli,  peso: pesos.cli,  pesoPct: tipoPersona === 'fisica' ? 0.6 : 0.5  },
-            { label: 'Zona Geográfica',          score: scoreGeo,  peso: pesos.geo,  pesoPct: tipoPersona === 'fisica' ? 0.4 : 0.15 },
-            { label: 'Productos / Servicios',    score: scoreProd, peso: pesos.prod, pesoPct: tipoPersona === 'fisica' ? 0   : 0.2  },
-            { label: 'Canales de Distribución',  score: scoreCan,  peso: pesos.can,  pesoPct: tipoPersona === 'fisica' ? 0   : 0.15 },
+            { label: 'Factor Cliente',           score: scoreCli,  peso: pesos.cli,  pesoPct: pp.cliente   },
+            { label: 'Zona Geográfica',          score: scoreGeo,  peso: pesos.geo,  pesoPct: pp.geo       },
+            { label: 'Productos / Servicios',    score: scoreProd, peso: pesos.prod, pesoPct: pp.productos },
+            { label: 'Canales de Distribución',  score: scoreCan,  peso: pesos.can,  pesoPct: pp.canales   },
           ].map((f, i) => {
             const contrib = f.score != null && f.pesoPct > 0 ? (f.score * f.pesoPct).toFixed(3) : '—'
             return (
@@ -561,23 +562,23 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
         scoreF={scoreGeo}
         pesoLabel={pesos.geo}
       />
-      {tipoPersona === 'juridica' && (
-        <>
-          <TablaFactor
-            titulo="Productos / Servicios"
-            criterios={criteriosProd}
-            respuestas={respProductos}
-            scoreF={scoreProd}
-            pesoLabel={pesos.prod}
-          />
-          <TablaFactor
-            titulo="Canales de Distribución"
-            criterios={criteriosCan}
-            respuestas={respCanales}
-            scoreF={scoreCan}
-            pesoLabel={pesos.can}
-          />
-        </>
+      {pp.productos > 0 && (
+        <TablaFactor
+          titulo="Productos / Servicios"
+          criterios={criteriosProd}
+          respuestas={respProductos}
+          scoreF={scoreProd}
+          pesoLabel={pesos.prod}
+        />
+      )}
+      {pp.canales > 0 && (
+        <TablaFactor
+          titulo="Canales de Distribución"
+          criterios={criteriosCan}
+          respuestas={respCanales}
+          scoreF={scoreCan}
+          pesoLabel={pesos.can}
+        />
       )}
 
       {/* Observaciones */}
@@ -614,7 +615,6 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, califica
 // ------------------------------------
 export default function CalificacionRiesgo() {
   const { tenant, profile, isSuperAdmin } = useAuth()
-  const isONG = Number(tenant?.clase_dato) === 42
   const [penalizacionInformes, setPenalizacionInformes] = useState(0)
 
   const [clientes, setClientes] = useState([])
@@ -661,6 +661,12 @@ export default function CalificacionRiesgo() {
   const tenantEfectivo = isSuperAdmin
     ? (tenants.find(t => t.id === tenantId) || tenant)
     : tenant
+
+  // Perfil de riesgo según el sujeto obligado (clase_dato del tenant efectivo)
+  const claseDato = Number(tenantEfectivo?.clase_dato) || 0
+  const perfil    = perfilSujeto(claseDato)
+  const listaPais = listaPaisPerfil(claseDato)
+  const pesosFactores = pesosPerfil(claseDato, tipoPersona)
 
   const loadClientes = useCallback(async () => {
     const tid = isSuperAdmin ? tenantId : tenant?.id
@@ -710,11 +716,17 @@ export default function CalificacionRiesgo() {
     const esFisica = [1, 3, 5].includes(tipoId)
     setTipoPersona(esFisica ? 'fisica' : 'juridica')
 
-    // Factor GEO
+    // Factor GEO — con overlay FT para sujetos con lista FT (ONG, Remesas)
+    const usaFT = listaPais.includes('FT')
+    const riesgoDe = (nombre) => {
+      if (!nombre) return 1
+      if (usaFT && PAISES_ALTO_RIESGO_FT.some(p => p.toLowerCase().includes(nombre.toLowerCase()))) return 3
+      return PAISES_RIESGO.find(p => p.pais?.toLowerCase().includes(nombre.toLowerCase()))?.riesgo || 1
+    }
     const paisOrigen = c?.pais_nacimiento || c?.pais_constitucion || c?.nacionalidad || ''
     const paisRes    = c?.pais_ubicacion || ''
-    const rOrig = PAISES_RIESGO.find(p => paisOrigen && p.pais?.toLowerCase().includes(paisOrigen.toLowerCase()))?.riesgo || 1
-    const rRes  = PAISES_RIESGO.find(p => paisRes   && p.pais?.toLowerCase().includes(paisRes.toLowerCase()))?.riesgo || 1
+    const rOrig = riesgoDe(paisOrigen)
+    const rRes  = riesgoDe(paisRes)
     setRespGeo({
       pais_origen_nombre: paisOrigen, pais_origen: rOrig,
       residencia_nombre: paisRes, residencia: rRes,
@@ -794,13 +806,13 @@ export default function CalificacionRiesgo() {
 
   function setRespF(setFn, key, val) { setFn(prev => ({ ...prev, [key]: val })) }
 
-  // Calcular scores en tiempo real
-  const scoreCli = calcularScoreFactor(respCliente, CRITERIOS_CLIENTE[tipoPersona])
-  const scoreGeo = calcularScoreFactor(respGeo, CRITERIOS_GEO[tipoPersona])
-  const scoreProd = calcularScoreFactor(respProductos, CRITERIOS_PRODUCTOS[tipoPersona])
-  const scoreCan = calcularScoreFactor(respCanales, CRITERIOS_CANALES[tipoPersona])
-  const scoreTotal = calcularScoreTotal({ cliente: scoreCli, geo: scoreGeo, productos: scoreProd, canales: scoreCan }, tipoPersona)
-  const calificacionAuto = clasificar(scoreTotal)
+  // Calcular scores en tiempo real (criterios y pesos según el sujeto obligado)
+  const scoreCli = calcularScoreFactor(respCliente, criteriosPerfil(claseDato, tipoPersona, 'cliente'))
+  const scoreGeo = calcularScoreFactor(respGeo, criteriosPerfil(claseDato, tipoPersona, 'geo'))
+  const scoreProd = calcularScoreFactor(respProductos, criteriosPerfil(claseDato, tipoPersona, 'productos'))
+  const scoreCan = calcularScoreFactor(respCanales, criteriosPerfil(claseDato, tipoPersona, 'canales'))
+  const scoreTotal = calcularScoreTotal({ cliente: scoreCli, geo: scoreGeo, productos: scoreProd, canales: scoreCan }, tipoPersona, pesosFactores)
+  const calificacionAuto = aplicarPisoRiesgo(clasificar(scoreTotal), perfil.pisoRiesgo)
   const calificacionFinal = calificacionManual || calificacionAuto
   const alertaSugefPendiente = clienteActual?.sugef_estado === 'pendiente'
 
@@ -880,7 +892,7 @@ export default function CalificacionRiesgo() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Calificación de Riesgo de Clientes</h1>
-          <p className="text-gray-500 text-sm mt-1">Metodología N06 — Basel AML Index 2023{isONG ? ' · Lista FT activa para ONG' : ''}</p>
+          <p className="text-gray-500 text-sm mt-1">Metodología N06 — Basel AML Index 2023{perfil.nombre && perfil.nombre !== 'General' ? ` · ${perfil.nombre}` : ''}{listaPais.includes('FT') ? ' · Lista FT activa' : ''}</p>
         </div>
         <div className="flex gap-2">
           {['calificar', 'dashboard'].map(t => (
@@ -1162,44 +1174,48 @@ export default function CalificacionRiesgo() {
               <>
                 {/* Factor Cliente */}
                 <FactorForm
-                  titulo={`Factor Cliente — ${tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'} (${tipoPersona === 'fisica' ? '60' : '50'}%)`}
-                  criterios={CRITERIOS_CLIENTE[tipoPersona]}
+                  titulo={`Factor Cliente — ${tipoPersona === 'fisica' ? 'Persona Física' : 'Persona Jurídica'} (${Math.round(pesosFactores.cliente * 100)}%)`}
+                  criterios={criteriosPerfil(claseDato, tipoPersona, 'cliente')}
                   respuestas={respCliente}
                   onChange={(k, v) => setRespF(setRespCliente, k, v)}
                   tipo={tipoPersona}
-                  esONG={isONG}
+                  listaPais={listaPais}
                 />
 
                 {/* Factor Zona Geográfica */}
                 <FactorForm
-                  titulo={`Factor Zona Geográfica (${tipoPersona === 'fisica' ? '40' : '15'}%)`}
-                  criterios={CRITERIOS_GEO[tipoPersona]}
+                  titulo={`Factor Zona Geográfica (${Math.round(pesosFactores.geo * 100)}%)`}
+                  criterios={criteriosPerfil(claseDato, tipoPersona, 'geo')}
                   respuestas={respGeo}
                   onChange={(k, v) => setRespF(setRespGeo, k, v)}
                   tipo={tipoPersona}
                   esGeo={true}
-                  esONG={isONG}
+                  listaPais={listaPais}
                 />
 
-                {/* Factor Productos */}
-                <FactorForm
-                  titulo={`Factor Productos / Servicios (${tipoPersona === 'fisica' ? '0' : '20'}%)`}
-                  criterios={CRITERIOS_PRODUCTOS[tipoPersona]}
-                  respuestas={respProductos}
-                  onChange={(k, v) => setRespF(setRespProductos, k, v)}
-                  tipo={tipoPersona}
-                  esONG={isONG}
-                />
+                {/* Factor Productos — solo si tiene peso en esta actividad */}
+                {pesosFactores.productos > 0 && (
+                  <FactorForm
+                    titulo={`Factor Productos / Servicios (${Math.round(pesosFactores.productos * 100)}%)`}
+                    criterios={criteriosPerfil(claseDato, tipoPersona, 'productos')}
+                    respuestas={respProductos}
+                    onChange={(k, v) => setRespF(setRespProductos, k, v)}
+                    tipo={tipoPersona}
+                    listaPais={listaPais}
+                  />
+                )}
 
-                {/* Factor Canales */}
-                <FactorForm
-                  titulo={`Factor Canales de Distribución (${tipoPersona === 'fisica' ? '0' : '15'}%)`}
-                  criterios={CRITERIOS_CANALES[tipoPersona]}
-                  respuestas={respCanales}
-                  onChange={(k, v) => setRespF(setRespCanales, k, v)}
-                  tipo={tipoPersona}
-                  esONG={isONG}
-                />
+                {/* Factor Canales — solo si tiene peso en esta actividad */}
+                {pesosFactores.canales > 0 && (
+                  <FactorForm
+                    titulo={`Factor Canales de Distribución (${Math.round(pesosFactores.canales * 100)}%)`}
+                    criterios={criteriosPerfil(claseDato, tipoPersona, 'canales')}
+                    respuestas={respCanales}
+                    onChange={(k, v) => setRespF(setRespCanales, k, v)}
+                    tipo={tipoPersona}
+                    listaPais={listaPais}
+                  />
+                )}
               </>
             )}
           </div>
@@ -1211,6 +1227,7 @@ export default function CalificacionRiesgo() {
         clienteActual={clienteActual}
         nombreCliente={nombreCliente}
         tipoPersona={tipoPersona}
+        claseDato={claseDato}
         calificacionFinal={calificacionFinal}
         calificacionAuto={calificacionAuto}
         calificacionManual={calificacionManual}
