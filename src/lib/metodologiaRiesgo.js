@@ -804,7 +804,8 @@ export const PERFIL_SUJETO_OBLIGADO = {
   //     Donante Cooperación Internacional y Beneficiario Externo.
   //   - Persona física: solo 6 criterios de cliente (se ocultan protectoras,
   //     info del ingreso y estructura administrativa).
-  //   - "Aparece negativo en el BPS" = listas de observados.
+  //   - "Listas internacionales" = listas de observados (término genérico ONG;
+  //     "BPS" es el nombre interno solo de FVM).
   //   Los umbrales que definen si un donante se califica o es bajo automático
   //   (anónimo < $300; por debajo < $1.000) son una regla de negocio aparte.
   42: {
@@ -829,8 +830,11 @@ export const PERFIL_SUJETO_OBLIGADO = {
         geo:     { ubicacion_geo: 0.30, casa_matriz: 0.30, transfronterizo: 0.20, op_internacional: 0.20 },
       },
     },
+    // "Listas internacionales" es el término genérico para todas las ONG.
+    // (El término interno "BPS" es exclusivo de Fundación Visión Mundial; si
+    //  algún día se quiere mostrar por-tenant, sería un override específico.)
     labels: {
-      listas_obs:      'Aparece negativo en el BPS',
+      listas_obs:      'Listas internacionales',
       ingreso_mensual: 'Ingreso / monto promedio mensual',
       actividad_eco:   'Actividad económica',
       efectivo:        'Dinero en efectivo',
