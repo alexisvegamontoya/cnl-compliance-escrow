@@ -677,7 +677,7 @@ export default function CalificacionRiesgo() {
     const tid = isSuperAdmin ? tenantId : tenant?.id
     if (!tid) return
     const { data } = await supabase.from('clientes')
-      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep, sugef_estado, manejo_efectivo, opera_transfronterizo, situacion_laboral, cant_lugares, niveles_societarios, cant_personal, opera_internacional, posicion_mercado, estructura_ventas, cant_sucursales, tipo_vendedor')
+      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep, sugef_estado')
       .eq('tenant_id', tid)
       .order('nombre_cliente', { nullsFirst: false })
     setClientes(data || [])
@@ -715,8 +715,15 @@ export default function CalificacionRiesgo() {
 
   // Cuando se selecciona un cliente
   // Pre-llenar todos los factores desde los datos del cliente en BD
-  async function preLlenarDesdeDB(c) {
-    if (!c) return
+  async function preLlenarDesdeDB(cBase) {
+    if (!cBase) return
+    // Re-consultar la ficha completa (incluye fecha_constitucion y los campos de
+    // riesgo de la Fase 2). Si esas columnas aún no existen, simplemente no vienen.
+    let c = cBase
+    try {
+      const { data: full } = await supabase.from('clientes').select('*').eq('id', cBase.id).single()
+      if (full) c = full
+    } catch { /* usa el registro de la lista si falla */ }
     const tipoId = Number(c?.tipo_identificacion)
     const esFisica = [1, 3, 5].includes(tipoId)
     setTipoPersona(esFisica ? 'fisica' : 'juridica')
