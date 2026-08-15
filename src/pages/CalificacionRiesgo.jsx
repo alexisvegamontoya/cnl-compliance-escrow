@@ -1163,12 +1163,12 @@ export default function CalificacionRiesgo() {
                 <h3 className="font-semibold text-gray-900 text-sm">Resultado en tiempo real</h3>
 
                 {[
-                  { label: 'Factor Cliente', score: scoreCli, peso: tipoPersona === 'fisica' ? 60 : 50 },
-                  { label: 'Zona Geográfica', score: scoreGeo, peso: tipoPersona === 'fisica' ? 40 : 15 },
-                  { label: 'Productos', score: scoreProd, peso: tipoPersona === 'fisica' ? 0 : 20 },
-                  { label: 'Canales de Distribución', score: scoreCan, peso: tipoPersona === 'fisica' ? 0 : 15 },
-                ].map(f => (
-                  <div key={f.label} className={f.peso === 0 ? 'opacity-40' : ''}>
+                  { label: 'Factor Cliente', score: scoreCli, peso: Math.round(pesosFactores.cliente * 100) },
+                  { label: 'Zona Geográfica', score: scoreGeo, peso: Math.round(pesosFactores.geo * 100) },
+                  { label: 'Productos', score: scoreProd, peso: Math.round(pesosFactores.productos * 100) },
+                  { label: 'Canales de Distribución', score: scoreCan, peso: Math.round(pesosFactores.canales * 100) },
+                ].filter(f => f.peso > 0).map(f => (
+                  <div key={f.label}>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">{f.label} ({f.peso}%)</span>
                       <span className="font-mono font-medium text-gray-700">{f.score != null ? f.score.toFixed(3) : '—'}</span>
