@@ -7,7 +7,7 @@ import {
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
   calcularScoreFactor, calcularScoreTotal, clasificar,
   ACTIVIDADES_PROFESIONES, CANTONES_CR, PROVINCIAS_CR,
-  perfilEfectivo, pesosPerfil, listaPaisPerfil, criteriosPerfil, aplicarPisoRiesgo, variantesDe,
+  perfilEfectivo, pesosPerfil, listaPaisPerfil, criteriosPerfil, variantesDe,
 } from '../lib/metodologiaRiesgo'
 import { fetchTipoCambio, toUSD } from '../lib/sicvecaRules'
 
@@ -872,7 +872,8 @@ export default function CalificacionRiesgo() {
   const scoreProd = calcularScoreFactor(respProductos, criteriosPerfil(claseDato, tipoPersona, 'productos', variante))
   const scoreCan = calcularScoreFactor(respCanales, criteriosPerfil(claseDato, tipoPersona, 'canales', variante))
   const scoreTotal = calcularScoreTotal({ cliente: scoreCli, geo: scoreGeo, productos: scoreProd, canales: scoreCan }, tipoPersona, pesosFactores)
-  const calificacionAuto = aplicarPisoRiesgo(clasificar(scoreTotal), perfil.pisoRiesgo)
+  // La calificación depende 100% del score (sin piso de riesgo por actividad).
+  const calificacionAuto = clasificar(scoreTotal)
   const calificacionFinal = calificacionManual || calificacionAuto
   const alertaSugefPendiente = clienteActual?.sugef_estado === 'pendiente'
 
