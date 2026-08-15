@@ -11,6 +11,8 @@ import {
   CANTONES_CR,
   PROVINCIAS_CR,
   PAISES_RIESGO,
+  OPCIONES,
+  criteriosPerfil,
 } from '../../lib/metodologiaRiesgo'
 import EstructuraEmpresa from './EstructuraEmpresa'
 import ChecklistDocumental from './ChecklistDocumental'
@@ -18,6 +20,23 @@ import { normalizarChecklist, resumenChecklist, itemsChecklist } from '../../lib
 import { useCatalogoDeTenant } from '../../lib/CatalogoDocumentalContext'
 
 const PAISES = PAISES_RIESGO.map(p => p.pais).sort()
+
+// Fase 2 — campos de la ficha que alimentan la calificación de riesgo.
+// Cada columna guarda el valor de riesgo (0.5–3) según las opciones de la metodología.
+// Se muestran filtrados por tipo de persona y por la actividad del sujeto obligado.
+const CAMPOS_RIESGO = [
+  { col: 'manejo_efectivo',       opc: 'efectivo',         factor: 'cliente',   tipos: ['fisica','juridica'], label: 'Manejo de efectivo' },
+  { col: 'opera_transfronterizo', opc: 'transfronterizo',  factor: 'geo',       tipos: ['fisica','juridica'], label: 'Dinero transfronterizo' },
+  { col: 'situacion_laboral',     opc: 'como_labor',       factor: 'canales',   tipos: ['fisica'],            label: 'Situación laboral / cómo realiza su labor' },
+  { col: 'cant_lugares',          opc: 'cant_lugares',     factor: 'canales',   tipos: ['fisica'],            label: 'Cantidad de lugares donde opera' },
+  { col: 'niveles_societarios',   opc: 'struct_acc',       factor: 'cliente',   tipos: ['juridica'],          label: 'Estructura accionaria (niveles societarios)' },
+  { col: 'cant_personal',         opc: 'struct_admin',     factor: 'cliente',   tipos: ['juridica'],          label: 'Estructura administrativa (personal)' },
+  { col: 'opera_internacional',   opc: 'op_internacional', factor: 'geo',       tipos: ['juridica'],          label: 'Operación internacional' },
+  { col: 'posicion_mercado',      opc: 'posicion_mkt',     factor: 'productos', tipos: ['juridica'],          label: 'Posicionamiento en el mercado' },
+  { col: 'estructura_ventas',     opc: 'struct_ventas',    factor: 'productos', tipos: ['juridica'],          label: 'Estructura de ventas' },
+  { col: 'cant_sucursales',       opc: 'cant_sucursales',  factor: 'canales',   tipos: ['juridica'],          label: 'Cantidad de sucursales' },
+  { col: 'tipo_vendedor',         opc: 'tipo_vendedor',    factor: 'canales',   tipos: ['juridica'],          label: 'Tipo de vendedor' },
+]
 const PAISES_ALL = [...new Set([
   'Costa Rica', 'Estados Unidos', 'México', 'España', 'Panamá', 'Colombia',
   'Venezuela', 'Nicaragua', 'Honduras', 'Guatemala', 'El Salvador',
@@ -96,6 +115,7 @@ const EMPTY_JURIDICA = {
 export default function ClienteFormCompleto({ clienteInicial = null, onSave, onCancel, onBuscarDuplicado }) {
   const { tenant, session, isSuperAdmin } = useAuth()
   const esEdicion = !!clienteInicial
+  const claseDatoForm = Number(tenant?.clase_dato) || 0
 
   const [tipoPers, setTipoPers]       = useState(clienteInicial?.tipo_persona || 'fisica')
   const [form, setForm]               = useState(clienteInicial || (tipoPers === 'fisica' ? EMPTY_FISICA : EMPTY_JURIDICA))
@@ -221,6 +241,11 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
         'fecha_constitucion',
         'estado_dd','estado_listas','estado_calificacion',
         'nivel_riesgo_actual','notas','activo',
+        // Fase 2 — datos para la calificación de riesgo (valor de riesgo 0.5–3)
+        'manejo_efectivo','opera_transfronterizo',
+        'situacion_laboral','cant_lugares',
+        'niveles_societarios','cant_personal','opera_internacional',
+        'posicion_mercado','estructura_ventas','cant_sucursales','tipo_vendedor',
       ]
       const payload = {}
       CAMPOS_PERMITIDOS.forEach(k => {
@@ -241,7 +266,10 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       payload.activo          = true
 
       // Convertir campos enteros/numéricos: vacío → null (evita "invalid input syntax for type integer")
-      const CAMPOS_INT = ['profesion_valor','actividad_eco_valor','ingreso_mensual_est']
+      const CAMPOS_INT = ['profesion_valor','actividad_eco_valor','ingreso_mensual_est',
+        'manejo_efectivo','opera_transfronterizo','situacion_laboral','cant_lugares',
+        'niveles_societarios','cant_personal','opera_internacional',
+        'posicion_mercado','estructura_ventas','cant_sucursales','tipo_vendedor']
       CAMPOS_INT.forEach(k => {
         const v = payload[k]
         payload[k] = (v === '' || v === undefined || v === null) ? null : Number(v) || null
@@ -593,6 +621,35 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
               </div>
             </div>
           </div>
+
+          {/* Datos para la calificación de riesgo (se auto-llenan en la calificación) */}
+          {(() => {
+            const campos = CAMPOS_RIESGO.filter(cr =>
+              cr.tipos.includes(tipoPers) &&
+              criteriosPerfil(claseDatoForm, tipoPers, cr.factor).some(x => x.key === cr.opc)
+            )
+            if (!campos.length) return null
+            return (
+              <div className="card space-y-3">
+                <p className="text-sm font-bold text-gray-700 border-b pb-2">Datos para la calificación de riesgo</p>
+                <p className="text-xs text-gray-500">Opcionales. Alimentan automáticamente la calificación de riesgo del cliente.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {campos.map(cr => (
+                    <div key={cr.col}>
+                      <label className="label text-xs">{cr.label}</label>
+                      <select className="input text-sm" value={form[cr.col] ?? ''}
+                        onChange={e => set(cr.col, e.target.value === '' ? null : Number(e.target.value))}>
+                        <option value="">— Seleccione —</option>
+                        {(OPCIONES[cr.opc] || []).map(o => (
+                          <option key={o.valor} value={o.valor}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
 

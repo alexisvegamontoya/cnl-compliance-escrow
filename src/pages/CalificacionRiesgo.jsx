@@ -677,7 +677,7 @@ export default function CalificacionRiesgo() {
     const tid = isSuperAdmin ? tenantId : tenant?.id
     if (!tid) return
     const { data } = await supabase.from('clientes')
-      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep, sugef_estado')
+      .select('id, numero_identificacion, nombre_cliente, primer_apellido, nombre_empresa, tipo_identificacion, calificacion_riesgo, nacionalidad, pais_ubicacion, pais_nacimiento, pais_constitucion, fecha_constitucion, actividad_eco_nombre, actividad_eco_valor, profesion_nombre, profesion_valor, ingreso_mensual_est, provincia, canton, pep, sugef_estado, manejo_efectivo, opera_transfronterizo, situacion_laboral, cant_lugares, niveles_societarios, cant_personal, opera_internacional, posicion_mercado, estructura_ventas, cant_sucursales, tipo_vendedor')
       .eq('tenant_id', tid)
       .order('nombre_cliente', { nullsFirst: false })
     setClientes(data || [])
@@ -736,9 +736,9 @@ export default function CalificacionRiesgo() {
       pais_origen_nombre: paisOrigen, pais_origen: rOrig,
       residencia_nombre: paisRes, residencia: rRes,
       ubicacion_geo: rOrig, casa_matriz: rOrig,
-      transfronterizo: (rOrig > 1 || rRes > 1 ? 2 : 0.5),
+      transfronterizo: c?.opera_transfronterizo ?? (rOrig > 1 || rRes > 1 ? 2 : 0.5),
       op_nacional: (c?.canton || c?.provincia) ? 0.5 : 1,
-      op_internacional: 0.5,
+      op_internacional: c?.opera_internacional ?? 0.5,
     })
 
     // Factor CLIENTE
@@ -786,14 +786,25 @@ export default function CalificacionRiesgo() {
       pep: c?.pep ? 3 : 1,
       acceso_info: 1,
       listas_obs: listasVal,
-      struct_admin: esFisica ? undefined : 1,
-      struct_acc: 1,
+      efectivo: c?.manejo_efectivo ?? undefined,
+      struct_admin: esFisica ? undefined : (c?.cant_personal ?? 1),
+      struct_acc: c?.niveles_societarios ?? 1,
       anos_operacion: anosVal,
       vol_trans: volVal, cant_trans: cantVal,
     })
-    // Factor PRODUCTOS: servicio/producto y años de experiencia desde la actividad del cliente
-    setRespProductos({ servicios: actVal, servicios_nombre: actNombre, anos_exp: anosVal })
-    setRespCanales({})
+    // Factor PRODUCTOS: servicio/producto, años de experiencia y datos comerciales
+    setRespProductos({
+      servicios: actVal, servicios_nombre: actNombre, anos_exp: anosVal,
+      posicion_mkt: c?.posicion_mercado ?? undefined,
+      struct_ventas: c?.estructura_ventas ?? undefined,
+    })
+    // Factor CANALES: desde la ficha del cliente
+    setRespCanales({
+      como_labor:      c?.situacion_laboral ?? undefined,
+      cant_lugares:    c?.cant_lugares ?? undefined,
+      cant_sucursales: c?.cant_sucursales ?? undefined,
+      tipo_vendedor:   c?.tipo_vendedor ?? undefined,
+    })
     setCalificacionManual('')
     setObservaciones('')
   }
