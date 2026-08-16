@@ -772,7 +772,6 @@ export function getRiesgoPais(nombrePais) {
 // Cada actividad modula la calificación en 4 dimensiones:
 //   · pesos          → peso de cada factor (cliente/geo/productos/canales)
 //   · listaPais      → 'LC' (UIF), 'FT' (GAFI sobre LC) o 'FT+LC'
-//   · pisoRiesgo     → nivel mínimo que no puede bajar la calificación
 //   · ocultar        → criterios que NO se muestran para esta actividad
 //   · pesosCriterio  → override del peso de un criterio puntual
 //   · labels         → terminología específica de la actividad
@@ -782,7 +781,7 @@ export function getRiesgoPais(nombrePais) {
 export const PERFIL_SUJETO_OBLIGADO = {
   // 40 — Metales y Piedras Preciosas
   40: {
-    nombre: 'Metales y Piedras Preciosas', listaPais: 'LC', pisoRiesgo: null,
+    nombre: 'Metales y Piedras Preciosas', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.45, geo: 0.25, productos: 0.20, canales: 0.10 },
       juridica: { cliente: 0.40, geo: 0.15, productos: 0.30, canales: 0.15 },
@@ -796,7 +795,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 41 — Casas de Empeño
   41: {
-    nombre: 'Casas de Empeño', listaPais: 'LC', pisoRiesgo: null,
+    nombre: 'Casas de Empeño', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.55, geo: 0.20, productos: 0.15, canales: 0.10 },
       juridica: { cliente: 0.45, geo: 0.10, productos: 0.25, canales: 0.20 },
@@ -818,7 +817,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   //   Los umbrales que definen si un donante se califica o es bajo automático
   //   (anónimo < $300; por debajo < $1.000) son una regla de negocio aparte.
   42: {
-    nombre: 'Organizaciones Sin Fines de Lucro', listaPais: 'FT', pisoRiesgo: 'medio',
+    nombre: 'Organizaciones Sin Fines de Lucro', listaPais: 'FT',
     // Esquema base = Donante / Beneficiario externo (lo sobreescribe cada variante)
     pesos: {
       fisica:   { cliente: 0.40, geo: 0.20, productos: 0.20, canales: 0.20 },
@@ -900,7 +899,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 43 — Casinos
   43: {
-    nombre: 'Casinos', listaPais: 'LC', pisoRiesgo: 'medio',
+    nombre: 'Casinos', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.40, geo: 0.15, productos: 0.15, canales: 0.30 },
       juridica: { cliente: 0.35, geo: 0.10, productos: 0.20, canales: 0.35 },
@@ -915,7 +914,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 44 — Administración de Dinero
   44: {
-    nombre: 'Administración de Dinero', listaPais: 'LC', pisoRiesgo: 'medio',
+    nombre: 'Administración de Dinero', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.40, geo: 0.25, productos: 0.15, canales: 0.20 },
       juridica: { cliente: 0.35, geo: 0.15, productos: 0.20, canales: 0.30 },
@@ -927,7 +926,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 45 — Remesas y Transferencias
   45: {
-    nombre: 'Remesas y Transferencias', listaPais: 'FT+LC', pisoRiesgo: 'medio',
+    nombre: 'Remesas y Transferencias', listaPais: 'FT+LC',
     pesos: {
       fisica:   { cliente: 0.30, geo: 0.45, productos: 0.05, canales: 0.20 },
       juridica: { cliente: 0.30, geo: 0.35, productos: 0.10, canales: 0.25 },
@@ -940,7 +939,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 46 — Emisión / Operación de Tarjetas
   46: {
-    nombre: 'Emisión / Operación de Tarjetas', listaPais: 'LC', pisoRiesgo: null,
+    nombre: 'Emisión / Operación de Tarjetas', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.45, geo: 0.20, productos: 0.20, canales: 0.15 },
       juridica: { cliente: 0.40, geo: 0.10, productos: 0.30, canales: 0.20 },
@@ -951,7 +950,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 47 — Facilidades Crediticias
   47: {
-    nombre: 'Facilidades Crediticias', listaPais: 'LC', pisoRiesgo: null,
+    nombre: 'Facilidades Crediticias', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.55, geo: 0.20, productos: 0.15, canales: 0.10 },
       juridica: { cliente: 0.50, geo: 0.10, productos: 0.25, canales: 0.15 },
@@ -963,7 +962,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 48 — Servicios Fiduciarios
   48: {
-    nombre: 'Servicios Fiduciarios', listaPais: 'LC', pisoRiesgo: 'medio',
+    nombre: 'Servicios Fiduciarios', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.55, geo: 0.25, productos: 0.15, canales: 0.05 },
       juridica: { cliente: 0.55, geo: 0.15, productos: 0.15, canales: 0.15 },
@@ -976,7 +975,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
   },
   // 49 — Bienes Inmuebles
   49: {
-    nombre: 'Bienes Inmuebles', listaPais: 'LC', pisoRiesgo: 'medio',
+    nombre: 'Bienes Inmuebles', listaPais: 'LC',
     pesos: {
       fisica:   { cliente: 0.40, geo: 0.25, productos: 0.25, canales: 0.10 },
       juridica: { cliente: 0.35, geo: 0.15, productos: 0.35, canales: 0.15 },
@@ -988,7 +987,7 @@ export const PERFIL_SUJETO_OBLIGADO = {
     },
   },
   // Por defecto: metodología base sin diferenciación por actividad
-  default: { nombre: 'General', listaPais: 'LC', pisoRiesgo: null },
+  default: { nombre: 'General', listaPais: 'LC' },
 }
 
 const _BASE_CRITERIOS = {
@@ -1025,7 +1024,6 @@ export function perfilEfectivo(claseDato, variante) {
   return {
     ...base,
     listaPais:     v.listaPais || base.listaPais,
-    pisoRiesgo:    v.pisoRiesgo !== undefined ? v.pisoRiesgo : base.pisoRiesgo,
     pesos:         v.pesos || base.pesos,
     ocultar:       mergeFactorMap(base.ocultar, v.ocultar),
     pesosCriterio: mergeFactorMap(base.pesosCriterio, v.pesosCriterio),
@@ -1066,11 +1064,4 @@ export function criteriosPerfil(claseDato, tipo, factor, variante) {
       peso:  pesosOv[c.key] != null ? pesosOv[c.key] : c.peso,
       label: labels[c.key] || c.label,
     }))
-}
-
-// Eleva la calificación al piso de riesgo de la actividad si cae por debajo
-export function aplicarPisoRiesgo(nivel, piso) {
-  if (!piso || !nivel) return nivel
-  const orden = { bajo: 1, medio: 2, alto: 3 }
-  return (orden[nivel] || 0) >= (orden[piso] || 0) ? nivel : piso
 }
