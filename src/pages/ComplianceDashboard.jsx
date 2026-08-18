@@ -5,13 +5,11 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
-import { calcularCumplimientoGlobal } from '../lib/checklistDocumental'
+import { calcularNivelCumplimiento } from '../lib/nivelCumplimiento'
 import { useCatalogoDeTenant } from '../lib/CatalogoDocumentalContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
 
 // ─── Pesos de cada ítem ───────────────────────────────────────────────────────
-const PESOS = { i1: 25, i2: 7, i3: 20, i4: 15, i5: 5, i6: 8, i7: 15, i8: 5 }
-
 // ─── Colores por score ────────────────────────────────────────────────────────
 function colorPct(p) {
   if (p >= 80) return '#1f6d45'
@@ -263,145 +261,19 @@ export default function ComplianceDashboard() {
     setSaving(false)
   }
 
-  // ── Cálculos ───────────────────────────────────────────────────────────────
-  const tipoSujeto = Number(tenant?.tipo_sujeto) || 1
-
-  // Ítem 1: actualización de la información de clientes.
-  // Es la calificación GLOBAL de la cartera — promedio de la calificación de
-  // cumplimiento de cada cliente (documentación 60% · expediente 25% · gestiones 15%),
-  // la misma que se muestra al consultar los clientes del sujeto obligado.
-  const globalClientes  = calcularCumplimientoGlobal(clientes, catalogoDoc)
+  // ── Cálculos (fuente única: src/lib/nivelCumplimiento.js) ───────────────────
+  const { items, scoreGlobal, etiqueta: etiquetaGlobal, globalClientes, tipoSujeto } =
+    calcularNivelCumplimiento({
+      tenant, clientes, normativa, transacciones, informes,
+      seguimientoDerivado: { fCapacitacion, fSistemas, fEvalRiesgo, fInformes },
+      catalogoDoc,
+    })
+  const scoreI1 = items[0].score
+  const scoreI7 = items[6].score
   const clientesActivos = clientes.filter(c => c.activo !== false && !c.fecha_termino_relacion)
   const clientesCompletos = globalClientes.detalle.filter(d => d.score >= 80)
-  const scoreI1 = globalClientes.score
-  const pendientesI1 = globalClientes.detalle
-    .filter(d => d.score < 100)
-    .slice(0, 10)
-    .map(d => {
-      const c = d.cliente
-      const nombre = c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`.trim() || c.numero_identificacion
-      const top = d.faltantes.slice(0, 3).join(' · ')
-      return `${nombre} (${d.score}/100): ${top}${d.faltantes.length > 3 ? ` …y ${d.faltantes.length - 3} más` : ''}`
-    })
-
-  // Ítem 2: capacitación manual
-  const scoreI2 = fCapacitacion.completa ? 100 : 0
-
-  // Ítem 3: normativa vigente
-  const mesesValidezNorm = tipoSujeto === 1 ? 12 : tipoSujeto === 2 ? 24 : 36
-  const pendientesI3 = []
-  let normVigentes = 0
-  for (const doc of normativa) {
-    const fechaBase = doc.fecha_aprobacion_jd || doc.fecha_vigencia
-    if (!fechaBase) {
-      pendientesI3.push(`"${doc.nombre || doc.tipo}" sin fecha de aprobación JD`)
-      continue
-    }
-    const meses = mesesDesde(fechaBase)
-    if (meses > mesesValidezNorm) {
-      pendientesI3.push(`"${doc.nombre || doc.tipo}" desactualizado (aprobado hace ${meses} meses, máx ${mesesValidezNorm})`)
-    } else {
-      normVigentes++
-    }
-  }
-  const scoreI3 = normativa.length === 0 ? 0 : (normVigentes / normativa.length) * 100
-
-  // Ítem 4: SICVECA
-  const mesesFrecSicveca = tipoSujeto === 1 ? 2 : tipoSujeto === 2 ? 3 : 4
-  const pendientesI4 = []
-  let scoreI4 = 0
-  if (transacciones.length > 0 && transacciones[0].periodo) {
-    const meses = mesesDesde(transacciones[0].periodo)
-    if (meses <= mesesFrecSicveca) {
-      scoreI4 = 100
-    } else {
-      scoreI4 = Math.max(0, 100 - ((meses - mesesFrecSicveca) / mesesFrecSicveca) * 100)
-      pendientesI4.push(`Último período: ${transacciones[0].periodo} (hace ${meses} meses; tipo ${tipoSujeto} debe reportar cada ${mesesFrecSicveca} meses)`)
-    }
-  } else {
-    pendientesI4.push('No hay transacciones SICVECA registradas.')
-  }
-
-  // Ítem 5: sistemas manuales
-  const scoreI5 = fSistemas.actualizado ? 100 : 0
-
-  // Ítem 6: informes de monitoreo
-  const pendientesI6 = []
-  let scoreI6 = 0
-  if (informes.length > 0) {
-    const meses = mesesDesde(informes[0].fecha_generacion)
-    if (meses <= 6) scoreI6 = 100
-    else if (meses <= 12) { scoreI6 = 50; pendientesI6.push(`Informe generado hace ${meses} meses (recomendado: máx 6)`) }
-    else { scoreI6 = 0; pendientesI6.push(`Informe de monitoreo desactualizado (${meses} meses) — generar nuevo informe`) }
-  } else {
-    pendientesI6.push('No se ha generado ningún informe de monitoreo.')
-  }
-
-  // Ítem 7: Evaluación de Riesgo LC/FT
-  // Vigencia según tipo: Tipo I → 24 meses, Tipo II/III → 12 meses (SUGEF 13-19)
-  const mesesVigenciaEval = tipoSujeto === 1 ? 24 : 12
-  const pendientesI7 = []
-  let scoreI7 = 0
-  if (fEvalRiesgo.fecha) {
-    const meses = mesesDesde(fEvalRiesgo.fecha)
-    if (meses <= mesesVigenciaEval) {
-      scoreI7 = 100
-      if (meses > mesesVigenciaEval - 2) {
-        pendientesI7.push(`Evaluación próxima a vencer (${meses} meses, vigencia máx ${mesesVigenciaEval} meses)`)
-      }
-    } else {
-      scoreI7 = 0
-      pendientesI7.push(`Evaluación de riesgo VENCIDA (realizada hace ${meses} meses, vigencia máx ${mesesVigenciaEval} meses — Tipo ${tipoSujeto})`)
-    }
-  } else {
-    scoreI7 = 0
-    pendientesI7.push('No se ha registrado la fecha de la última evaluación de riesgo LC/FT/FPADM.')
-  }
-
-  // Ítem 8: Informes ALA/CFT (Labores, Plan de Trabajo, Plan de Capacitación)
-  // SUGEF 13-19: deben elaborarse anualmente como mínimo (12 meses)
-  const pendientesI8 = []
-  const informesDefs = [
-    { key: 'labores',          label: 'Informe de Labores',       fecha: fInformes.labores },
-    { key: 'plan_trabajo',     label: 'Plan de Trabajo',          fecha: fInformes.plan_trabajo },
-    { key: 'plan_capacitacion', label: 'Plan de Capacitación',   fecha: fInformes.plan_capacitacion },
-  ]
-  let informesVigentes = 0
-  for (const inf of informesDefs) {
-    if (!inf.fecha) {
-      pendientesI8.push(`${inf.label}: no registrado`)
-    } else {
-      const m = mesesDesde(inf.fecha)
-      if (m > 12) {
-        pendientesI8.push(`${inf.label}: vencido (elaborado hace ${m} meses, máx 12)`)
-      } else {
-        informesVigentes++
-      }
-    }
-  }
-  const scoreI8 = (informesVigentes / 3) * 100
-
-  // Score global
-  const scoreGlobal = (
-    scoreI1*PESOS.i1 + scoreI2*PESOS.i2 + scoreI3*PESOS.i3 + scoreI4*PESOS.i4 +
-    scoreI5*PESOS.i5 + scoreI6*PESOS.i6 + scoreI7*PESOS.i7 + scoreI8*PESOS.i8
-  ) / 100
-
-  const items = [
-    { num: 1, label: 'Actualización información de clientes',  score: scoreI1, peso: PESOS.i1, pendientes: pendientesI1 },
-    { num: 2, label: 'Capacitación anual del personal',         score: scoreI2, peso: PESOS.i2, pendientes: fCapacitacion.completa ? [] : ['Registrar capacitación anual completada'] },
-    { num: 3, label: 'Normativa interna vigente',               score: scoreI3, peso: PESOS.i3, pendientes: pendientesI3 },
-    { num: 4, label: 'Reporte SICVECA actualizado',             score: scoreI4, peso: PESOS.i4, pendientes: pendientesI4 },
-    { num: 5, label: 'Sistemas SUGEF/UIF actualizados',         score: scoreI5, peso: PESOS.i5, pendientes: fSistemas.actualizado ? [] : ['Confirmar actualización en sistemas SUGEF/UIF'] },
-    { num: 6, label: 'Informe de monitoreo actualizado',        score: scoreI6, peso: PESOS.i6, pendientes: pendientesI6 },
-    { num: 7, label: 'Evaluación de Riesgo LC/FT actualizada',  score: scoreI7, peso: PESOS.i7, pendientes: pendientesI7 },
-    { num: 8, label: 'Informes ALA/CFT (Labores, PT, PC)',      score: scoreI8, peso: PESOS.i8, pendientes: pendientesI8 },
-  ]
-
   const radarData = items.map(i => ({ subject: `Ítem ${i.num}`, value: Math.round(i.score), fullMark: 100 }))
   const barData   = items.map(i => ({ name: `Ítem ${i.num}`, score: Math.round(i.score) }))
-
-  const etiquetaGlobal = scoreGlobal >= 80 ? 'Cumplimiento alto' : scoreGlobal >= 60 ? 'Cumplimiento moderado' : scoreGlobal >= 40 ? 'Cumplimiento bajo' : 'Cumplimiento crítico'
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

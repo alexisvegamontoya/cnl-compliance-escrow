@@ -151,6 +151,9 @@ export default function Sidebar({ open, onClose }) {
             {adminItems.map(item => (
               <NavItem key={item.to} {...item} onClose={onClose} />
             ))}
+            {isSuperAdmin && (
+              <NavItem to="/admin/cumplimiento-global" icon="🌐" label="Cumplimiento Global" onClose={onClose} />
+            )}
           </>
         )}
       </nav>
