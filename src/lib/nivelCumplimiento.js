@@ -183,5 +183,7 @@ export function calcularNivelCumplimiento({
     items, scoreGlobal, etiqueta: etiquetaCumplimiento(scoreGlobal),
     globalClientes, tipoSujeto,
     fCapacitacion, fSistemas, fEvalRiesgo, fInformes,
+    // Valores derivados que usa el detalle del dashboard por-sujeto.
+    mesesValidezNorm, normVigentes, mesesFrecSicveca, mesesVigenciaEval, informesVigentes,
   }
 }

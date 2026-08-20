@@ -262,8 +262,10 @@ export default function ComplianceDashboard() {
   }
 
   // ── Cálculos (fuente única: src/lib/nivelCumplimiento.js) ───────────────────
-  const { items, scoreGlobal, etiqueta: etiquetaGlobal, globalClientes, tipoSujeto } =
-    calcularNivelCumplimiento({
+  const {
+    items, scoreGlobal, etiqueta: etiquetaGlobal, globalClientes, tipoSujeto,
+    mesesValidezNorm, normVigentes, mesesFrecSicveca, mesesVigenciaEval, informesVigentes,
+  } = calcularNivelCumplimiento({
       tenant, clientes, normativa, transacciones, informes,
       seguimientoDerivado: { fCapacitacion, fSistemas, fEvalRiesgo, fInformes },
       catalogoDoc,
