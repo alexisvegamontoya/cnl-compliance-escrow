@@ -3,6 +3,9 @@
  * Genera la ficha imprimible de un cliente (persona física o jurídica).
  * Abre una ventana nueva con el HTML formateado y llama window.print().
  */
+import {
+  gruposChecklist, contextoCliente, estadoItem, CATALOGO_ESTANDAR,
+} from '../lib/checklistDocumental'
 
 const TIPO_ID_LABEL = {
   1: 'Cédula de identidad',
@@ -84,7 +87,31 @@ function tablaPersonas(personas, tipoRelacion, titulo) {
     </div>`
 }
 
-export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }) {
+const ICONO_ESTADO = { disponible: '✅', no_disponible: '❌', no_aplica: '➖', pendiente: '⏳' }
+
+// Sección del checklist documental que aplica al cliente (físico o jurídico),
+// resuelto con el catálogo del sujeto obligado.
+function seccionChecklist(cliente, catalogo) {
+  const grupos = gruposChecklist(contextoCliente(cliente), catalogo || CATALOGO_ESTANDAR)
+  if (!grupos.length) return ''
+  const checklist = cliente.checklist_documental || {}
+  const bloques = grupos.map(g => `
+    <h3>${g.titulo}</h3>
+    <div class="checklist-grid">
+      ${g.items.map(it => {
+        const e = estadoItem(checklist, it.id)
+        const clase = e === 'disponible' ? 'ok' : e === 'no_disponible' ? 'nok' : e === 'no_aplica' ? 'na' : ''
+        return `<div class="chk-item ${clase}"><span class="chk-ico">${ICONO_ESTADO[e] || '⏳'}</span><span>${it.label}</span></div>`
+      }).join('')}
+    </div>`).join('')
+  return `
+    <div class="seccion">
+      <h2>Checklist documental</h2>
+      ${bloques}
+    </div>`
+}
+
+export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, catalogo = CATALOGO_ESTANDAR }) {
   const esJuridica = !!cliente.nombre_empresa ||
     [2, 4].includes(Number(cliente.tipo_identificacion))
 
@@ -197,6 +224,17 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
     }
     .cump-item.ok  { background: #eff7f1; border-color: #b4dbc3; }
     .cump-item.nok { background: #fdf3f3; border-color: #f5c2c5; }
+    /* ── Checklist documental ── */
+    .checklist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 4px 0 10px; }
+    .chk-item {
+      display: flex; align-items: flex-start; gap: 6px;
+      border: 1px solid #e4e4ea; border-radius: 6px; padding: 4px 8px;
+      font-size: 9.5px; line-height: 1.35;
+    }
+    .chk-item .chk-ico { flex-shrink: 0; }
+    .chk-item.ok  { background: #eff7f1; border-color: #b4dbc3; }
+    .chk-item.nok { background: #fdf3f3; border-color: #f5c2c5; }
+    .chk-item.na  { background: #f5f5f7; border-color: #dcdce2; color: #8a8a94; }
     /* ── Declaración ── */
     .declaracion {
       border: 1px solid #cfcfd7; border-radius: 6px;
@@ -342,6 +380,8 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
          </p>`
       : ''}
   </div>
+
+  ${seccionChecklist(cliente, catalogo)}
 
   <!-- DECLARACIÓN LEGAL -->
   <div class="declaracion">

@@ -630,7 +630,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
                       ? (cliente.nombre_empresa || cliente.nombre_cliente || '')
                       : undefined,
                   }
-                  imprimirFichaCliente({ cliente: c, personas, tenant, profile })
+                  imprimirFichaCliente({ cliente: c, personas, tenant, profile, catalogo: catalogoDoc })
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                 🖨️ Imprimir ficha
