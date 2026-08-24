@@ -37,6 +37,13 @@ function PersonaTag({ persona, onRemove, onClick }) {
             <span className="text-blue-600">· {persona.sub_personas.length} relacionado(s)</span>
           )}
         </div>
+        {(persona.direccion || persona.telefono || persona.correo) && (
+          <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap mt-0.5">
+            {persona.direccion && <span>📍 {persona.direccion}</span>}
+            {persona.telefono && <span>📞 {persona.telefono}</span>}
+            {persona.correo && <span>✉️ {persona.correo}</span>}
+          </div>
+        )}
       </div>
       {onRemove && (
         <button onClick={e => { e.stopPropagation(); onRemove() }}
@@ -57,9 +64,13 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
   const [porcentaje, setPorcentaje] = useState('')
   const [esBeneficiarioFinal, setEsBeneficiarioFinal] = useState(false)
   const [notas, setNotas] = useState('')
+  const [direccion, setDireccion] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [correo, setCorreo] = useState('')
 
   const esSocio = tipoRelacion === 'socio'
   const esJunta = tipoRelacion === 'junta_directiva'
+  const esRep   = tipoRelacion === 'representante_legal'
   const esEmpresa = tipo === 'persona_juridica'
 
   const handleSave = () => {
@@ -75,6 +86,9 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
       cargo,
       porcentaje_participacion: esSocio ? parseFloat(porcentaje) || null : null,
       es_beneficiario_final: esSocio && !esEmpresa ? esBeneficiarioFinal : false,
+      direccion: direccion.trim(),
+      telefono: telefono.trim(),
+      correo: correo.trim(),
       sub_personas: [],
       notas,
     })
@@ -163,6 +177,27 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
           <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
             💡 Después de agregar esta empresa, podrá expandirla para agregar sus propios representantes, junta directiva y socios.
           </div>
+        )}
+
+        {/* Datos de contacto — representante legal */}
+        {esRep && (
+          <>
+            <div className="col-span-2">
+              <label className="label text-xs">Dirección</label>
+              <input className="input text-sm" value={direccion} onChange={e => setDireccion(e.target.value)}
+                placeholder="Dirección exacta del representante legal..." />
+            </div>
+            <div>
+              <label className="label text-xs">Teléfono</label>
+              <input className="input text-sm" value={telefono} onChange={e => setTelefono(e.target.value)}
+                placeholder="Número de teléfono..." />
+            </div>
+            <div>
+              <label className="label text-xs">Correo electrónico</label>
+              <input className="input text-sm" type="email" value={correo} onChange={e => setCorreo(e.target.value)}
+                placeholder="correo@ejemplo.com" />
+            </div>
+          </>
         )}
       </div>
 

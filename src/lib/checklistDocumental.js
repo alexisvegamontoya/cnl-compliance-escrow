@@ -42,13 +42,28 @@ export const CHECKLIST_DOCUMENTAL = {
     { id: 'ccss_estado',   label: 'Verificación estado CCSS (mora patronal, si aplica)', required: false },
     { id: 'sugef_check',   label: 'Verificación SUGEF (si es sujeto obligado, Art. 15/15bis/15ter)', required: false },
   ],
+  // Checklist de documentación para CLIENTES JURÍDICOS (reemplaza al checklist base;
+  // el cliente jurídico ve exactamente esta lista, no la base). Orden y contenido
+  // según el expediente estándar de CNL Craniley para persona jurídica.
   pj: [
-    { id: 'personeria',  label: 'Certificación de personería jurídica (≤30 días)', required: true },
-    { id: 'acta',        label: 'Acta constitutiva / estatutos', required: true },
-    { id: 'nomina',      label: 'Nómina de socios y % de participación', required: true },
-    { id: 'id_socios',   label: 'Identificación de todos los socios ≥10%', required: true },
-    { id: 'bene_final',  label: 'Identificación del Beneficiario Final', required: true },
-    { id: 'estados_fin', label: 'Estados financieros (si aplica por monto)', required: false },
+    { id: 'jc_cedulas_representantes', label: '1. Copia de cédulas de identidad de los representantes', required: true },
+    { id: 'jc_personeria',            label: '2. Personería jurídica reciente (≤1 mes, RNP Digital / Registro Nacional)', required: true },
+    { id: 'jc_capital_rtbf',          label: '3. Certificación de Capital Accionario o RTBF (≤1 mes)', required: true },
+    { id: 'jc_eeff',                  label: '4. Estados financieros de los últimos 3 periodos y un corte reciente', required: true },
+    { id: 'jc_cert_ingresos',         label: '5. Certificados de ingresos de los últimos 3 periodos fiscales y un corte reciente', required: true },
+    { id: 'jc_decl_impuestos',        label: '6. Declaración de impuestos (1. Hacienda · 2. CCSS)', required: true },
+    { id: 'jc_perfil_cliente',        label: '7. Perfil del cliente', required: true },
+    { id: 'jc_conozca_pj',            label: '8. Formulario Conozca a su Cliente – persona jurídica (firmado por el representante)', required: true },
+    { id: 'jc_conozca_pf',            label: '9. Formulario Conozca a su Cliente – persona física (firmado)', required: true },
+    { id: 'jc_cic_pj',                label: '10. Formulario CIC – persona jurídica (firmado por el representante)', required: true },
+    { id: 'jc_cic_pf',                label: '11. Formulario CIC – persona física (firmado por el representante)', required: true },
+    { id: 'jc_listas_internacionales',label: '12. Listas internacionales (OFAC, INTERPOL)', required: true },
+    { id: 'jc_protectora_credito',    label: '13. Protectora de Crédito (Cero Riesgo) – jurídico y físico', required: true },
+    { id: 'jc_clasificacion_riesgo',  label: '14. Clasificación de riesgo', required: true },
+    { id: 'jc_info_internet',         label: '15. Información en internet de los clientes', required: false },
+    { id: 'jc_autorizacion_info',     label: '16. Autorización de entrega de información (consentimiento informado)', required: true },
+    { id: 'jc_art15_sugef',           label: '17. ¿Realiza actividades del Art. 15 o 15 bis de la Ley 7786? Si aplica, aportar inscripción ante SUGEF', required: false },
+    { id: 'jc_consentimiento_informado', label: '18. Consentimiento informado (físico y jurídico)', required: true },
   ],
   pep: [
     { id: 'aprobacion_jd',   label: 'Aprobación de la Junta Directiva o nivel superior', required: true },
@@ -67,8 +82,8 @@ export const CATALOGO_ESTANDAR = CHECKLIST_DOCUMENTAL
 export const GRUPOS_DOC = ['base', 'pj', 'pep']
 
 export const TITULOS_GRUPO = {
-  base: 'Base — Todos los clientes',
-  pj:   'Persona Jurídica — Art. 30 SUGEF 13-19',
+  base: 'Persona Física — Documentación requerida',
+  pj:   'Persona Jurídica — Documentación requerida',
   pep:  '🏛️ PEP — DDC Ampliada — Art. 38',
 }
 
@@ -192,9 +207,12 @@ const esJuridica = (tipoPersona) => String(tipoPersona || '').toLowerCase().star
  */
 export function gruposChecklist({ tipoPersona = 'fisica', esPEP = false } = {}, catalogo = CATALOGO_ESTANDAR) {
   const cat = catalogo || CATALOGO_ESTANDAR
-  const grupos = [{ id: 'base', titulo: TITULOS_GRUPO.base, items: cat.base || [] }]
-  if (esJuridica(tipoPersona)) grupos.push({ id: 'pj', titulo: TITULOS_GRUPO.pj, items: cat.pj || [] })
-  if (esPEP)                   grupos.push({ id: 'pep', titulo: TITULOS_GRUPO.pep, items: cat.pep || [] })
+  // El cliente jurídico usa SU propia lista de documentos (grupo pj) en lugar de
+  // la base; el físico usa la base. La base y la pj son excluyentes por tipo.
+  const grupos = esJuridica(tipoPersona)
+    ? [{ id: 'pj',   titulo: TITULOS_GRUPO.pj,   items: cat.pj   || [] }]
+    : [{ id: 'base', titulo: TITULOS_GRUPO.base, items: cat.base || [] }]
+  if (esPEP) grupos.push({ id: 'pep', titulo: TITULOS_GRUPO.pep, items: cat.pep || [] })
   return grupos.filter(g => g.items.length > 0)
 }
 

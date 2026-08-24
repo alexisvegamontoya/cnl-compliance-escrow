@@ -48,6 +48,12 @@ function filaTabla(label, value) {
 function tablaPersonas(personas, tipoRelacion, titulo) {
   const filtradas = (personas || []).filter(p => p.tipo_relacion === tipoRelacion)
   if (!filtradas.length) return ''
+  const esRep = tipoRelacion === 'representante_legal'
+  const contacto = (p) => [
+    p.direccion ? `📍 ${p.direccion}` : '',
+    p.telefono ? `📞 ${p.telefono}` : '',
+    p.correo ? `✉️ ${p.correo}` : '',
+  ].filter(Boolean).join('<br>') || '—'
   return `
     <div class="seccion">
       <h3>${titulo}</h3>
@@ -57,6 +63,7 @@ function tablaPersonas(personas, tipoRelacion, titulo) {
             <th>Nombre</th>
             <th>Tipo</th>
             <th>Identificación</th>
+            ${esRep ? '<th>Contacto</th>' : ''}
             ${tipoRelacion === 'socio' ? '<th>Participación</th>' : ''}
             ${tipoRelacion === 'junta_directiva' ? '<th>Cargo</th>' : ''}
           </tr>
@@ -67,6 +74,7 @@ function tablaPersonas(personas, tipoRelacion, titulo) {
               <td>${p.nombre || '—'}</td>
               <td>${p.tipo_entidad === 'persona_juridica' ? 'Persona jurídica' : 'Persona física'}</td>
               <td>${p.identificacion ? `${p.tipo_identificacion || ''} ${p.identificacion}`.trim() : '—'}</td>
+              ${esRep ? `<td>${contacto(p)}</td>` : ''}
               ${tipoRelacion === 'socio' ? `<td>${p.porcentaje_participacion != null ? p.porcentaje_participacion + '%' : '—'}</td>` : ''}
               ${tipoRelacion === 'junta_directiva' ? `<td>${p.cargo || '—'}</td>` : ''}
             </tr>
