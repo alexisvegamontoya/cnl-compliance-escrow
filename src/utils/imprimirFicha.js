@@ -16,6 +16,13 @@ const TIPO_ID_LABEL = {
 const RIESGO_LABEL = { alto: 'ALTO', medio: 'MEDIO', bajo: 'BAJO' }
 const RIESGO_COLOR = { alto: '#c31b26', medio: '#a87813', bajo: '#1f6d45' }
 
+const GENERO_LABEL = { M: 'Masculino', F: 'Femenino', otro: 'Otro / No indica' }
+
+// Une provincia, cantón y dirección exacta en una sola línea legible.
+function direccionCompleta(c) {
+  return [c.direccion_exacta, c.canton, c.provincia].filter(Boolean).join(', ')
+}
+
 function fechaLarga(iso) {
   if (!iso) return '—'
   try {
@@ -251,11 +258,29 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile }
         }
         ${filaTabla('Tipo de identificación', TIPO_ID_LABEL[cliente.tipo_identificacion] || cliente.tipo_identificacion)}
         ${filaTabla('Número de identificación', cliente.numero_identificacion)}
+        ${esJuridica ? filaTabla('Cédula jurídica', cliente.cedula_juridica) : ''}
+
+        ${esJuridica ? filaTabla('País de constitución', cliente.pais_constitucion) : ''}
+        ${esJuridica ? filaTabla('Fecha de constitución', fechaLarga(cliente.fecha_constitucion)) : ''}
+
+        ${!esJuridica ? filaTabla('Fecha de nacimiento', fechaLarga(cliente.fecha_nacimiento)) : ''}
+        ${!esJuridica ? filaTabla('Género', GENERO_LABEL[cliente.genero] || cliente.genero) : ''}
+        ${!esJuridica ? filaTabla('Estado civil', cliente.estado_civil) : ''}
+        ${!esJuridica ? filaTabla('Profesión u oficio', cliente.profesion_nombre) : ''}
+        ${!esJuridica ? filaTabla('País de nacimiento', cliente.pais_nacimiento) : ''}
+        ${!esJuridica ? filaTabla('País de residencia', cliente.pais_residencia) : ''}
+
         ${filaTabla('Nacionalidad', cliente.nacionalidad)}
+        ${filaTabla('Actividad económica', cliente.actividad_economica || cliente.actividad_eco_nombre)}
+
+        ${filaTabla('Dirección', direccionCompleta(cliente))}
         ${filaTabla('País de ubicación', cliente.pais_ubicacion)}
-        ${filaTabla('Actividad económica', cliente.actividad_economica)}
         ${filaTabla('Teléfono', cliente.telefono)}
         ${filaTabla('Correo electrónico', cliente.correo_electronico)}
+        ${filaTabla('Persona de contacto', cliente.nombre_contacto)}
+
+        ${filaTabla('Propósito de la relación', cliente.proposito_relacion)}
+        ${filaTabla('Origen de los fondos', cliente.origen_fondos)}
         ${filaTabla('Fecha de vinculación', fechaLarga(cliente.fecha_vinculacion))}
         ${cliente.fecha_termino_relacion
           ? filaTabla('Término de relación', fechaLarga(cliente.fecha_termino_relacion))
