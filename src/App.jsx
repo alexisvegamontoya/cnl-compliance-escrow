@@ -25,6 +25,8 @@ const Normativa               = lazy(() => import('./pages/Normativa'))
 const CalificacionRiesgo      = lazy(() => import('./pages/CalificacionRiesgo'))
 const ComplianceDashboard     = lazy(() => import('./pages/ComplianceDashboard'))
 const CumplimientoGlobal      = lazy(() => import('./pages/CumplimientoGlobal'))
+const CumplimientoPorGrupo    = lazy(() => import('./pages/CumplimientoPorGrupo'))
+const GestionGrupos           = lazy(() => import('./pages/admin/GestionGrupos'))
 const CanalDenuncias          = lazy(() => import('./pages/CanalDenuncias'))
 const Perfil                  = lazy(() => import('./pages/Perfil'))
 const AuditLog                = lazy(() => import('./pages/admin/AuditLog'))
@@ -211,6 +213,16 @@ function AppRoutes() {
       <Route path="/admin/cumplimiento-global" element={
         <PrivateRoute>
           <Layout><CumplimientoGlobal /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/admin/grupos" element={
+        <PrivateRoute>
+          <Layout><GestionGrupos /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/grupo/cumplimiento" element={
+        <PrivateRoute>
+          <Layout><CumplimientoPorGrupo /></Layout>
         </PrivateRoute>
       } />
       <Route path="/denuncias" element={

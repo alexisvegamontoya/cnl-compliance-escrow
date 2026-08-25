@@ -53,7 +53,8 @@ function NavItem({ to, icon, label, end, onClose }) {
 }
 
 export default function Sidebar({ open, onClose }) {
-  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isAdmin, isSuperAdmin } = useAuth()
+  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isAdmin, isSuperAdmin, misGrupos } = useAuth()
+  const tieneGrupos = (misGrupos?.length || 0) > 0
 
   return (
     <aside className={`
@@ -133,6 +134,9 @@ export default function Sidebar({ open, onClose }) {
         {operaciones.map(item => (
           <NavItem key={item.to} {...item} onClose={onClose} />
         ))}
+        {(tieneGrupos || isSuperAdmin) && (
+          <NavItem to="/grupo/cumplimiento" icon="🏢" label="Cumplimiento por Grupo" onClose={onClose} />
+        )}
 
         <div className="border-t border-brand-700 my-3" />
         <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
@@ -153,6 +157,9 @@ export default function Sidebar({ open, onClose }) {
             ))}
             {isSuperAdmin && (
               <NavItem to="/admin/cumplimiento-global" icon="🌐" label="Cumplimiento Global" onClose={onClose} />
+            )}
+            {isSuperAdmin && (
+              <NavItem to="/admin/grupos" icon="🗂️" label="Grupos de Empresas" onClose={onClose} />
             )}
           </>
         )}

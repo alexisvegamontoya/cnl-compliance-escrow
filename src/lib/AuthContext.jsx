@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile]            = useState(null)
   const [tenant, setTenant]              = useState(null)
   const [tenantsDisponibles, setTenants] = useState([])
+  const [misGrupos, setMisGrupos]        = useState([]) // grupos de empresas del usuario
   const [loading, setLoading]            = useState(true)
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
   const [mustChangePassword, setMustChangePassword] = useState(false)
@@ -41,6 +42,7 @@ export function AuthProvider({ children }) {
         setProfile(null)
         setTenant(null)
         setTenants([])
+        setMisGrupos([])
         setLoading(false)
       }
     })
@@ -114,6 +116,7 @@ export function AuthProvider({ children }) {
 
       if (esSuperAdmin) {
         // Superadmin: cargar TODOS los tenants para navegar como cualquiera
+        setMisGrupos([])
         const { data: allTenants } = await tenantsDeLaApp('*')
         if (allTenants && allTenants.length > 0) {
           const lista = allTenants.map(t => ({ ...t, rol_tenant: 'superadmin' }))
@@ -122,23 +125,37 @@ export function AuthProvider({ children }) {
           const encontrado = lista.find(t => t.id === saved)
           setTenant(encontrado || lista[0])
         }
-      } else if (memberships && memberships.length > 0) {
-        // La base es compartida con las otras apps: hay membresías a sujetos
-        // obligados que no pertenecen a compliance y no deben aparecer acá.
-        const lista = memberships
+      } else {
+        // Grupos de empresas del usuario (muchos a muchos)
+        const { data: grupoRows } = await supabase
+          .from('grupo_usuarios')
+          .select('grupo_id, grupos_empresas(id, nombre)')
+          .eq('user_id', userId).eq('activo', true)
+        const grupos = (grupoRows || []).map(g => g.grupos_empresas).filter(Boolean)
+        setMisGrupos(grupos)
+
+        // Tenants directos (membresías) + tenants heredados por grupo (miembro pleno).
+        let lista = (memberships || [])
           .filter(m => esDeLaApp(m.tenants))
           .map(m => ({ ...m.tenants, rol_tenant: m.rol }))
+
+        if (grupos.length > 0) {
+          const { data: tenantsGrupo } = await supabase
+            .from('tenants').select('*').in('grupo_id', grupos.map(g => g.id))
+          ;(tenantsGrupo || []).filter(esDeLaApp).forEach(t => {
+            if (!lista.some(x => x.id === t.id)) lista.push({ ...t, rol_tenant: 'grupo' })
+          })
+        }
+
+        if (lista.length === 0 && prof?.tenant_id) {
+          const { data: t } = await supabase
+            .from('tenants').select('*').eq('id', prof.tenant_id).maybeSingle()
+          if (esDeLaApp(t)) lista = [{ ...t, rol_tenant: 'operador' }]
+        }
+
         setTenants(lista)
         const saved = localStorage.getItem('cnl_tenant_activo')
-        const encontrado = lista.find(t => t.id === saved)
-        setTenant(encontrado || lista[0] || null)
-      } else if (prof?.tenant_id) {
-        const { data: t } = await supabase
-          .from('tenants').select('*').eq('id', prof.tenant_id).maybeSingle()
-        if (esDeLaApp(t)) {
-          setTenant(t)
-          setTenants([t])
-        }
+        setTenant(lista.find(t => t.id === saved) || lista[0] || null)
       }
     } finally {
       setLoading(false)
@@ -170,6 +187,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       session, profile, tenant, tenantsDisponibles, cambiarTenant,
+      misGrupos,
       loading, signIn, signOut, isSuperAdmin, isAdmin,
       needsPasswordSetup, setNeedsPasswordSetup,
       mustChangePassword, setMustChangePassword,
