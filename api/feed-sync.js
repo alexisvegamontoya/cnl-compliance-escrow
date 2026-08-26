@@ -129,7 +129,7 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
       },
       body: JSON.stringify({
         model:      process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-        max_tokens: 3500,
+        max_tokens: 16000, // suficiente para clasificar hasta 35 artículos sin truncar el JSON
         messages:   [{ role: 'user', content: prompt }],
       }),
     })
@@ -148,10 +148,25 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
       const clean = rawText.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim()
       parsed = JSON.parse(clean)
     } catch {
-      return res.status(502).json({ error: 'Claude no devolvió JSON válido.', raw: rawText.slice(0, 400) })
+      // Respaldo: extraer el objeto JSON más externo (por si hay texto alrededor)
+      try {
+        const ini = rawText.indexOf('{')
+        const fin = rawText.lastIndexOf('}')
+        parsed = JSON.parse(rawText.slice(ini, fin + 1))
+      } catch {
+        return res.status(502).json({ error: 'Claude no devolvió JSON válido.', raw: rawText.slice(0, 400) })
+      }
     }
 
     const { items = [], resumen_ejecutivo = '' } = parsed
+
+    // Solo acepta fechas completas YYYY-MM-DD válidas; cualquier otra cosa → null
+    // (la columna fecha_publicacion es de tipo date y rechaza "2025-12", etc.).
+    const fechaValida = (s) => {
+      if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
+      const d = new Date(s + 'T12:00:00')
+      return Number.isNaN(d.getTime()) ? null : s
+    }
 
     // ── 3. Preparar registros para Supabase ───────────────────────────────────
     const now = new Date().toISOString()
@@ -166,7 +181,7 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
                            ? i.fuente_tipo : 'informativo',
         urgencia:          ['urgente','importante','informativo'].includes(i.urgencia)
                            ? i.urgencia : 'informativo',
-        fecha_publicacion: i.fecha_publicacion || null,
+        fecha_publicacion: fechaValida(i.fecha_publicacion),
         fecha_ingreso:     now,
         activo:            true,
       }))
@@ -194,8 +209,11 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown, con esta estructura exac
       })
     }
 
-    // ── 4. Upsert en Supabase (ignorar duplicados por URL) ───────────────────
-    const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/feed_items`, {
+    // ── 4. Insertar en Supabase, ignorando duplicados POR URL ────────────────
+    // on_conflict=url → ON CONFLICT (url) DO NOTHING: las URLs que ya existen
+    // (páginas "evergreen" que reaparecen a diario) se saltan sin abortar el lote,
+    // y las noticias nuevas sí se insertan.
+    const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/feed_items?on_conflict=url`, {
       method: 'POST',
       headers: {
         'apikey':        serviceKey,
