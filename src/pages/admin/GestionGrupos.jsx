@@ -33,7 +33,12 @@ export default function GestionGrupos() {
       supabase.from('grupo_usuarios').select('id, grupo_id, user_id, activo'),
     ])
     const fallo = [g, t, u, m].find(r => r.error)
-    if (fallo) { setError(fallo.error.message); setLoading(false); return }
+    if (fallo) {
+      console.error('GestionGrupos cargar error:', fallo.error)
+      setError(`No se pudieron cargar los grupos: ${fallo.error.message}${fallo.error.code ? ` [${fallo.error.code}]` : ''}`)
+      setLoading(false)
+      return
+    }
     setGrupos(g.data || [])
     setTenants(t.data || [])
     setUsuarios((u.data || []).filter(x => x.rol !== 'superadmin'))
@@ -50,14 +55,25 @@ export default function GestionGrupos() {
 
   async function crearGrupo(e) {
     e.preventDefault()
-    if (!nuevoNombre.trim()) return
-    const { data, error } = await supabase.from('grupos_empresas')
-      .insert({ nombre: nuevoNombre.trim(), descripcion: nuevaDesc.trim() || null })
-      .select('id').single()
-    if (error) { setError(error.message); return }
-    setNuevoNombre(''); setNuevaDesc('')
-    await cargar()
-    if (data?.id) setGrupoSel(data.id)
+    setError('')
+    if (!nuevoNombre.trim()) { setError('Escribí un nombre para el grupo.'); return }
+    try {
+      const { data, error } = await supabase.from('grupos_empresas')
+        .insert({ nombre: nuevoNombre.trim(), descripcion: nuevaDesc.trim() || null })
+        .select('id')
+      if (error) {
+        console.error('crearGrupo insert error:', error)
+        setError(`No se pudo crear el grupo: ${error.message}${error.code ? ` [${error.code}]` : ''}`)
+        return
+      }
+      setNuevoNombre(''); setNuevaDesc('')
+      await cargar()
+      const nuevoId = Array.isArray(data) ? data[0]?.id : data?.id
+      if (nuevoId) setGrupoSel(nuevoId)
+    } catch (err) {
+      console.error('crearGrupo excepción:', err)
+      setError(`Error inesperado al crear el grupo: ${err.message}`)
+    }
   }
 
   async function renombrarGrupo(id, nombre) {
@@ -156,8 +172,8 @@ export default function GestionGrupos() {
               value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} />
             <input className="input text-sm" placeholder="Descripción (opcional)…"
               value={nuevaDesc} onChange={e => setNuevaDesc(e.target.value)} />
-            <button type="submit" disabled={!nuevoNombre.trim()}
-              className="btn-primary text-sm w-full py-1.5 disabled:opacity-50">+ Crear grupo</button>
+            <button type="submit"
+              className="btn-primary text-sm w-full py-1.5">+ Crear grupo</button>
           </form>
         </div>
 
