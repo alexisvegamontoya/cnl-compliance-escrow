@@ -5,10 +5,20 @@ import { useAuth } from '../../lib/AuthContext'
 import ErrorBanner from '../../components/ui/ErrorBanner'
 import { clasificarError } from '../../lib/errorHandler'
 import { generarClave } from '../../lib/generarClave'
+import { ROLES_ASIGNABLES } from '../../lib/permisos'
 
 const ROL_TENANT_LABEL = {
-  operador:    { label: 'Operador',    color: 'bg-gray-100 text-gray-700' },
-  admin_tenant:{ label: 'Administrador', color: 'bg-brand-100 text-brand-700' },
+  operador:             { label: 'Operador (heredado)', color: 'bg-gray-100 text-gray-600' },
+  oficial_cumplimiento: { label: 'Oficial de Cumplimiento', color: 'bg-brand-100 text-brand-700' },
+  operativo:            { label: 'Operativo', color: 'bg-sky-100 text-sky-700' },
+  financiero:           { label: 'Financiero', color: 'bg-amber-100 text-amber-800' },
+  gerencia:             { label: 'Gerencia', color: 'bg-violet-100 text-violet-700' },
+  admin_tenant:         { label: 'Administrador', color: 'bg-emerald-100 text-emerald-700' },
+}
+
+/** Opciones de rol para los <select> de asignación. */
+function OpcionesRol() {
+  return ROLES_ASIGNABLES.map(r => <option key={r.valor} value={r.valor}>{r.label}</option>)
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -32,7 +42,7 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
         delete next[tid]
         return next
       }
-      return { ...prev, [tid]: 'operador' }
+      return { ...prev, [tid]: 'oficial_cumplimiento' }
     })
   }
 
@@ -205,10 +215,9 @@ function FormCrearUsuario({ tenants, onCreado, onCancel }) {
                   <select
                     value={sel[t.id]}
                     onChange={e => setRol(t.id, e.target.value)}
-                    className="input-field text-xs py-1 w-36"
+                    className="input-field text-xs py-1 w-48"
                   >
-                    <option value="operador">Operador</option>
-                    <option value="admin_tenant">Administrador</option>
+                    <OpcionesRol />
                   </select>
                 )}
               </div>
@@ -254,7 +263,7 @@ function MembresiasUsuario({ userId, tenantsDisponibles, onCambio }) {
   const [loading, setLoading]         = useState(true)
   const [agregando, setAgregando]     = useState(false)
   const [nuevaTenant, setNuevaTenant] = useState('')
-  const [nuevoRol, setNuevoRol]       = useState('operador')
+  const [nuevoRol, setNuevoRol]       = useState('oficial_cumplimiento')
   const [saving, setSaving]           = useState(null)
 
   const cargarMem = useCallback(async () => {
@@ -300,7 +309,7 @@ function MembresiasUsuario({ userId, tenantsDisponibles, onCambio }) {
                { onConflict: 'user_id,tenant_id' })
     setAgregando(false)
     setNuevaTenant('')
-    setNuevoRol('operador')
+    setNuevoRol('oficial_cumplimiento')
     await cargarMem()
     onCambio?.()
     setSaving(null)
@@ -331,8 +340,9 @@ function MembresiasUsuario({ userId, tenantsDisponibles, onCambio }) {
               onChange={e => cambiarRolMem(m.id, e.target.value)}
               className="border border-gray-200 rounded px-2 py-0.5 text-xs bg-white"
             >
-              <option value="operador">Operador</option>
-              <option value="admin_tenant">Administrador</option>
+              {/* Conserva el valor heredado en la lista si aún no se reasignó */}
+              {m.rol === 'operador' && <option value="operador">Operador (heredado)</option>}
+              <OpcionesRol />
             </select>
             <button
               disabled={saving === m.id}
@@ -375,8 +385,7 @@ function MembresiasUsuario({ userId, tenantsDisponibles, onCambio }) {
             onChange={e => setNuevoRol(e.target.value)}
             className="border border-gray-200 rounded px-2 py-1 text-xs"
           >
-            <option value="operador">Operador</option>
-            <option value="admin_tenant">Administrador</option>
+            <OpcionesRol />
           </select>
           <button
             onClick={agregarMem}
@@ -783,9 +792,13 @@ export default function Usuarios() {
       <div className="card bg-gray-50 border border-gray-200">
         <h4 className="text-sm font-semibold text-gray-700 mb-2">📋 Roles disponibles</h4>
         <div className="space-y-1 text-xs text-gray-600">
-          <p><strong>Operador:</strong> puede registrar y consultar transacciones, clientes y ROS del sujeto obligado.</p>
-          <p><strong>Administrador:</strong> operador + puede gestionar usuarios de su sujeto obligado y acceder a informes.</p>
+          <p><strong>Oficial de Cumplimiento:</strong> acceso total a todos los módulos operativos (clientes, SICVECA, ROS, denuncias, cumplimiento, informes).</p>
+          <p><strong>Operativo:</strong> clientes, listas PEP, debida diligencia, calificación, transacciones y canal de denuncias. Sin ROS, informes, XML ni nivel de cumplimiento.</p>
+          <p><strong>Financiero:</strong> transacciones, generación de XML y canal de denuncias. Sin clientes, informes, ROS ni nivel de cumplimiento.</p>
+          <p><strong>Gerencia:</strong> supervisión en modo lectura + informes y nivel de cumplimiento. No carga datos.</p>
+          <p><strong>Administrador:</strong> todo lo del oficial + gestiona los usuarios de su sujeto obligado.</p>
           <p><strong>Super Admin:</strong> acceso total a todos los sujetos obligados (solo CNL Craniley).</p>
+          <p className="text-gray-400 pt-1">Los usuarios «Operador (heredado)» conservan acceso total hasta que se les asigne uno de los roles anteriores.</p>
         </div>
       </div>
     </div>

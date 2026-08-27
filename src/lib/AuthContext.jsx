@@ -184,10 +184,16 @@ export function AuthProvider({ children }) {
   const isAdmin = isSuperAdmin || profile?.rol === 'admin_tenant' ||
     tenantsDisponibles.some(t => t.id === tenant?.id && t.rol_tenant === 'admin_tenant')
 
+  // Rol FUNCIONAL efectivo sobre la empresa activa (control de acceso por módulo).
+  // Superadmin es global; para el resto manda el rol de la membresía a la empresa.
+  const rolTenant = isSuperAdmin
+    ? 'superadmin'
+    : (tenantsDisponibles.find(t => t.id === tenant?.id)?.rol_tenant || profile?.rol || 'oficial_cumplimiento')
+
   return (
     <AuthContext.Provider value={{
       session, profile, tenant, tenantsDisponibles, cambiarTenant,
-      misGrupos,
+      misGrupos, rolTenant,
       loading, signIn, signOut, isSuperAdmin, isAdmin,
       needsPasswordSetup, setNeedsPasswordSetup,
       mustChangePassword, setMustChangePassword,

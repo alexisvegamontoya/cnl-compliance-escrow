@@ -1,5 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../../lib/AuthContext'
+import { puedeVer } from '../../lib/permisos'
 import BellNotificaciones from './BellNotificaciones'
 
 const modulo1 = [
@@ -52,9 +53,42 @@ function NavItem({ to, icon, label, end, onClose }) {
   )
 }
 
+function Seccion({ titulo, items, onClose }) {
+  if (!items.length) return null
+  return (
+    <>
+      <div className="border-t border-brand-700 my-3" />
+      <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
+        {titulo}
+      </p>
+      {items.map(item => <NavItem key={item.to} {...item} onClose={onClose} />)}
+    </>
+  )
+}
+
 export default function Sidebar({ open, onClose }) {
-  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isAdmin, isSuperAdmin, misGrupos } = useAuth()
+  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isSuperAdmin, misGrupos, rolTenant } = useAuth()
   const tieneGrupos = (misGrupos?.length || 0) > 0
+
+  // El menú se filtra por el rol efectivo sobre la empresa activa.
+  const ver = (to) => puedeVer(rolTenant, to)
+  const filtrar = (items) => items.filter(i => ver(i.to))
+
+  const cliVis = filtrar(clientesItems)
+  const sicVis = filtrar(modulo1)
+  const opeVis = [
+    ...filtrar(operaciones),
+    ...((tieneGrupos || isSuperAdmin) && ver('/grupo/cumplimiento')
+      ? [{ to: '/grupo/cumplimiento', icon: '🏢', label: 'Cumplimiento por Grupo' }] : []),
+  ]
+  const docVis = filtrar(documentos)
+  const admVis = [
+    ...filtrar(adminItems),
+    ...(isSuperAdmin ? [
+      { to: '/admin/cumplimiento-global', icon: '🌐', label: 'Cumplimiento Global' },
+      { to: '/admin/grupos', icon: '🗂️', label: 'Grupos de Empresas' },
+    ] : []),
+  ]
 
   return (
     <aside className={`
@@ -111,58 +145,11 @@ export default function Sidebar({ open, onClose }) {
 
         <NavItem to="/" icon="📊" label="Dashboard" end onClose={onClose} />
 
-        <div className="border-t border-brand-700 my-3" />
-        <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
-          Clientes
-        </p>
-        {clientesItems.map(item => (
-          <NavItem key={item.to} {...item} onClose={onClose} />
-        ))}
-
-        <div className="border-t border-brand-700 my-3" />
-        <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
-          SICVECA
-        </p>
-        {modulo1.map(item => (
-          <NavItem key={item.to} {...item} onClose={onClose} />
-        ))}
-
-        <div className="border-t border-brand-700 my-3" />
-        <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2 mt-1">
-          Operaciones
-        </p>
-        {operaciones.map(item => (
-          <NavItem key={item.to} {...item} onClose={onClose} />
-        ))}
-        {(tieneGrupos || isSuperAdmin) && (
-          <NavItem to="/grupo/cumplimiento" icon="🏢" label="Cumplimiento por Grupo" onClose={onClose} />
-        )}
-
-        <div className="border-t border-brand-700 my-3" />
-        <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
-          Documentos
-        </p>
-        {documentos.map(item => (
-          <NavItem key={item.to} {...item} onClose={onClose} />
-        ))}
-
-        {(isAdmin || isSuperAdmin) && (
-          <>
-            <div className="border-t border-brand-700 my-3" />
-            <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider px-3 py-2">
-              Administración
-            </p>
-            {adminItems.map(item => (
-              <NavItem key={item.to} {...item} onClose={onClose} />
-            ))}
-            {isSuperAdmin && (
-              <NavItem to="/admin/cumplimiento-global" icon="🌐" label="Cumplimiento Global" onClose={onClose} />
-            )}
-            {isSuperAdmin && (
-              <NavItem to="/admin/grupos" icon="🗂️" label="Grupos de Empresas" onClose={onClose} />
-            )}
-          </>
-        )}
+        <Seccion titulo="Clientes"     items={cliVis} onClose={onClose} />
+        <Seccion titulo="SICVECA"      items={sicVis} onClose={onClose} />
+        <Seccion titulo="Operaciones"  items={opeVis} onClose={onClose} />
+        <Seccion titulo="Documentos"   items={docVis} onClose={onClose} />
+        <Seccion titulo="Administración" items={admVis} onClose={onClose} />
       </nav>
 
       {/* User footer */}

@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
+import { puedeVer } from './lib/permisos'
 import { CatalogoDocumentalProvider } from './lib/CatalogoDocumentalContext'
 import Login from './components/auth/Login'
 import Sidebar from './components/layout/Sidebar'
@@ -52,8 +53,24 @@ function CargandoPantalla() {
   )
 }
 
+/** Aviso cuando el rol del usuario no tiene acceso al módulo solicitado. */
+function SinAcceso() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+      <div className="text-4xl mb-3">🔒</div>
+      <h1 className="text-lg font-bold text-gray-800">Sin acceso a este módulo</h1>
+      <p className="text-sm text-gray-500 mt-1 max-w-sm">
+        Tu rol no tiene permiso para ver esta sección. Si creés que es un error, contactá al administrador.
+      </p>
+    </div>
+  )
+}
+
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { rolTenant } = useAuth()
+  const { pathname } = useLocation()
+  const permitido = puedeVer(rolTenant, pathname)
 
   return (
     <div className="flex min-h-screen">
@@ -85,7 +102,7 @@ function Layout({ children }) {
         <main className="flex-1 overflow-auto bg-gray-50">
           {/* El sidebar se mantiene visible mientras carga la sección */}
           <Suspense fallback={<CargandoSeccion />}>
-            {children}
+            {permitido ? children : <SinAcceso />}
           </Suspense>
         </main>
       </div>
