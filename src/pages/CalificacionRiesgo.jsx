@@ -3,6 +3,8 @@ import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import PanelPeriodicidad from '../components/informes/PanelPeriodicidad'
 import { imprimirNodo } from '../utils/imprimirDocumento'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 import {
   OPCIONES, PAISES_RIESGO, PAISES_ALTO_RIESGO_FT,
   calcularScoreFactor, calcularScoreTotal, clasificar,
@@ -616,6 +618,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, claseDat
 // ------------------------------------
 export default function CalificacionRiesgo() {
   const { tenant, profile, isSuperAdmin } = useAuth()
+  const soloLectura = useSoloLectura()
   const [penalizacionInformes, setPenalizacionInformes] = useState(0)
 
   const [clientes, setClientes] = useState([])
@@ -1214,10 +1217,13 @@ export default function CalificacionRiesgo() {
                     value={observaciones}
                     onChange={e => setObservaciones(e.target.value)}
                   />
-                  <button onClick={guardar} disabled={saving || !clienteId}
-                    className="btn-primary w-full">
-                    {saving ? 'Guardando…' : '💾 Guardar calificación'}
-                  </button>
+                  {soloLectura && <AvisoSoloLectura className="mb-1" />}
+                  {!soloLectura && (
+                    <button onClick={guardar} disabled={saving || !clienteId}
+                      className="btn-primary w-full">
+                      {saving ? 'Guardando…' : '💾 Guardar calificación'}
+                    </button>
+                  )}
                   <button
                     onClick={() => imprimirNodo('reporte-cal', { titulo: `Calificación de Riesgo — ${nombreCliente}` })}
                     disabled={!clienteId || !calificacionFinal}

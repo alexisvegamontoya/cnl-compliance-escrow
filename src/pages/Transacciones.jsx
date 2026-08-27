@@ -7,9 +7,12 @@ import { useAuth } from '../lib/AuthContext'
 import { supabase, traerTodo } from '../lib/supabase'
 import { exportarExcel } from '../lib/exportExcel'
 import { logAudit } from '../lib/auditLog'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 
 export default function Transacciones() {
   const { tenant } = useAuth()
+  const soloLectura = useSoloLectura()
   const [refresh, setRefresh]   = useState(0)
   const [editData, setEditData] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -65,14 +68,18 @@ export default function Transacciones() {
           >
             Exportar Excel
           </button>
-          <button className="btn-primary"
-            onClick={() => { setEditData(null); setShowForm(s => !s) }}>
-            {showForm && !editData ? 'Cancelar' : '+ Nueva transaccion'}
-          </button>
+          {!soloLectura && (
+            <button className="btn-primary"
+              onClick={() => { setEditData(null); setShowForm(s => !s) }}>
+              {showForm && !editData ? 'Cancelar' : '+ Nueva transaccion'}
+            </button>
+          )}
         </div>
       </div>
 
-      {(showForm || editData) && (
+      {soloLectura && <AvisoSoloLectura />}
+
+      {(showForm || editData) && !soloLectura && (
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             {editData ? 'Editar transaccion' : 'Registrar nueva transaccion'}
@@ -86,9 +93,11 @@ export default function Transacciones() {
         <CalendarioReportes tenantId={tenant.id} refreshTrigger={refresh} />
       )}
 
-      <CargaMasivaTransacciones onImportado={() => setRefresh(r => r + 1)} />
+      {!soloLectura && (
+        <CargaMasivaTransacciones onImportado={() => setRefresh(r => r + 1)} />
+      )}
 
-      <TransactionList refreshTrigger={refresh} onEdit={handleEdit} />
+      <TransactionList refreshTrigger={refresh} onEdit={soloLectura ? undefined : handleEdit} soloLectura={soloLectura} />
     </div>
   )
 }

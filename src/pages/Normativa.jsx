@@ -3,6 +3,8 @@ import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { clasificarError } from '../lib/errorHandler'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 
 const TIPOS = ['reglamento', 'politica', 'procedimiento', 'guia', 'circular', 'documento']
 const TIPO_ICON = {
@@ -42,8 +44,10 @@ export default function Normativa() {
 
   // Cargar normativa queda abierto a cualquier usuario del sujeto obligado;
   // eliminar sigue reservado a administradores porque es destructivo.
-  const puedeSubir     = !!tenant || isSuperAdmin
-  const puedeEliminar  = isAdmin || isSuperAdmin
+  // En modo consulta (rol de solo lectura) no se puede subir ni eliminar.
+  const soloLectura    = useSoloLectura()
+  const puedeSubir     = (!!tenant || isSuperAdmin) && !soloLectura
+  const puedeEliminar  = (isAdmin || isSuperAdmin) && !soloLectura
   const [tenants, setTenants]         = useState([])
   const [tenantIdSubir, setTenantIdSubir] = useState(tenant?.id || '')
   const [tenantIdFiltro, setTenantIdFiltro] = useState('')
@@ -151,6 +155,8 @@ export default function Normativa() {
           </button>
         )}
       </div>
+
+      {soloLectura && <AvisoSoloLectura />}
 
       {/* Formulario de carga */}
       {showForm && puedeSubir && (

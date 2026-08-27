@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 import ClienteFormCompleto from '../components/clientes/ClienteFormCompleto'
 import CargaMasivaClientes from '../components/clientes/CargaMasivaClientes'
 import CopiarClienteModal from '../components/clientes/CopiarClienteModal'
@@ -126,6 +128,7 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Buscar…',
 // ─── Lista de clientes ───────────────────────────────────────────────────────
 function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' }) {
   const { tenant, isSuperAdmin, isAdmin, tenantsDisponibles } = useAuth()
+  const soloLectura = useSoloLectura()
 
   // Copiar a otro sujeto obligado: solo tiene sentido con más de uno disponible
   const puedeCopiar = (tenantsDisponibles?.length || 0) > 1
@@ -313,22 +316,28 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
           >
             📊 Exportar Excel
           </button>
-          <button onClick={onCargaMasiva}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-            📥 Carga masiva Excel
-          </button>
-          {puedeConfigurarDocs && (
+          {!soloLectura && (
+            <button onClick={onCargaMasiva}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              📥 Carga masiva Excel
+            </button>
+          )}
+          {puedeConfigurarDocs && !soloLectura && (
             <button onClick={() => setConfigDocs(true)}
               title="Agregar, renombrar o excluir los documentos que se exigen a los clientes de este sujeto obligado"
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
               ⚙️ Documentos requeridos
             </button>
           )}
-          <button onClick={onNuevo} className="btn-primary flex items-center gap-2">
-            <span className="text-lg leading-none">+</span> Nuevo cliente
-          </button>
+          {!soloLectura && (
+            <button onClick={onNuevo} className="btn-primary flex items-center gap-2">
+              <span className="text-lg leading-none">+</span> Nuevo cliente
+            </button>
+          )}
         </div>
       </div>
+
+      {soloLectura && <AvisoSoloLectura />}
 
       {/* Filtros */}
       <div className="card flex flex-wrap gap-3 items-end">
@@ -393,7 +402,9 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">👤</p>
           <p className="font-medium">No hay clientes registrados</p>
-          <button onClick={onNuevo} className="mt-4 btn-primary">Registrar primer cliente</button>
+          {!soloLectura && (
+            <button onClick={onNuevo} className="mt-4 btn-primary">Registrar primer cliente</button>
+          )}
         </div>
       ) : (
         <div className="card overflow-hidden p-0">
@@ -448,7 +459,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
                       <button className="text-brand-600 hover:text-brand-800 text-xs font-medium">Ver →</button>
-                      {puedeCopiar && (
+                      {puedeCopiar && !soloLectura && (
                         <button
                           onClick={e => { e.stopPropagation(); setClienteACopiar(c) }}
                           title="Copiar a otro sujeto obligado"
@@ -456,11 +467,13 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                           Copiar
                         </button>
                       )}
-                      <button
-                        onClick={e => eliminar(e, c.id)}
-                        className="text-red-500 hover:text-red-700 text-xs font-medium">
-                        Eliminar
-                      </button>
+                      {!soloLectura && (
+                        <button
+                          onClick={e => eliminar(e, c.id)}
+                          className="text-red-500 hover:text-red-700 text-xs font-medium">
+                          Eliminar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -479,6 +492,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
 function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
   const navigate = useNavigate()
   const { tenant, profile, tenantsDisponibles, isAdmin } = useAuth()
+  const soloLectura = useSoloLectura()
   const puedeCopiar = (tenantsDisponibles?.length || 0) > 1
   const [mostrarCopiar, setMostrarCopiar] = useState(false)
   const [configDocs, setConfigDocs] = useState(false)
@@ -642,9 +656,11 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
                   📑 Copiar a otro S.O.
                 </button>
               )}
-              <button onClick={onEditar} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">
-                ✏ Editar
-              </button>
+              {!soloLectura && (
+                <button onClick={onEditar} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">
+                  ✏ Editar
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -755,7 +771,9 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
           ) : personas.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <p>No hay personas relacionadas registradas.</p>
-              <button onClick={onEditar} className="mt-3 btn-primary text-sm">Agregar estructura →</button>
+              {!soloLectura && (
+                <button onClick={onEditar} className="mt-3 btn-primary text-sm">Agregar estructura →</button>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -837,17 +855,19 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {docGuardado && <span className="text-xs font-medium text-green-600">✓ Guardado</span>}
-            {puedeConfigurarDocs && (
+            {puedeConfigurarDocs && !soloLectura && (
               <button onClick={() => setConfigDocs(true)}
                 title="Agregar, renombrar o excluir documentos para este sujeto obligado"
                 className="px-3 py-1.5 text-xs font-semibold text-brand-700 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">
                 ⚙️ Configurar documentos
               </button>
             )}
+            {!soloLectura && (
             <button onClick={guardarChecklist} disabled={guardandoDoc}
               className="px-3 py-1.5 text-xs font-semibold bg-brand-700 text-white rounded-lg hover:bg-brand-800 disabled:opacity-50 transition-colors">
               {guardandoDoc ? 'Guardando…' : '💾 Guardar documentación'}
             </button>
+            )}
           </div>
         </div>
 

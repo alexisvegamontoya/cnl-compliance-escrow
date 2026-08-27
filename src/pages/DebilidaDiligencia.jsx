@@ -6,6 +6,8 @@ import { logAudit } from '../lib/auditLog'
 import { normalizarChecklist, itemsChecklist } from '../lib/checklistDocumental'
 import { useCatalogoDeTenant } from '../lib/CatalogoDocumentalContext'
 import ChecklistDocumental from '../components/clientes/ChecklistDocumental'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTES
@@ -303,6 +305,7 @@ function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, check
 
 export default function DebilidaDiligencia() {
   const { session, tenant, profile, isSuperAdmin } = useAuth()
+  const soloLectura = useSoloLectura()
   const [paso, setPaso]   = useState(1)
   const [tipo, setTipo]   = useState('F')
   const [error, setError] = useState('')
@@ -615,6 +618,8 @@ export default function DebilidaDiligencia() {
 
   return (
     <div className="p-6 max-w-4xl space-y-4">
+
+      {soloLectura && <AvisoSoloLectura />}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -1098,7 +1103,7 @@ export default function DebilidaDiligencia() {
                 className="btn-primary flex items-center gap-2 justify-center">
                 📄 Ver y descargar PDF
               </button>
-              {!guardadoOk && (
+              {!guardadoOk && !soloLectura && (
                 <button onClick={guardarExpediente} disabled={guardando}
                   className="border-2 border-brand-700 text-brand-700 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-brand-50 transition-colors flex items-center gap-2 justify-center disabled:opacity-60">
                   {guardando ? '⏳ Guardando…' : '💾 Guardar en base de datos'}

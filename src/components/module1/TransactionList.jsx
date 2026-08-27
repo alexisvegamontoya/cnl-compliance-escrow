@@ -10,7 +10,7 @@ const MODO_MES   = 'mes'
 const MODO_RANGO = 'rango'
 const MODO_TODOS = 'todos'
 
-export default function TransactionList({ refreshTrigger, onEdit }) {
+export default function TransactionList({ refreshTrigger, onEdit, soloLectura = false }) {
   const { tenant } = useAuth()
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
@@ -206,16 +206,20 @@ export default function TransactionList({ refreshTrigger, onEdit }) {
                           : <span className="badge-warning">Pendiente</span>}
                       </td>
                       <td className="py-3 px-2">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => onEdit?.(row)}
-                            className="text-brand-600 hover:text-brand-800 text-xs font-medium">
-                            Editar
-                          </button>
-                          <button onClick={() => eliminar(row.id)} disabled={deleting === row.id}
-                            className="text-red-500 hover:text-red-700 text-xs font-medium">
-                            {deleting === row.id ? '...' : 'Eliminar'}
-                          </button>
-                        </div>
+                        {soloLectura ? (
+                          <span className="text-xs text-gray-300">—</span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => onEdit?.(row)}
+                              className="text-brand-600 hover:text-brand-800 text-xs font-medium">
+                              Editar
+                            </button>
+                            <button onClick={() => eliminar(row.id)} disabled={deleting === row.id}
+                              className="text-red-500 hover:text-red-700 text-xs font-medium">
+                              {deleting === row.id ? '...' : 'Eliminar'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )

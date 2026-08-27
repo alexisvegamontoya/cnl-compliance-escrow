@@ -3,6 +3,8 @@ import { supabase, tenantsDeLaApp, APP_FLAG } from '../../lib/supabase'
 import { ACTIVIDADES_APNFD, TIPO_SUJETO } from '../../lib/catalogos'
 import ErrorBanner from '../../components/ui/ErrorBanner'
 import { clasificarError } from '../../lib/errorHandler'
+import { useSoloLectura } from '../../lib/useSoloLectura'
+import AvisoSoloLectura from '../../components/ui/AvisoSoloLectura'
 
 const EMPTY = {
   nombre: '',
@@ -41,6 +43,7 @@ const TABLAS_RESPALDO = [
 ]
 
 export default function SujetosObligados() {
+  const soloLectura = useSoloLectura()
   const [tenants, setTenants]         = useState([])
   const [loading, setLoading]         = useState(true)
   const [showForm, setShowForm]       = useState(false)
@@ -289,10 +292,14 @@ export default function SujetosObligados() {
           <h1 className="text-2xl font-bold text-gray-900">Sujetos Obligados</h1>
           <p className="text-gray-500 text-sm mt-1">Gestión de clientes inscritos ante SUGEF — Ley 7786</p>
         </div>
-        <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
-          {showForm && !editId ? '✕ Cancelar' : '+ Nuevo sujeto obligado'}
-        </button>
+        {!soloLectura && (
+          <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
+            {showForm && !editId ? '✕ Cancelar' : '+ Nuevo sujeto obligado'}
+          </button>
+        )}
       </div>
+
+      {soloLectura && <AvisoSoloLectura />}
 
       {/* Formulario */}
       {showForm && (
@@ -508,26 +515,32 @@ export default function SujetosObligados() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => startEdit(t)}
-                    className="btn-secondary text-xs py-1.5 px-3">
-                    Editar
-                  </button>
-                  <button onClick={() => toggleActivo(t.id, t.activo)}
-                    className={`text-xs py-1.5 px-3 rounded-lg font-medium transition-colors ${
-                      t.activo
-                        ? 'text-amber-600 hover:bg-amber-50 border border-amber-200'
-                        : 'text-green-600 hover:bg-green-50 border border-green-200'
-                    }`}>
-                    {t.activo ? 'Desactivar' : 'Activar'}
-                  </button>
-                  <button
-                    onClick={() => eliminarConRespaldo(t)}
-                    disabled={saving}
-                    title="Genera respaldo Excel y elimina permanentemente"
-                    className="text-xs py-1.5 px-3 rounded-lg font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
-                  >
-                    🗑 Eliminar
-                  </button>
+                  {soloLectura ? (
+                    <span className="text-xs text-gray-300">—</span>
+                  ) : (
+                    <>
+                      <button onClick={() => startEdit(t)}
+                        className="btn-secondary text-xs py-1.5 px-3">
+                        Editar
+                      </button>
+                      <button onClick={() => toggleActivo(t.id, t.activo)}
+                        className={`text-xs py-1.5 px-3 rounded-lg font-medium transition-colors ${
+                          t.activo
+                            ? 'text-amber-600 hover:bg-amber-50 border border-amber-200'
+                            : 'text-green-600 hover:bg-green-50 border border-green-200'
+                        }`}>
+                        {t.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        onClick={() => eliminarConRespaldo(t)}
+                        disabled={saving}
+                        title="Genera respaldo Excel y elimina permanentemente"
+                        className="text-xs py-1.5 px-3 rounded-lg font-medium text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+                      >
+                        🗑 Eliminar
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

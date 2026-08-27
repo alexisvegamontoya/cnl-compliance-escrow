@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { logAudit } from '../lib/auditLog'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 
 // ── Configuración de fuentes ──────────────────────────────────────────────────
 const FUENTES_CONFIG = {
@@ -335,6 +337,7 @@ function Reporte({ consulta, resultados, allResultados, nivelRiesgo, metadata, o
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function ConsultaPEP() {
   const { session, tenant, profile, isSuperAdmin } = useAuth()
+  const soloLectura = useSoloLectura()
   const [nombre, setNombre]             = useState('')
   const [identificacion, setIdentif]    = useState('')
   const [pais, setPais]                 = useState('')
@@ -455,7 +458,8 @@ export default function ConsultaPEP() {
     })
 
     // Auto-guardar resultado en clientes si hay cliente seleccionado
-    if (clienteSelId) {
+    // (en modo consulta no se escribe sobre el cliente).
+    if (clienteSelId && !soloLectura) {
       const coincidencias = res.filter(r => (r.similitud || 0) >= 0.65)
       const hayAlerta     = coincidencias.some(r => (r.similitud || 0) >= 0.85)
       const hayPEP        = coincidencias.some(r => r.fuente === 'ICD_CR_PEP' || r.tipo_lista === 'pep')
@@ -487,19 +491,21 @@ export default function ConsultaPEP() {
 
   // Auto-guardar estado SUGEF y CCSS en cliente seleccionado
   useEffect(() => {
-    if (clienteSelId && sujetoObligado) {
+    if (clienteSelId && sujetoObligado && !soloLectura) {
       supabase.from('clientes').update({ sugef_estado: sujetoObligado }).eq('id', clienteSelId)
     }
-  }, [sujetoObligado, clienteSelId])
+  }, [sujetoObligado, clienteSelId, soloLectura])
 
   useEffect(() => {
-    if (clienteSelId && ccssAlDia) {
+    if (clienteSelId && ccssAlDia && !soloLectura) {
       supabase.from('clientes').update({ ccss_estado: ccssAlDia }).eq('id', clienteSelId)
     }
-  }, [ccssAlDia, clienteSelId])
+  }, [ccssAlDia, clienteSelId, soloLectura])
 
   return (
     <div className="p-6 max-w-5xl space-y-6">
+
+      {soloLectura && <AvisoSoloLectura />}
 
       {/* Encabezado */}
       <div className="flex items-start justify-between gap-4 flex-wrap">

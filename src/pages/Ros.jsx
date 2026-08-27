@@ -7,6 +7,8 @@ import { logAudit } from '../lib/auditLog'
 import { alertaROS } from '../lib/emailAlertas'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { clasificarError } from '../lib/errorHandler'
+import { useSoloLectura } from '../lib/useSoloLectura'
+import AvisoSoloLectura from '../components/ui/AvisoSoloLectura'
 
 const EMPTY = {
   fecha_elaboracion: new Date().toISOString().split('T')[0],
@@ -36,6 +38,7 @@ const MEDIOS = ['Efectivo', 'Cheque', 'Transferencia', 'Tarjeta', 'Criptomonedas
 
 export default function Ros() {
   const { tenant, profile } = useAuth()
+  const soloLectura = useSoloLectura()
   const [reportes, setReportes] = useState([])
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -218,11 +221,15 @@ export default function Ros() {
           >
             📥 Exportar Excel
           </button>
-          <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
-            {showForm && !editId ? '✕ Cancelar' : '+ Nuevo ROS'}
-          </button>
+          {!soloLectura && (
+            <button className="btn-primary" onClick={() => { cancelar(); setShowForm(s => !s) }}>
+              {showForm && !editId ? '✕ Cancelar' : '+ Nuevo ROS'}
+            </button>
+          )}
         </div>
       </div>
+
+      {soloLectura && <AvisoSoloLectura />}
 
       {/* Formulario */}
       {showForm && (
@@ -407,8 +414,10 @@ export default function Ros() {
                       className="text-green-600 hover:text-green-800 text-xs font-medium">
                       📧 Enviar
                     </a>
-                    <button onClick={() => startEdit(r)}
-                      className="btn-secondary text-xs py-1.5 px-3">Editar</button>
+                    {!soloLectura && (
+                      <button onClick={() => startEdit(r)}
+                        className="btn-secondary text-xs py-1.5 px-3">Editar</button>
+                    )}
                   </div>
                 </div>
               )
