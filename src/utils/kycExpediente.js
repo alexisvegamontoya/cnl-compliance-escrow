@@ -1,0 +1,85 @@
+/**
+ * kycExpediente.js — Expediente imprimible (PDF) de una solicitud KYC recibida.
+ * Incluye toda la información que llenó el cliente y los anexos: las imágenes se
+ * incrustan; los PDF y otros archivos se listan con su enlace de descarga.
+ */
+const ETIQUETAS = {
+  nombre_cliente: 'Nombre', primer_apellido: 'Primer apellido', segundo_apellido: 'Segundo apellido',
+  tipo_identificacion: 'Tipo de identificación', numero_identificacion: 'N.º de identificación',
+  fecha_nacimiento: 'Fecha de nacimiento', genero: 'Género', estado_civil: 'Estado civil',
+  profesion_nombre: 'Profesión u oficio', actividad_economica: 'Actividad económica',
+  pais_nacimiento: 'País de nacimiento', pais_residencia: 'País de residencia',
+  provincia: 'Provincia', canton: 'Cantón', direccion_exacta: 'Dirección exacta',
+  nombre_contacto: 'Persona de contacto', telefono: 'Teléfono', correo_electronico: 'Correo electrónico',
+  proposito_relacion: 'Propósito de la relación', origen_fondos: 'Origen de los fondos',
+  ingreso_mensual_est: 'Ingreso mensual estimado (USD)',
+  nombre_empresa: 'Razón social', cedula_juridica: 'Cédula jurídica',
+  pais_constitucion: 'País de constitución', fecha_constitucion: 'Fecha de constitución',
+  rep_nombre: 'Representante legal', rep_identificacion: 'Identificación del representante',
+  rep_telefono: 'Teléfono del representante', rep_correo: 'Correo del representante',
+  credito_monto: 'Monto del crédito (USD)', credito_garantia: 'Garantía del crédito',
+  credito_plan_inversion: 'Plan de inversión',
+}
+const GEN = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
+
+export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [] }) {
+  const d = solicitud?.datos || {}
+  const esJ = solicitud?.tipo_persona === 'juridica'
+  const fecha = new Date().toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
+  const recibida = solicitud?.recibida_en ? new Date(solicitud.recibida_en).toLocaleDateString('es-CR') : '—'
+  const nombre = solicitud?.nombre_cliente ||
+    (esJ ? d.nombre_empresa : [d.nombre_cliente, d.primer_apellido].filter(Boolean).join(' ')) || '(sin nombre)'
+
+  const val = (k, v) => {
+    if (k === 'genero') return GEN[v] || v
+    return String(v)
+  }
+  const filas = Object.entries(d)
+    .filter(([, v]) => v !== '' && v != null)
+    .map(([k, v]) => `<tr><td class="l">${ETIQUETAS[k] || k}</td><td class="v">${val(k, v)}</td></tr>`)
+    .join('') || '<tr><td colspan="2" class="l">Sin datos.</td></tr>'
+
+  const anexosHtml = anexos.length === 0
+    ? '<p class="muted">Sin documentos adjuntos.</p>'
+    : anexos.map((a, i) => {
+        const cab = `<div class="anexo-cab">Anexo ${i + 1} — ${a.etiqueta || a.doc_id} <span class="muted">(${a.nombre_archivo || ''})</span></div>`
+        if (a.esImg && a.url) return `<div class="anexo">${cab}<img class="anexo-img" src="${a.url}" alt="${a.etiqueta || ''}"></div>`
+        if (a.url) return `<div class="anexo">${cab}<p class="muted">Documento PDF/archivo — <a href="${a.url}">abrir/descargar</a> (el enlace vence en unos minutos).</p></div>`
+        return `<div class="anexo">${cab}<p class="muted">Archivo no disponible.</p></div>`
+      }).join('')
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Expediente KYC — ${nombre}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#14141a;padding:26px 34px}
+  .head{border-bottom:2px solid #34438c;padding-bottom:12px;margin-bottom:16px}
+  .head h1{font-size:17px;color:#1a2348}
+  .head p{font-size:11px;color:#6b6b76;margin-top:3px}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b6b76;border-bottom:1px solid #e4e4ea;padding-bottom:4px;margin:18px 0 8px}
+  table.datos{width:100%;border-collapse:collapse}
+  table.datos td{padding:4px 6px;vertical-align:top;border-bottom:1px solid #f0f0f4}
+  table.datos .l{width:40%;color:#6b6b76}
+  table.datos .v{font-weight:600}
+  .muted{color:#8a8a94;font-size:11px}
+  .anexo{margin:14px 0;page-break-inside:avoid}
+  .anexo-cab{font-weight:700;font-size:11px;color:#34438c;margin-bottom:6px;border-left:3px solid #34438c;padding-left:8px}
+  .anexo-img{max-width:100%;max-height:900px;border:1px solid #e4e4ea;border-radius:4px}
+  .foot{margin-top:26px;border-top:1px solid #e4e4ea;padding-top:8px;font-size:9px;color:#9a9aa4;text-align:center}
+  a{color:#34438c}
+  @media print{@page{margin:1.3cm} .noprint{display:none}}
+</style></head><body>
+  <div class="head">
+    <h1>Expediente de Debida Diligencia — ${esJ ? 'Persona Jurídica' : 'Persona Física'}</h1>
+    <p>${tenant || ''} · Cliente: <strong>${nombre}</strong> · Recibido: ${recibida} · Generado: ${fecha}</p>
+  </div>
+
+  <h2>Información suministrada por el cliente</h2>
+  <table class="datos"><tbody>${filas}</tbody></table>
+
+  <h2>Anexos — documentos de respaldo (${anexos.length})</h2>
+  ${anexosHtml}
+
+  <div class="foot">Expediente generado por el sistema CNL Craniley Compliance · ${tenant || ''} · ${fecha}</div>
+  <button class="noprint" onclick="window.print()" style="position:fixed;top:12px;right:12px;padding:8px 14px;background:#34438c;color:#fff;border:0;border-radius:6px;cursor:pointer">Imprimir / Guardar PDF</button>
+</body></html>`
+}

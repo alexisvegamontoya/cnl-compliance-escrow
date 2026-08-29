@@ -7,6 +7,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { supabase } from '../lib/supabase'
+import { generarExpedienteKycHTML } from '../utils/kycExpediente'
+
+// Columnas del cliente que se pueden llenar desde el portal.
+const CLIENTE_COLS = [
+  'nombre_cliente', 'primer_apellido', 'segundo_apellido', 'tipo_identificacion', 'numero_identificacion',
+  'fecha_nacimiento', 'genero', 'estado_civil', 'profesion_nombre', 'actividad_economica',
+  'pais_nacimiento', 'pais_residencia', 'provincia', 'canton', 'direccion_exacta', 'nombre_contacto',
+  'telefono', 'correo_electronico', 'proposito_relacion', 'origen_fondos', 'ingreso_mensual_est',
+  'nombre_empresa', 'cedula_juridica', 'pais_constitucion', 'fecha_constitucion',
+]
+const DOC_NO_CHECKLIST = (id) => id === 'kyc_firmado' || String(id).startsWith('machote_')
 
 const ESTADO = {
   enviada:   { label: 'Enviada',    clase: 'bg-blue-50 text-blue-700' },
@@ -38,6 +49,12 @@ export default function RecoleccionKYC() {
   const [correo, setCorreo]           = useState('')
   const [nombre, setNombre]           = useState('')
   const [guardando, setGuardando]     = useState(false)
+
+  // Revisión / bandeja
+  const [revisar, setRevisar]         = useState(null)   // solicitud en revisión
+  const [docsRev, setDocsRev]         = useState([])
+  const [accion, setAccion]           = useState('')     // '' | 'aprobando' | 'rechazando'
+  const [msgRev, setMsgRev]           = useState('')
 
   const cargar = useCallback(async () => {
     if (!tenant?.id) { setLoading(false); return }
@@ -74,12 +91,15 @@ export default function RecoleccionKYC() {
     if (!correo.trim()) { setError('Ingresá el correo del cliente.'); return }
     if (modo === 'existente' && !clienteId) { setError('Elegí el cliente existente a actualizar.'); return }
     setGuardando(true)
+    // Sector para secciones extra (facilidades crediticias → machote CIC, plan de inversión…)
+    const sector = /cr[eé]dit|financ|prestamist|ahorro|cooperativ/i.test(tenant?.actividad_apnfd || '') ? 'credito' : null
     const { data, error } = await supabase.from('solicitudes_kyc').insert({
       tenant_id:      tenant.id,
       tipo_persona:   tipoPersona,
       cliente_id:     modo === 'existente' ? clienteId : null,
       correo_cliente: correo.trim(),
       nombre_cliente: nombre.trim() || null,
+      sector,
       estado:         'enviada',
       creado_por:     session?.user?.id,
       enviada_en:     new Date().toISOString(),
@@ -107,6 +127,84 @@ export default function RecoleccionKYC() {
   async function copiar(sol) {
     try { await navigator.clipboard.writeText(enlacePortal(sol.token)); setCopiado(sol.id); setTimeout(() => setCopiado(null), 1500) }
     catch { /* ignore */ }
+  }
+
+  // ── Revisión / volcado al gestor ──
+  async function abrirRevision(sol) {
+    setRevisar(sol); setMsgRev(''); setDocsRev([])
+    const { data } = await supabase.from('solicitudes_kyc_documentos')
+      .select('*').eq('solicitud_id', sol.id).order('subido_en')
+    setDocsRev(data || [])
+  }
+
+  async function descargarDoc(doc) {
+    const { data, error } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 300)
+    if (error || !data?.signedUrl) { setMsgRev('No se pudo generar el enlace del documento.'); return }
+    window.open(data.signedUrl, '_blank')
+  }
+
+  async function aprobar() {
+    if (!revisar) return
+    setAccion('aprobando'); setMsgRev('')
+    try {
+      const d = revisar.datos || {}
+      const payload = { tenant_id: tenant.id, tipo_persona: revisar.tipo_persona }
+      CLIENTE_COLS.forEach(c => { if (d[c] !== undefined && d[c] !== '' && d[c] !== null) payload[c] = d[c] })
+      if (revisar.tipo_persona === 'juridica' && !payload.numero_identificacion && d.cedula_juridica) payload.numero_identificacion = d.cedula_juridica
+      // checklist con lo recibido
+      const checklist = {}
+      docsRev.forEach(doc => { if (!DOC_NO_CHECKLIST(doc.doc_id)) checklist[doc.doc_id] = { estado: 'disponible', nota: 'Recibido por portal KYC' } })
+      payload.checklist_documental = checklist
+      if (d.credito_monto || d.credito_plan_inversion || d.credito_garantia) {
+        payload.notas = `[Solicitud de crédito] Monto: ${d.credito_monto || '—'} · Garantía: ${d.credito_garantia || '—'} · Plan de inversión: ${d.credito_plan_inversion || '—'}`
+      }
+      // crear o actualizar cliente
+      let clienteId = revisar.cliente_id
+      if (clienteId) {
+        const { error } = await supabase.from('clientes').update(payload).eq('id', clienteId)
+        if (error) throw error
+      } else {
+        const { data: nuevo, error } = await supabase.from('clientes').insert(payload).select('id').single()
+        if (error) throw error
+        clienteId = nuevo.id
+      }
+      // representante legal (jurídica)
+      if (revisar.tipo_persona === 'juridica' && d.rep_nombre) {
+        await supabase.from('clientes_personas_relacionadas').insert({
+          tenant_id: tenant.id, cliente_id: clienteId, tipo_relacion: 'representante_legal',
+          tipo_entidad: 'persona_fisica', nombre: d.rep_nombre, identificacion: d.rep_identificacion || null,
+          telefono: d.rep_telefono || null, correo: d.rep_correo || null, orden: 0, activo: true,
+        })
+      }
+      await supabase.from('solicitudes_kyc').update({ estado: 'aprobada', cliente_id: clienteId }).eq('id', revisar.id)
+      setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'aprobada', cliente_id: clienteId } : s))
+      setRevisar(null)
+    } catch (err) { setMsgRev('No se pudo aprobar: ' + err.message) }
+    setAccion('')
+  }
+
+  async function rechazar() {
+    if (!revisar) return
+    setAccion('rechazando')
+    await supabase.from('solicitudes_kyc').update({ estado: 'rechazada' }).eq('id', revisar.id)
+    setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'rechazada' } : s))
+    setAccion(''); setRevisar(null)
+  }
+
+  async function descargarExpediente() {
+    setMsgRev('')
+    const w = window.open('', '_blank', 'width=900,height=700')
+    if (!w) { setMsgRev('Permita ventanas emergentes para el expediente.'); return }
+    w.document.write('<p style="font-family:Arial;padding:24px;color:#555">Generando expediente…</p>')
+    // Enlaces firmados para incrustar imágenes / enlazar PDFs como anexos
+    const anexos = []
+    for (const doc of docsRev) {
+      const esImg = /\.(jpe?g|png|webp|gif)$/i.test(doc.nombre_archivo || doc.archivo_path || '')
+      const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600)
+      anexos.push({ ...doc, esImg, url: data?.signedUrl || null })
+    }
+    const html = generarExpedienteKycHTML({ tenant: tenant?.nombre, solicitud: revisar, anexos })
+    w.document.open(); w.document.write(html); w.document.close()
   }
 
   if (loading) return <div className="p-6 text-gray-500">Cargando…</div>
@@ -206,10 +304,19 @@ export default function RecoleccionKYC() {
                   <td className="px-4 py-2 text-gray-500">{fecha(s.enviada_en || s.creado_en)}</td>
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2 justify-end">
-                      <button onClick={() => copiar(s)} className="text-xs text-brand-600 hover:underline">
-                        {copiado === s.id ? '¡Copiado!' : 'Copiar enlace'}
-                      </button>
-                      <button onClick={() => abrirCorreo(s)} className="text-xs text-gray-500 hover:text-brand-700">Reenviar</button>
+                      {(s.estado === 'recibida' || s.estado === 'aprobada' || s.estado === 'rechazada') ? (
+                        <button onClick={() => abrirRevision(s)}
+                          className={`text-xs font-semibold ${s.estado === 'recibida' ? 'text-violet-700 hover:underline' : 'text-gray-500 hover:text-brand-700'}`}>
+                          {s.estado === 'recibida' ? '🔎 Revisar' : 'Ver'}
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => copiar(s)} className="text-xs text-brand-600 hover:underline">
+                            {copiado === s.id ? '¡Copiado!' : 'Copiar enlace'}
+                          </button>
+                          <button onClick={() => abrirCorreo(s)} className="text-xs text-gray-500 hover:text-brand-700">Reenviar</button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -220,9 +327,77 @@ export default function RecoleccionKYC() {
       </div>
 
       <p className="text-xs text-gray-400">
-        Al crear una solicitud se abre tu correo con el enlace listo para enviar al cliente. El portal donde el cliente
-        completa la información y la bandeja de revisión se activan en las siguientes fases.
+        Al crear una solicitud se abre tu correo con el enlace listo para enviar al cliente. Cuando el cliente envía su
+        información, la solicitud pasa a <strong>Recibida</strong> y podés revisarla y aprobarla para volcar al gestor.
       </p>
+
+      {/* Modal de revisión */}
+      {revisar && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4" onClick={() => accion === '' && setRevisar(null)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full my-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">{revisar.nombre_cliente || 'Solicitud'}</h2>
+                <p className="text-xs text-gray-500">{revisar.tipo_persona === 'juridica' ? 'Persona jurídica' : 'Persona física'} · {revisar.correo_cliente}</p>
+              </div>
+              <button onClick={() => setRevisar(null)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
+              {msgRev && <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{msgRev}</div>}
+
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Información recibida</p>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {Object.entries(revisar.datos || {}).filter(([, v]) => v !== '' && v != null).map(([k, v]) => (
+                      <tr key={k} className="border-b border-gray-50">
+                        <td className="py-1.5 pr-3 text-gray-500 align-top w-2/5">{k}</td>
+                        <td className="py-1.5 font-medium text-gray-800">{String(v)}</td>
+                      </tr>
+                    ))}
+                    {Object.keys(revisar.datos || {}).length === 0 && <tr><td className="py-2 text-gray-400 text-sm">Sin datos.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Documentos ({docsRev.length})</p>
+                {docsRev.length === 0 ? <p className="text-sm text-gray-400">Sin documentos.</p> : (
+                  <div className="space-y-1">
+                    {docsRev.map(doc => (
+                      <div key={doc.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 text-sm">
+                        <span className="text-gray-700">📄 {doc.etiqueta || doc.doc_id} <span className="text-gray-400">· {doc.nombre_archivo}</span></span>
+                        <button onClick={() => descargarDoc(doc)} className="text-xs text-brand-600 hover:underline">Descargar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-5 py-3 flex-wrap">
+              <button onClick={descargarExpediente} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                📑 Descargar expediente (PDF)
+              </button>
+              {revisar.estado === 'recibida' ? (
+                <div className="flex gap-2">
+                  <button onClick={rechazar} disabled={accion !== ''}
+                    className="text-sm px-4 py-1.5 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50">
+                    {accion === 'rechazando' ? '…' : 'Rechazar'}
+                  </button>
+                  <button onClick={aprobar} disabled={accion !== ''}
+                    className="btn-primary text-sm disabled:opacity-50">
+                    {accion === 'aprobando' ? 'Aprobando…' : '✓ Aprobar y volcar al gestor'}
+                  </button>
+                </div>
+              ) : (
+                <span className="text-sm text-gray-500">Estado: {revisar.estado}{revisar.cliente_id ? ' · vinculado al gestor' : ''}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

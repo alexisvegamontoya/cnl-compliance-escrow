@@ -30,6 +30,7 @@ const CumplimientoPorGrupo    = lazy(() => import('./pages/CumplimientoPorGrupo'
 const GestionGrupos           = lazy(() => import('./pages/admin/GestionGrupos'))
 const RecoleccionKYC          = lazy(() => import('./pages/RecoleccionKYC'))
 const ModulosSujetosObligados = lazy(() => import('./pages/admin/ModulosSujetosObligados'))
+const PortalKYC               = lazy(() => import('./pages/PortalKYC'))
 const CanalDenuncias          = lazy(() => import('./pages/CanalDenuncias'))
 const Perfil                  = lazy(() => import('./pages/Perfil'))
 const AuditLog                = lazy(() => import('./pages/admin/AuditLog'))
@@ -170,6 +171,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/set-password" element={<SetPassword />} />
       <Route path="/status" element={<StatusPage />} />
+      <Route path="/portal/:token" element={<PortalKYC />} />
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={
         <PrivateRoute>

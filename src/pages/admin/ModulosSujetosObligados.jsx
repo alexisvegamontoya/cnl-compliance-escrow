@@ -15,22 +15,31 @@ export default function ModulosSujetosObligados() {
   const { isSuperAdmin } = useAuth()
   const [tenants, setTenants]   = useState([])
   const [habil, setHabil]       = useState({}) // { `${tenantId}:${modulo}`: true }
+  const [machotes, setMachotes] = useState([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
   const [busy, setBusy]         = useState(null)
   const [q, setQ]               = useState('')
+  // Alta de machote
+  const [mNombre, setMNombre]   = useState('')
+  const [mClave, setMClave]     = useState('autorizacion_cic')
+  const [mSector, setMSector]   = useState('credito')
+  const [mArchivo, setMArchivo] = useState(null)
+  const [subiendo, setSubiendo] = useState(false)
 
   const cargar = useCallback(async () => {
     setLoading(true); setError('')
-    const [t, m] = await Promise.all([
+    const [t, m, mac] = await Promise.all([
       tenantsDeLaApp('id, nombre, actividad_apnfd'),
       supabase.from('modulos_habilitados').select('tenant_id, modulo, habilitado'),
+      supabase.from('machotes').select('*').order('creado_en', { ascending: false }),
     ])
     if (t.error || m.error) { setError((t.error || m.error).message); setLoading(false); return }
     setTenants(t.data || [])
     const map = {}
     ;(m.data || []).forEach(r => { if (r.habilitado) map[`${r.tenant_id}:${r.modulo}`] = true })
     setHabil(map)
+    setMachotes(mac.data || [])
     setLoading(false)
   }, [])
 
@@ -48,6 +57,31 @@ export default function ModulosSujetosObligados() {
     setBusy(null)
     if (error) { setError(error.message); return }
     setHabil(prev => ({ ...prev, [key]: nuevo }))
+  }
+
+  async function subirMachote(e) {
+    e.preventDefault(); setError('')
+    if (!mNombre.trim() || !mClave.trim() || !mArchivo) { setError('Complete nombre, clave y archivo del machote.'); return }
+    setSubiendo(true)
+    const ext = (mArchivo.name.split('.').pop() || 'pdf').toLowerCase()
+    const path = `${mClave.trim()}-${Date.now()}.${ext}`
+    const up = await supabase.storage.from('machotes').upload(path, mArchivo, { contentType: mArchivo.type || 'application/pdf', upsert: false })
+    if (up.error) { setSubiendo(false); setError(up.error.message); return }
+    const url = supabase.storage.from('machotes').getPublicUrl(path).data.publicUrl
+    const { error } = await supabase.from('machotes').insert({
+      nombre: mNombre.trim(), clave: mClave.trim(), sector: mSector || null, archivo_url: url, archivo_path: path,
+    })
+    setSubiendo(false)
+    if (error) { await supabase.storage.from('machotes').remove([path]); setError(error.message); return }
+    setMNombre(''); setMArchivo(null)
+    cargar()
+  }
+
+  async function eliminarMachote(m) {
+    if (!window.confirm(`¿Eliminar el machote "${m.nombre}"?`)) return
+    if (m.archivo_path) await supabase.storage.from('machotes').remove([m.archivo_path])
+    await supabase.from('machotes').delete().eq('id', m.id)
+    setMachotes(prev => prev.filter(x => x.id !== m.id))
   }
 
   const filtrados = tenants.filter(t =>
@@ -107,6 +141,56 @@ export default function ModulosSujetosObligados() {
 
       <div className="rounded-xl border border-gray-100 bg-white p-4 text-xs text-gray-500 space-y-1">
         {MODULOS.map(m => <p key={m.clave}><strong>{m.nombre}:</strong> {m.desc}</p>)}
+      </div>
+
+      {/* Machotes globales (para el portal KYC) */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-gray-900">Machotes / plantillas</h2>
+          <p className="text-xs text-gray-500">Documentos que el cliente descarga, completa/firma y vuelve a subir en el portal (ej. autorización CIC para facilidades crediticias).</p>
+        </div>
+        <form onSubmit={subirMachote} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+          <div className="sm:col-span-2">
+            <label className="label text-xs">Nombre visible</label>
+            <input className="input text-sm" value={mNombre} onChange={e => setMNombre(e.target.value)} placeholder="Ej. Autorización de consulta al CIC" />
+          </div>
+          <div>
+            <label className="label text-xs">Clave</label>
+            <input className="input text-sm" value={mClave} onChange={e => setMClave(e.target.value.replace(/[^a-z0-9_]/gi, '_'))} placeholder="autorizacion_cic" />
+          </div>
+          <div>
+            <label className="label text-xs">Sector</label>
+            <select className="input text-sm" value={mSector} onChange={e => setMSector(e.target.value)}>
+              <option value="">General (todos)</option>
+              <option value="credito">Facilidades crediticias</option>
+            </select>
+          </div>
+          <div className="sm:col-span-3">
+            <input type="file" accept="application/pdf,.doc,.docx,image/*" onChange={e => setMArchivo(e.target.files?.[0] || null)}
+              className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-brand-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white" />
+          </div>
+          <button type="submit" disabled={subiendo} className="btn-primary text-sm disabled:opacity-50">
+            {subiendo ? 'Subiendo…' : '+ Agregar machote'}
+          </button>
+        </form>
+
+        {machotes.length === 0 ? (
+          <p className="text-sm text-gray-400">Sin machotes cargados.</p>
+        ) : (
+          <div className="space-y-1">
+            {machotes.map(m => (
+              <div key={m.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 text-sm">
+                <span className="text-gray-700">
+                  📄 {m.nombre} <span className="text-xs text-gray-400">· {m.sector || 'general'} · {m.clave}</span>
+                </span>
+                <div className="flex items-center gap-3">
+                  <a href={m.archivo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">Ver</a>
+                  <button onClick={() => eliminarMachote(m)} className="text-xs text-red-500 hover:text-red-700">Eliminar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
