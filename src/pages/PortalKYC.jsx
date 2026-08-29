@@ -46,10 +46,23 @@ const CAMPOS_JURIDICA = [
   { k: 'rep_correo', l: 'Representante legal — Correo' },
 ]
 
-const CAMPOS_CREDITO = [
-  { k: 'credito_monto', l: 'Monto del crédito solicitado (USD)', type: 'number' },
-  { k: 'credito_garantia', l: 'Garantía del crédito', full: true },
-  { k: 'credito_plan_inversion', l: 'Plan de inversión del crédito', type: 'textarea', full: true },
+const PLAN_OPCIONES = [
+  ['capital_trabajo', 'Capital de trabajo'], ['compra_propiedades', 'Compra de propiedades'],
+  ['cancelacion_pasivos', 'Cancelación de pasivos'], ['compra_vehiculos', 'Compra de vehículos'],
+  ['compra_edificio', 'Compra de edificio'], ['construccion', 'Construcción de un proyecto'], ['otros', 'Otros'],
+]
+const GARANTIA_OPCIONES = [
+  ['uso_empresa', 'Bienes en uso de la empresa cliente'],
+  ['tercero', 'Bienes de un tercero'],
+  ['rep_socios', 'Bienes del representante legal o socios (no a nombre de la empresa)'],
+]
+// Documentos fijos para facilidades crediticias.
+const DOCS_CREDITO = [
+  { id: 'credito_plano_catastro', label: 'Plano catastro de la propiedad', required: true },
+  { id: 'credito_estudio_registro', label: 'Estudio de registro (propiedad / vehículo / garantía)', required: true },
+  { id: 'credito_eeff_deudora', label: 'Estados financieros de la empresa deudora (últimos 3 cierres fiscales + corte ≤90 días)', required: true },
+  { id: 'credito_eeff_codeudores', label: 'Estados financieros de codeudores (si aplica)', required: false },
+  { id: 'credito_eeff_fiadora', label: 'Estados financieros de la empresa fiadora (si aplica)', required: false },
 ]
 
 async function api(body) {
@@ -95,7 +108,10 @@ export default function PortalKYC() {
   const docsBase = cfg ? gruposChecklist(contextoCliente({ tipo_persona: cfg.tipoPersona })).flatMap(g => g.items) : []
   const docsExtra = cfg?.documentosExtra || []
   const machotesDocs = (cfg?.machotes || []).map(m => ({ id: `machote_${m.clave}`, label: m.nombre, required: true, machote: m }))
-  const todosDocs = [...docsBase, ...docsExtra, ...machotesDocs]
+  const docsCredito = esCredito
+    ? [...DOCS_CREDITO, ...(datos.credito_plan_tipo === 'construccion'
+        ? [{ id: 'credito_presupuesto_obra', label: 'Presupuesto de la obra', required: true }] : [])]
+    : []
   const docSubido = (id) => docs.find(d => d.doc_id === id)
 
   async function subir(docId, etiqueta, file) {
@@ -123,10 +139,17 @@ export default function PortalKYC() {
   function faltantesPaso1() {
     const f = campos.filter(c => c.req && !String(datos[c.k] || '').trim()).map(c => c.l)
     preguntasExtra.forEach(p => { if (!String(datos[p.clave] || '').trim()) f.push(p.label) })
+    if (esCredito) {
+      if (!String(datos.credito_monto || '').trim()) f.push('Monto del crédito')
+      if (!String(datos.credito_plan_tipo || '').trim()) f.push('Plan de inversión')
+      if (!String(datos.credito_plan_desc || '').trim()) f.push('Descripción del plan de inversión')
+      if (!String(datos.credito_garantia_tipo || '').trim()) f.push('Tipo de garantía')
+      if (datos.credito_garantia_tipo === 'tercero' && !String(datos.credito_tercero_relacion || '').trim()) f.push('Relación con el tercero')
+    }
     return f
   }
   function faltantesPaso2() {
-    return [...docsBase, ...docsExtra].filter(it => it.required && !docSubido(it.id)).map(it => it.label)
+    return [...docsCredito, ...docsBase, ...docsExtra].filter(it => it.required && !docSubido(it.id)).map(it => it.label)
       .concat(machotesDocs.filter(m => !docSubido(m.id)).map(m => m.label))
   }
 
@@ -209,12 +232,51 @@ export default function PortalKYC() {
             </div>
 
             {esCredito && (
-              <>
-                <h3 className="text-sm font-bold text-gray-800 pt-2">Información del crédito</h3>
+              <div className="pt-2 space-y-3">
+                <h3 className="text-sm font-bold text-gray-800">Información del crédito</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {CAMPOS_CREDITO.map(c => <Campo key={c.k} c={c} v={datos[c.k]} onChange={v => set(c.k, v)} cls={inputCls} />)}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Monto del crédito solicitado (USD) *</label>
+                    <input className={inputCls} type="number" value={datos.credito_monto || ''} onChange={e => set('credito_monto', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Plan de inversión *</label>
+                    <select className={inputCls} value={datos.credito_plan_tipo || ''} onChange={e => set('credito_plan_tipo', e.target.value)}>
+                      <option value="">— Seleccione —</option>
+                      {PLAN_OPCIONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
                 </div>
-              </>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Descripción amplia del plan de inversión *</label>
+                  <textarea className={inputCls} rows={4} value={datos.credito_plan_desc || ''} onChange={e => set('credito_plan_desc', e.target.value)}
+                    placeholder="Explique en detalle el destino y uso del crédito…" />
+                </div>
+                {datos.credito_plan_tipo === 'construccion' && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                    Al ser construcción de un proyecto, en el paso de documentos deberá adjuntar el <strong>presupuesto de la obra</strong>.
+                  </p>
+                )}
+
+                <h3 className="text-sm font-bold text-gray-800 pt-2">Garantía</h3>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de garantía *</label>
+                  <select className={inputCls} value={datos.credito_garantia_tipo || ''} onChange={e => set('credito_garantia_tipo', e.target.value)}>
+                    <option value="">— Seleccione —</option>
+                    {GARANTIA_OPCIONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Descripción de la garantía</label>
+                  <textarea className={inputCls} rows={3} value={datos.credito_garantia_desc || ''} onChange={e => set('credito_garantia_desc', e.target.value)} />
+                </div>
+                {datos.credito_garantia_tipo === 'tercero' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Descripción amplia de la relación de la empresa con ese tercero *</label>
+                    <textarea className={inputCls} rows={3} value={datos.credito_tercero_relacion || ''} onChange={e => set('credito_tercero_relacion', e.target.value)} />
+                  </div>
+                )}
+              </div>
             )}
 
             {preguntasExtra.length > 0 && (
@@ -249,7 +311,19 @@ export default function PortalKYC() {
                 ))}
               </div>
             )}
+            {docsCredito.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-600 uppercase pt-1">Documentos del crédito</p>
+                {docsCredito.map(it => (
+                  <div key={it.id} className="flex items-center justify-between gap-3 flex-wrap border border-gray-100 rounded-lg px-3 py-2">
+                    <span className="text-sm text-gray-700">{it.label}{it.required && ' *'}</span>
+                    <SubirDoc id={it.id} subiendo={subiendo} subido={docSubido(it.id)} onFile={f => subir(it.id, it.label, f)} />
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="space-y-2">
+              {docsCredito.length > 0 && <p className="text-xs font-semibold text-gray-600 uppercase pt-1">Documentación general</p>}
               {[...docsBase, ...docsExtra].map(it => (
                 <div key={it.id} className="flex items-center justify-between gap-3 flex-wrap border border-gray-100 rounded-lg px-3 py-2">
                   <span className="text-sm text-gray-700">{it.label}{it.required && ' *'}</span>

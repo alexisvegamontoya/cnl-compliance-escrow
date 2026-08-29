@@ -17,10 +17,14 @@ const ETIQUETAS = {
   pais_constitucion: 'País de constitución', fecha_constitucion: 'Fecha de constitución',
   rep_nombre: 'Representante legal', rep_identificacion: 'Identificación del representante',
   rep_telefono: 'Teléfono del representante', rep_correo: 'Correo del representante',
-  credito_monto: 'Monto del crédito (USD)', credito_garantia: 'Garantía del crédito',
-  credito_plan_inversion: 'Plan de inversión',
+  credito_monto: 'Monto del crédito (USD)',
+  credito_plan_tipo: 'Plan de inversión', credito_plan_desc: 'Descripción del plan de inversión',
+  credito_garantia_tipo: 'Tipo de garantía', credito_garantia_desc: 'Descripción de la garantía',
+  credito_tercero_relacion: 'Relación con el tercero (garantía)',
 }
 const GEN = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
+const PLAN_L = { capital_trabajo: 'Capital de trabajo', compra_propiedades: 'Compra de propiedades', cancelacion_pasivos: 'Cancelación de pasivos', compra_vehiculos: 'Compra de vehículos', compra_edificio: 'Compra de edificio', construccion: 'Construcción de un proyecto', otros: 'Otros' }
+const GAR_L = { uso_empresa: 'Bienes en uso de la empresa cliente', tercero: 'Bienes de un tercero', rep_socios: 'Bienes del representante legal o socios (no a nombre de la empresa)' }
 
 export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo }) {
   const d = solicitud?.datos || {}
@@ -34,6 +38,8 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo 
   ;(solicitud?.preguntas_extra || []).forEach(p => { extraLabels[p.clave] = p.label })
   const val = (k, v) => {
     if (k === 'genero') return GEN[v] || v
+    if (k === 'credito_plan_tipo') return PLAN_L[v] || v
+    if (k === 'credito_garantia_tipo') return GAR_L[v] || v
     return String(v)
   }
   const filas = Object.entries(d)

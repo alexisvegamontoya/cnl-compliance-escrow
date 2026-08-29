@@ -53,12 +53,18 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
     fila('Ingreso mensual estimado', datos.ingreso_mensual_est ? `USD ${datos.ingreso_mensual_est}` : ''),
   ].join('')
 
-  const filasCredito = (datos.credito_monto || datos.credito_garantia || datos.credito_plan_inversion) ? `
+  const PLAN_L = { capital_trabajo: 'Capital de trabajo', compra_propiedades: 'Compra de propiedades', cancelacion_pasivos: 'Cancelación de pasivos', compra_vehiculos: 'Compra de vehículos', compra_edificio: 'Compra de edificio', construccion: 'Construcción de un proyecto', otros: 'Otros' }
+  const GAR_L = { uso_empresa: 'Bienes en uso de la empresa cliente', tercero: 'Bienes de un tercero', rep_socios: 'Bienes del representante legal o socios (no a nombre de la empresa)' }
+  const hayCredito = datos.credito_monto || datos.credito_plan_tipo || datos.credito_garantia_tipo
+  const filasCredito = hayCredito ? `
     <div class="seccion"><h2>Información del crédito</h2>
     <table class="datos"><tbody>
       ${fila('Monto solicitado', datos.credito_monto ? `USD ${datos.credito_monto}` : '')}
-      ${fila('Garantía', datos.credito_garantia)}
-      ${fila('Plan de inversión', datos.credito_plan_inversion)}
+      ${fila('Plan de inversión', PLAN_L[datos.credito_plan_tipo] || datos.credito_plan_tipo)}
+      ${fila('Descripción del plan de inversión', datos.credito_plan_desc)}
+      ${fila('Tipo de garantía', GAR_L[datos.credito_garantia_tipo] || datos.credito_garantia_tipo)}
+      ${fila('Descripción de la garantía', datos.credito_garantia_desc)}
+      ${fila('Relación con el tercero (garantía)', datos.credito_tercero_relacion)}
     </tbody></table></div>` : ''
 
   const declaracion = `Para efectos del presente contrato declaro expresamente lo siguiente:

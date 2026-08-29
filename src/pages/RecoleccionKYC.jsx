@@ -49,6 +49,7 @@ export default function RecoleccionKYC() {
   const soNombre = isSuperAdmin
     ? (soList.find(t => t.id === soActivo)?.nombre || tenant?.nombre)
     : tenant?.nombre
+  const esCreditoTenant = /cr[eé]dit|financ|prestamist|ahorro|cooperativ/i.test(soActividad || '')
 
   const [solicitudes, setSolicitudes] = useState([])
   const [clientes, setClientes]       = useState([])
@@ -70,6 +71,9 @@ export default function RecoleccionKYC() {
   const [nuevaPregunta, setNuevaPregunta]     = useState('')
   const [nuevoDoc, setNuevoDoc]               = useState('')
   const [nuevoDocReq, setNuevoDocReq]         = useState(true)
+  // Facilidades crediticias: documentos opcionales que el oficial puede solicitar
+  const [pedirAvaluo, setPedirAvaluo]         = useState(false)
+  const [pedirFlujo, setPedirFlujo]           = useState(false)
 
   // Revisión / bandeja
   const [revisar, setRevisar]         = useState(null)   // solicitud en revisión
@@ -132,7 +136,11 @@ export default function RecoleccionKYC() {
       nombre_cliente: nombre.trim() || null,
       sector,
       preguntas_extra:  preguntasExtra,
-      documentos_extra: documentosExtra,
+      documentos_extra: [
+        ...documentosExtra,
+        ...(esCreditoTenant && pedirAvaluo ? [{ id: 'credito_avaluo', label: 'Avalúo', required: false }] : []),
+        ...(esCreditoTenant && pedirFlujo ? [{ id: 'credito_flujo_caja', label: 'Flujo de caja proyectado a un año', required: false }] : []),
+      ],
       estado:         'enviada',
       creado_por:     session?.user?.id,
       enviada_en:     new Date().toISOString(),
@@ -141,7 +149,7 @@ export default function RecoleccionKYC() {
     if (error) { setError(error.message); return }
     // Reset y refrescar
     setShowForm(false); setTipoPersona('fisica'); setModo('nuevo'); setClienteId(''); setCorreo(''); setNombre('')
-    setPreguntasExtra([]); setDocumentosExtra([])
+    setPreguntasExtra([]); setDocumentosExtra([]); setPedirAvaluo(false); setPedirFlujo(false)
     setSolicitudes(prev => [data, ...prev])
     // Enviar el correo al cliente automáticamente (Resend)
     enviarCorreo(data)
@@ -203,8 +211,8 @@ export default function RecoleccionKYC() {
       const checklist = {}
       docsRev.forEach(doc => { if (!DOC_NO_CHECKLIST(doc.doc_id)) checklist[doc.doc_id] = { estado: 'disponible', nota: 'Recibido por portal KYC' } })
       payload.checklist_documental = checklist
-      if (d.credito_monto || d.credito_plan_inversion || d.credito_garantia) {
-        payload.notas = `[Solicitud de crédito] Monto: ${d.credito_monto || '—'} · Garantía: ${d.credito_garantia || '—'} · Plan de inversión: ${d.credito_plan_inversion || '—'}`
+      if (d.credito_monto || d.credito_plan_desc || d.credito_garantia_tipo) {
+        payload.notas = `[Solicitud de crédito] Monto: ${d.credito_monto || '—'} · Plan: ${d.credito_plan_desc || '—'} · Garantía: ${d.credito_garantia_desc || '—'}`
       }
       // crear o actualizar cliente
       let clienteId = revisar.cliente_id
@@ -378,6 +386,19 @@ export default function RecoleccionKYC() {
               </div>
             </div>
           </details>
+
+          {esCreditoTenant && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1">
+              <p className="text-xs font-semibold text-amber-800">Facilidades crediticias — documentos opcionales a solicitar</p>
+              <label className="flex items-center gap-2 text-sm text-amber-900">
+                <input type="checkbox" checked={pedirAvaluo} onChange={e => setPedirAvaluo(e.target.checked)} /> Solicitar avalúo de la garantía
+              </label>
+              <label className="flex items-center gap-2 text-sm text-amber-900">
+                <input type="checkbox" checked={pedirFlujo} onChange={e => setPedirFlujo(e.target.checked)} /> Solicitar flujo de caja proyectado a un año
+              </label>
+              <p className="text-[11px] text-amber-700">El plan de inversión, la garantía, plano catastro, estudio de registro y estados financieros ya se piden automáticamente en el portal.</p>
+            </div>
+          )}
 
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
