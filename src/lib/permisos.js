@@ -35,6 +35,7 @@ const L = 'lectura'
 const OPERATIVO_TOTAL = {
   '/': T,
   '/clientes': T, '/sicveca/clientes': T, '/listas': T, '/debida-diligencia': T, '/calificacion': T,
+  '/recoleccion-kyc': T,
   '/transacciones': T, '/xml': T, '/informes': T,
   '/ros': T, '/compliance': T, '/denuncias': T, '/grupo/cumplimiento': T,
   '/normativa': T, '/asistente-ia': T,
@@ -59,6 +60,7 @@ export const PERMISOS = {
   operativo: {
     '/': T,
     '/clientes': T, '/sicveca/clientes': T, '/listas': T, '/debida-diligencia': T, '/calificacion': T,
+    '/recoleccion-kyc': T,
     '/transacciones': T,
     '/denuncias': T,
     '/normativa': L, '/asistente-ia': T,

@@ -28,6 +28,8 @@ const ComplianceDashboard     = lazy(() => import('./pages/ComplianceDashboard')
 const CumplimientoGlobal      = lazy(() => import('./pages/CumplimientoGlobal'))
 const CumplimientoPorGrupo    = lazy(() => import('./pages/CumplimientoPorGrupo'))
 const GestionGrupos           = lazy(() => import('./pages/admin/GestionGrupos'))
+const RecoleccionKYC          = lazy(() => import('./pages/RecoleccionKYC'))
+const ModulosSujetosObligados = lazy(() => import('./pages/admin/ModulosSujetosObligados'))
 const CanalDenuncias          = lazy(() => import('./pages/CanalDenuncias'))
 const Perfil                  = lazy(() => import('./pages/Perfil'))
 const AuditLog                = lazy(() => import('./pages/admin/AuditLog'))
@@ -68,9 +70,11 @@ function SinAcceso() {
 
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { rolTenant } = useAuth()
+  const { rolTenant, moduloHabilitado } = useAuth()
   const { pathname } = useLocation()
-  const permitido = puedeVer(rolTenant, pathname)
+  // Además del rol, los módulos opcionales exigen estar habilitados por el superadmin.
+  const permitido = puedeVer(rolTenant, pathname) &&
+    (pathname !== '/recoleccion-kyc' || moduloHabilitado('kyc'))
 
   return (
     <div className="flex min-h-screen">
@@ -237,9 +241,19 @@ function AppRoutes() {
           <Layout><GestionGrupos /></Layout>
         </PrivateRoute>
       } />
+      <Route path="/admin/modulos" element={
+        <PrivateRoute>
+          <Layout><ModulosSujetosObligados /></Layout>
+        </PrivateRoute>
+      } />
       <Route path="/grupo/cumplimiento" element={
         <PrivateRoute>
           <Layout><CumplimientoPorGrupo /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/recoleccion-kyc" element={
+        <PrivateRoute>
+          <Layout><RecoleccionKYC /></Layout>
         </PrivateRoute>
       } />
       <Route path="/denuncias" element={

@@ -67,14 +67,18 @@ function Seccion({ titulo, items, onClose }) {
 }
 
 export default function Sidebar({ open, onClose }) {
-  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isSuperAdmin, misGrupos, rolTenant } = useAuth()
+  const { tenant, tenantsDisponibles, cambiarTenant, profile, signOut, isSuperAdmin, misGrupos, rolTenant, moduloHabilitado } = useAuth()
   const tieneGrupos = (misGrupos?.length || 0) > 0
 
   // El menú se filtra por el rol efectivo sobre la empresa activa.
   const ver = (to) => puedeVer(rolTenant, to)
   const filtrar = (items) => items.filter(i => ver(i.to))
 
-  const cliVis = filtrar(clientesItems)
+  const cliVis = [
+    ...filtrar(clientesItems),
+    ...(moduloHabilitado('kyc') && ver('/recoleccion-kyc')
+      ? [{ to: '/recoleccion-kyc', icon: '📨', label: 'Recolección KYC' }] : []),
+  ]
   const sicVis = filtrar(modulo1)
   const opeVis = [
     ...filtrar(operaciones),
@@ -87,6 +91,7 @@ export default function Sidebar({ open, onClose }) {
     ...(isSuperAdmin ? [
       { to: '/admin/cumplimiento-global', icon: '🌐', label: 'Cumplimiento Global' },
       { to: '/admin/grupos', icon: '🗂️', label: 'Grupos de Empresas' },
+      { to: '/admin/modulos', icon: '🧩', label: 'Módulos por S.O.' },
     ] : []),
   ]
 

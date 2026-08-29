@@ -12,6 +12,7 @@ export function AuthProvider({ children }) {
   const [tenant, setTenant]              = useState(null)
   const [tenantsDisponibles, setTenants] = useState([])
   const [misGrupos, setMisGrupos]        = useState([]) // grupos de empresas del usuario
+  const [modulosPorTenant, setModulosPorTenant] = useState({}) // { tenantId: ['kyc', ...] }
   const [loading, setLoading]            = useState(true)
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
   const [mustChangePassword, setMustChangePassword] = useState(false)
@@ -162,6 +163,19 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Módulos opcionales habilitados por sujeto obligado (los habilita el superadmin).
+  useEffect(() => {
+    const ids = tenantsDisponibles.map(t => t.id)
+    if (!ids.length) { setModulosPorTenant({}); return }
+    supabase.from('modulos_habilitados')
+      .select('tenant_id, modulo').eq('habilitado', true).in('tenant_id', ids)
+      .then(({ data }) => {
+        const m = {}
+        ;(data || []).forEach(r => { (m[r.tenant_id] = m[r.tenant_id] || []).push(r.modulo) })
+        setModulosPorTenant(m)
+      })
+  }, [tenantsDisponibles])
+
   const cambiarTenant = useCallback((tenantId) => {
     const t = tenantsDisponibles.find(t => t.id === tenantId)
     if (t) {
@@ -190,10 +204,14 @@ export function AuthProvider({ children }) {
     ? 'superadmin'
     : (tenantsDisponibles.find(t => t.id === tenant?.id)?.rol_tenant || profile?.rol || 'oficial_cumplimiento')
 
+  // ¿El módulo opcional está habilitado para la empresa activa? El superadmin siempre.
+  const moduloHabilitado = (modulo) =>
+    isSuperAdmin || (modulosPorTenant[tenant?.id] || []).includes(modulo)
+
   return (
     <AuthContext.Provider value={{
       session, profile, tenant, tenantsDisponibles, cambiarTenant,
-      misGrupos, rolTenant,
+      misGrupos, rolTenant, moduloHabilitado,
       loading, signIn, signOut, isSuperAdmin, isAdmin,
       needsPasswordSetup, setNeedsPasswordSetup,
       mustChangePassword, setMustChangePassword,
