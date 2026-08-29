@@ -11,7 +11,7 @@ function fila(label, valor) {
   return `<tr><td class="lbl">${label}</td><td class="val">${String(valor)}</td></tr>`
 }
 
-export function generarKycHTML({ tenant, tipoPersona, datos = {} }) {
+export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
   const esJ = tipoPersona === 'juridica'
   const fecha = new Date().toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
   const tenantNombre = tenant || '[Sujeto obligado]'
@@ -97,7 +97,10 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {} }) {
   @media print{body{padding:10px 15px}@page{margin:1.2cm}}
 </style></head><body>
   <div class="header">
-    <div><div class="tenant-nombre">${tenantNombre}</div></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      ${logo ? `<img src="${logo}" alt="" style="height:52px;width:auto;object-fit:contain">` : ''}
+      <div class="tenant-nombre">${tenantNombre}</div>
+    </div>
     <div class="header-right">
       <div class="titulo-doc">FICHA DE IDENTIFICACIÓN DE CLIENTE (KYC)</div>
       <div>Tipo: ${esJ ? 'Persona Jurídica' : 'Persona Física'}</div>

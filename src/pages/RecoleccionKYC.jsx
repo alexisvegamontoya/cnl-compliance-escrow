@@ -6,7 +6,7 @@
 // ============================================================
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../lib/AuthContext'
-import { supabase } from '../lib/supabase'
+import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { generarExpedienteKycHTML } from '../utils/kycExpediente'
 import { gruposChecklist, contextoCliente } from '../lib/checklistDocumental'
 
@@ -38,7 +38,18 @@ function fecha(iso) {
 }
 
 export default function RecoleccionKYC() {
-  const { tenant, session } = useAuth()
+  const { tenant, session, isSuperAdmin } = useAuth()
+  // El superadmin puede elegir de qué sujeto obligado se envía la solicitud.
+  const [soList, setSoList] = useState([])
+  const [soId, setSoId]     = useState('')
+  const soActivo = isSuperAdmin ? (soId || tenant?.id) : tenant?.id
+  const soActividad = isSuperAdmin
+    ? (soList.find(t => t.id === soActivo)?.actividad_apnfd || '')
+    : (tenant?.actividad_apnfd || '')
+  const soNombre = isSuperAdmin
+    ? (soList.find(t => t.id === soActivo)?.nombre || tenant?.nombre)
+    : tenant?.nombre
+
   const [solicitudes, setSolicitudes] = useState([])
   const [clientes, setClientes]       = useState([])
   const [loading, setLoading]         = useState(true)
@@ -67,20 +78,29 @@ export default function RecoleccionKYC() {
   const [msgRev, setMsgRev]           = useState('')
 
   const cargar = useCallback(async () => {
-    if (!tenant?.id) { setLoading(false); return }
+    if (!soActivo) { setLoading(false); return }
     setLoading(true); setError('')
     const [s, c] = await Promise.all([
-      supabase.from('solicitudes_kyc').select('*').eq('tenant_id', tenant.id).order('creado_en', { ascending: false }),
+      supabase.from('solicitudes_kyc').select('*').eq('tenant_id', soActivo).order('creado_en', { ascending: false }),
       supabase.from('clientes').select('id, nombre_cliente, primer_apellido, nombre_empresa, correo_electronico, tipo_persona')
-        .eq('tenant_id', tenant.id).order('id', { ascending: false }),
+        .eq('tenant_id', soActivo).order('id', { ascending: false }),
     ])
     if (s.error) { setError(s.error.message); setLoading(false); return }
     setSolicitudes(s.data || [])
     setClientes(c.data || [])
     setLoading(false)
-  }, [tenant?.id])
+  }, [soActivo])
 
   useEffect(() => { cargar() }, [cargar])
+
+  // Superadmin: cargar la lista de sujetos obligados para el selector.
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    tenantsDeLaApp('id, nombre, actividad_apnfd, logo_url').then(({ data }) => {
+      setSoList(data || [])
+      setSoId(prev => prev || tenant?.id || (data?.[0]?.id ?? ''))
+    })
+  }, [isSuperAdmin, tenant?.id])
 
   const nombreCliente = (c) => c.nombre_empresa || `${c.nombre_cliente || ''} ${c.primer_apellido || ''}`.trim() || '(sin nombre)'
   const enlacePortal = (token) => `${window.location.origin}/portal/${token}`
@@ -100,11 +120,12 @@ export default function RecoleccionKYC() {
     setError('')
     if (!correo.trim()) { setError('Ingresá el correo del cliente.'); return }
     if (modo === 'existente' && !clienteId) { setError('Elegí el cliente existente a actualizar.'); return }
+    if (!soActivo) { setError('Seleccione el sujeto obligado.'); return }
     setGuardando(true)
     // Sector para secciones extra (facilidades crediticias → machote CIC, plan de inversión…)
-    const sector = /cr[eé]dit|financ|prestamist|ahorro|cooperativ/i.test(tenant?.actividad_apnfd || '') ? 'credito' : null
+    const sector = /cr[eé]dit|financ|prestamist|ahorro|cooperativ/i.test(soActividad || '') ? 'credito' : null
     const { data, error } = await supabase.from('solicitudes_kyc').insert({
-      tenant_id:      tenant.id,
+      tenant_id:      soActivo,
       tipo_persona:   tipoPersona,
       cliente_id:     modo === 'existente' ? clienteId : null,
       correo_cliente: correo.trim(),
@@ -221,7 +242,8 @@ export default function RecoleccionKYC() {
   // Informe (PDF independiente) con toda la información + índice de documentos.
   function descargarExpediente() {
     setMsgRev('')
-    const html = generarExpedienteKycHTML({ tenant: tenant?.nombre, solicitud: revisar, anexos: docsRev })
+    const logo = soList.find(t => t.id === revisar?.tenant_id)?.logo_url || tenant?.logo_url || null
+    const html = generarExpedienteKycHTML({ tenant: soNombre, solicitud: revisar, anexos: docsRev, logo })
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) { setMsgRev('Permita ventanas emergentes para el expediente.'); return }
     w.document.write(html); w.document.close()
@@ -249,6 +271,16 @@ export default function RecoleccionKYC() {
           <button className="btn-primary" onClick={() => setShowForm(true)}>+ Nueva solicitud</button>
         )}
       </div>
+
+      {isSuperAdmin && (
+        <div className="flex items-center gap-2 flex-wrap bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <label className="text-sm font-medium text-amber-800">Enviar desde el sujeto obligado:</label>
+          <select value={soActivo || ''} onChange={e => setSoId(e.target.value)}
+            className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm text-gray-700 flex-1 min-w-[220px]">
+            {soList.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </div>
+      )}
 
       {error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
 

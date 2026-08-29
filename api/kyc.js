@@ -13,7 +13,7 @@ async function cargarSolicitud(admin, token) {
   if (!token) return { error: 'Falta el token.', code: 400 }
   const { data: sol } = await admin
     .from('solicitudes_kyc')
-    .select('*, tenants(nombre, actividad_apnfd, clase_dato)')
+    .select('*, tenants(nombre, actividad_apnfd, clase_dato, logo_url)')
     .eq('token', token)
     .maybeSingle()
   if (!sol) return { error: 'Enlace no válido.', code: 404 }
@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     ])
     return res.status(200).json({
       tenant:      sol.tenants?.nombre || '',
+      logo:        sol.tenants?.logo_url || null,
       tipoPersona: sol.tipo_persona,
       sector:      sol.sector || null,
       estado:      sol.estado,

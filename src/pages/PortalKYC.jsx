@@ -113,7 +113,7 @@ export default function PortalKYC() {
 
   function descargarKyc() {
     guardar(datos)
-    const html = generarKycHTML({ tenant: cfg.tenant, tipoPersona: cfg.tipoPersona, datos })
+    const html = generarKycHTML({ tenant: cfg.tenant, tipoPersona: cfg.tipoPersona, datos, logo: cfg.logo })
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) { setError('Permita ventanas emergentes para descargar el KYC.'); return }
     w.document.write(html); w.document.close()
@@ -166,21 +166,32 @@ export default function PortalKYC() {
   const PASOS = ['Información', 'Documentos', 'Firmar y enviar']
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
-        <header className="text-center">
-          <p className="text-xs font-semibold text-brand-600 uppercase tracking-wider">{cfg.tenant}</p>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">Formulario de Debida Diligencia</h1>
+        {/* Encabezado con el sujeto obligado */}
+        <header className="rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-brand-900 px-6 py-7 text-center relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400"></div>
+            {cfg.logo && (
+              <img src={cfg.logo} alt={cfg.tenant} className="h-14 mx-auto mb-3 object-contain" />
+            )}
+            <p className="text-[11px] font-semibold text-amber-300 uppercase tracking-[0.22em]">Sujeto obligado</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mt-1.5 leading-tight">{cfg.tenant}</h2>
+            <div className="h-0.5 w-14 bg-amber-400 mx-auto my-3.5 rounded-full"></div>
+            <h1 className="text-base font-semibold text-white/95">Formulario de Debida Diligencia (KYC)</h1>
+            <p className="text-xs text-white/60 mt-1.5">Ley 7786 · Acuerdo SUGEF 13-19 · Su información es confidencial</p>
+          </div>
         </header>
 
         {/* Pasos */}
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {PASOS.map((p, i) => (
-            <div key={p} className="flex items-center gap-2">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${paso === i + 1 ? 'bg-brand-600 text-white' : paso > i + 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
-                <span>{paso > i + 1 ? '✓' : i + 1}</span> {p}
+            <div key={p} className="flex items-center gap-1.5">
+              <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${paso === i + 1 ? 'bg-brand-700 text-white shadow-sm' : paso > i + 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-gray-400 border border-gray-200'}`}>
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${paso > i + 1 ? 'bg-emerald-600 text-white' : paso === i + 1 ? 'bg-white/25' : 'bg-gray-200'}`}>{paso > i + 1 ? '✓' : i + 1}</span>
+                {p}
               </div>
-              {i < PASOS.length - 1 && <span className="text-gray-300">—</span>}
+              {i < PASOS.length - 1 && <span className="text-gray-300">·</span>}
             </div>
           ))}
         </div>
@@ -276,6 +287,10 @@ export default function PortalKYC() {
             </button>
           )}
         </div>
+
+        <footer className="text-center text-xs text-gray-400 pb-6">
+          <span className="font-medium text-gray-500">{cfg.tenant}</span> · Recolección de debida diligencia · Sus datos son tratados de forma confidencial conforme a la Ley 7786.
+        </footer>
       </div>
     </div>
   )

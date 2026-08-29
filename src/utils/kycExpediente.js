@@ -22,7 +22,7 @@ const ETIQUETAS = {
 }
 const GEN = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
 
-export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [] }) {
+export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo }) {
   const d = solicitud?.datos || {}
   const esJ = solicitud?.tipo_persona === 'juridica'
   const fecha = new Date().toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -68,9 +68,12 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [] }) {
   a{color:#34438c}
   @media print{@page{margin:1.3cm} .noprint{display:none}}
 </style></head><body>
-  <div class="head">
-    <h1>Expediente de Debida Diligencia — ${esJ ? 'Persona Jurídica' : 'Persona Física'}</h1>
-    <p>${tenant || ''} · Cliente: <strong>${nombre}</strong> · Recibido: ${recibida} · Generado: ${fecha}</p>
+  <div class="head" style="display:flex;align-items:center;gap:14px">
+    ${logo ? `<img src="${logo}" alt="" style="height:54px;width:auto;object-fit:contain">` : ''}
+    <div>
+      <h1>Expediente de Debida Diligencia — ${esJ ? 'Persona Jurídica' : 'Persona Física'}</h1>
+      <p>${tenant || ''} · Cliente: <strong>${nombre}</strong> · Recibido: ${recibida} · Generado: ${fecha}</p>
+    </div>
   </div>
 
   <h2>Información suministrada por el cliente</h2>

@@ -18,14 +18,16 @@ function fechaCR(iso: string | null) {
   try { return new Date(iso).toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' }) } catch { return '' }
 }
 
-function correoHTML(tenant: string, nombre: string, link: string, vence: string) {
+function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px"><tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08)">
-  <tr><td style="background:#0A1247;padding:26px 32px;text-align:center">
-    <h1 style="color:#fff;margin:0;font-size:19px">Formulario de Debida Diligencia (KYC)</h1>
-    <p style="color:rgba(240,226,190,.85);margin:6px 0 0;font-size:13px">${tenant} · Ley 7786 · Acuerdo SUGEF 13-19</p>
+  <tr><td style="background:#0A1247;padding:24px 32px;text-align:center">
+    ${logo ? `<img src="${logo}" alt="${tenant}" style="height:48px;width:auto;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">` : ''}
+    <p style="color:#fff;margin:0;font-size:16px;font-weight:bold">${tenant}</p>
+    <h1 style="color:rgba(255,255,255,.92);margin:8px 0 0;font-size:15px;font-weight:600">Formulario de Debida Diligencia (KYC)</h1>
+    <p style="color:rgba(240,226,190,.85);margin:6px 0 0;font-size:12px">Ley 7786 · Acuerdo SUGEF 13-19</p>
   </td></tr>
   <tr><td style="background:#C31B26;height:4px"></td></tr>
   <tr><td style="padding:30px 32px">
@@ -55,7 +57,7 @@ Deno.serve(async (req) => {
     if (!token || !link) return json({ error: 'Faltan datos (token/link).' }, 400)
 
     // Buscar la solicitud (service role)
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,nombre_cliente,vence_en,tenants(nombre)`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,nombre_cliente,vence_en,tenants(nombre,logo_url)`, {
       headers: { apikey: SERVICE_KEY!, Authorization: `Bearer ${SERVICE_KEY}` },
     })
     const rows = await r.json()
@@ -63,7 +65,7 @@ Deno.serve(async (req) => {
     if (!sol) return json({ error: 'Solicitud no encontrada.' }, 404)
 
     const tenant = sol.tenants?.nombre || FROM_NAME
-    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en))
+    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null)
 
     const envio = await fetch('https://api.resend.com/emails', {
       method: 'POST',
