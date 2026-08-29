@@ -1,19 +1,22 @@
 /**
  * kycDocumento.js — Genera el formulario KYC imprimible que el cliente descarga,
- * firma y vuelve a subir en el portal de recolección.
+ * firma y vuelve a subir en el portal. Replica la ficha del gestor de clientes,
+ * incluyendo la Declaración (Ley 7786) y la Advertencia SUGEF.
  */
 const TIPO_ID = { 1: 'Cédula de identidad', 2: 'Cédula jurídica', 3: 'DIMEX', 4: 'Pasaporte' }
 const GENERO = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
 
 function fila(label, valor) {
   if (!valor && valor !== 0) return ''
-  return `<tr><td class="l">${label}</td><td class="v">${String(valor)}</td></tr>`
+  return `<tr><td class="lbl">${label}</td><td class="val">${String(valor)}</td></tr>`
 }
 
 export function generarKycHTML({ tenant, tipoPersona, datos = {} }) {
   const esJ = tipoPersona === 'juridica'
   const fecha = new Date().toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
-  const nombre = esJ ? datos.nombre_empresa : [datos.nombre_cliente, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' ')
+  const tenantNombre = tenant || '[Sujeto obligado]'
+  const nombre = esJ ? datos.nombre_empresa
+    : [datos.nombre_cliente, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' ')
   const dir = [datos.direccion_exacta, datos.canton, datos.provincia].filter(Boolean).join(', ')
 
   const filasDatos = esJ ? [
@@ -31,7 +34,7 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {} }) {
     fila('Propósito de la relación', datos.proposito_relacion),
     fila('Origen de los fondos', datos.origen_fondos),
     fila('Ingreso mensual estimado', datos.ingreso_mensual_est ? `USD ${datos.ingreso_mensual_est}` : ''),
-  ] : [
+  ].join('') : [
     fila('Nombre completo', nombre),
     fila('Tipo de identificación', TIPO_ID[datos.tipo_identificacion] || datos.tipo_identificacion),
     fila('Número de identificación', datos.numero_identificacion),
@@ -51,50 +54,75 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {} }) {
   ].join('')
 
   const filasCredito = (datos.credito_monto || datos.credito_garantia || datos.credito_plan_inversion) ? `
-    <h2>Información del crédito</h2>
+    <div class="seccion"><h2>Información del crédito</h2>
     <table class="datos"><tbody>
       ${fila('Monto solicitado', datos.credito_monto ? `USD ${datos.credito_monto}` : '')}
       ${fila('Garantía', datos.credito_garantia)}
       ${fila('Plan de inversión', datos.credito_plan_inversion)}
-    </tbody></table>` : ''
+    </tbody></table></div>` : ''
 
-  const declaracion = `Declaro bajo fe de juramento que la información aquí suministrada es veraz, completa y exacta.
-Autorizo a ${tenant || 'la entidad'} a verificar la información y a solicitar, procesar y conservar mis datos conforme a la Ley 7786 y sus reformas.
-Los fondos involucrados no provienen de actividades ilícitas de las contempladas en la legislación costarricense.
-Me comprometo a mantener actualizada esta información.`
+  const declaracion = `Para efectos del presente contrato declaro expresamente lo siguiente:
+1. Tanto mi actividad, como profesión u oficio, son lícitos y los ejerzo dentro de los marcos legales.
+2. Los dineros y fondos involucrados no provienen de ninguna actividad ilícita de las contempladas en la legislación costarricense.
+3. Las declaraciones contenidas en este documento son exactas, completas y verídicas en la forma que aparecen descritas; por lo tanto, la falsedad, omisión o error en ellas tendrán las consecuencias estipuladas por la ley.
+4. Me obligo con ${tenantNombre} a mantener actualizada la información suministrada, de acuerdo con los procedimientos que para tal efecto tenga dispuesta la compañía.
+5. Autorizo a ${tenantNombre}, en forma expresa, para reportar, procesar, solicitar, suministrar o divulgar, únicamente a las entidades legalmente autorizadas, de conformidad con la Ley 7786, todo lo relativo a mi información.`
+
+  const advertencia = `Se advierte al público que esta empresa es supervisada solamente en materia de prevención de legitimación de capitales, financiamiento al terrorismo y financiamiento de la proliferación de armas de destrucción masiva, y además se encuentra sujeta a disposiciones vinculantes de la Unidad de Inteligencia Financiera del Instituto Costarricense sobre Drogas. Por lo tanto, la SUGEF no supervisa en materia financiera esta empresa, ni los negocios que ofrece, ni su seguridad, estabilidad o solvencia.`
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>KYC — ${nombre || ''}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#14141a;padding:26px 34px}
-  .head{border-bottom:2px solid #34438c;padding-bottom:12px;margin-bottom:16px}
-  .head h1{font-size:16px;color:#1a2348}
-  .head p{font-size:11px;color:#6b6b76;margin-top:3px}
-  h2{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b6b76;border-bottom:1px solid #e4e4ea;padding-bottom:4px;margin:16px 0 8px}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#14141a;padding:20px 30px}
+  .header{border-bottom:2px solid #34438c;padding-bottom:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start}
+  .tenant-nombre{font-size:15px;font-weight:bold;color:#1a2348}
+  .header-right{text-align:right;font-size:10px;color:#6b6b76}
+  .header-right .titulo-doc{font-size:12px;font-weight:bold;color:#14141a;margin-bottom:4px}
+  .seccion{margin-bottom:14px}
+  .seccion h2{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#6b6b76;border-bottom:1px solid #e4e4ea;padding-bottom:4px;margin-bottom:8px}
   table.datos{width:100%;border-collapse:collapse}
-  table.datos td{padding:4px 6px;vertical-align:top}
-  table.datos .l{width:38%;color:#6b6b76}
-  table.datos .v{font-weight:600}
-  .decl{border:1px solid #cfcfd7;border-radius:6px;padding:12px 14px;margin-top:16px;font-size:11px;line-height:1.7;color:#45454f}
-  .firma{margin-top:48px;display:flex;justify-content:space-between;gap:30px}
-  .firma .b{flex:1;text-align:center}
-  .firma .linea{border-top:1px solid #45454f;margin-top:44px;padding-top:5px;font-size:11px}
-  .foot{margin-top:26px;border-top:1px solid #e4e4ea;padding-top:8px;font-size:9px;color:#9a9aa4;text-align:center}
-  @media print{@page{margin:1.4cm}}
+  table.datos td{padding:3px 6px;vertical-align:top}
+  table.datos .lbl{width:38%;color:#6b6b76}
+  table.datos .val{font-weight:500;color:#14141a}
+  .declaracion{border:1px solid #cfcfd7;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:10px;line-height:1.6;color:#45454f}
+  .declaracion h4{font-size:10px;font-weight:bold;text-transform:uppercase;color:#45454f;margin-bottom:6px}
+  .advertencia{border:1px solid #ec969b;border-radius:6px;padding:8px 12px;margin-bottom:16px;background:#fdf3f3;font-size:9.5px;line-height:1.5;color:#4e0b10}
+  .advertencia strong{display:block;margin-bottom:4px;font-size:10px}
+  .firmas{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:26px}
+  .firma-bloque{text-align:center}
+  .firma-linea{border-top:1px solid #45454f;margin-top:44px;padding-top:5px}
+  .firma-nombre{font-weight:600;font-size:10px;margin-bottom:2px}
+  .firma-rol{font-size:9px;color:#6b6b76}
+  .footer{margin-top:16px;border-top:1px solid #e4e4ea;padding-top:8px;font-size:9px;color:#9a9aa4;text-align:center}
+  @media print{body{padding:10px 15px}@page{margin:1.2cm}}
 </style></head><body>
-  <div class="head">
-    <h1>Formulario Conozca a su Cliente (KYC) — ${esJ ? 'Persona Jurídica' : 'Persona Física'}</h1>
-    <p>${tenant || ''} · Debida diligencia ALA/CFT — Ley 7786 · Acuerdo SUGEF 13-19 · ${fecha}</p>
+  <div class="header">
+    <div><div class="tenant-nombre">${tenantNombre}</div></div>
+    <div class="header-right">
+      <div class="titulo-doc">FICHA DE IDENTIFICACIÓN DE CLIENTE (KYC)</div>
+      <div>Tipo: ${esJ ? 'Persona Jurídica' : 'Persona Física'}</div>
+      <div>Fecha: ${fecha}</div>
+    </div>
   </div>
-  <h2>${esJ ? 'Datos de la empresa' : 'Datos personales'}</h2>
-  <table class="datos"><tbody>${filasDatos}</tbody></table>
+
+  <div class="seccion"><h2>${esJ ? 'Datos de la empresa' : 'Datos personales'}</h2>
+    <table class="datos"><tbody>${filasDatos}</tbody></table>
+  </div>
   ${filasCredito}
-  <div class="decl"><strong>Declaración del cliente</strong><br>${declaracion.replace(/\n/g, '<br>')}</div>
-  <div class="firma">
-    <div class="b"><div class="linea">Firma del cliente${esJ ? ' / representante legal' : ''}<br>${nombre || ''}</div></div>
-    <div class="b"><div class="linea">Fecha</div></div>
+
+  <div class="declaracion"><h4>Declaración del cliente — Ley 7786</h4><p>${declaracion.replace(/\n/g, '<br>')}</p></div>
+  <div class="advertencia"><strong>ADVERTENCIA SUGEF</strong>${advertencia}</div>
+
+  <div class="firmas">
+    <div class="firma-bloque"><div class="firma-linea">
+      <div class="firma-nombre">${nombre || ''}</div>
+      <div class="firma-rol">${esJ ? 'Representante legal / Firma autorizada' : 'Firma del cliente'}</div>
+      <div class="firma-rol" style="margin-top:3px">Identificación: ${esJ ? (datos.cedula_juridica || '') : (datos.numero_identificacion || '___________')}</div>
+    </div></div>
+    <div class="firma-bloque"><div class="firma-linea"><div class="firma-nombre">Fecha</div></div></div>
   </div>
-  <div class="foot">Documento generado por el portal de recolección de ${tenant || 'CNL Craniley'} · ${fecha}</div>
+
+  <div class="footer">Documento generado por el portal de recolección de ${tenantNombre} · ${fecha}</div>
   <script>window.onload=function(){window.print()}</script>
 </body></html>`
 }

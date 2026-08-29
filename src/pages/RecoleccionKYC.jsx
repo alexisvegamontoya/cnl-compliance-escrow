@@ -8,6 +8,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generarExpedienteKycHTML } from '../utils/kycExpediente'
+import { gruposChecklist, contextoCliente } from '../lib/checklistDocumental'
+
+const slug = (s) => 'x_' + String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
 
 // Columnas del cliente que se pueden llenar desde el portal.
 const CLIENTE_COLS = [
@@ -49,6 +53,12 @@ export default function RecoleccionKYC() {
   const [correo, setCorreo]           = useState('')
   const [nombre, setNombre]           = useState('')
   const [guardando, setGuardando]     = useState(false)
+  // Personalización: preguntas y documentos extra que agrega el oficial
+  const [preguntasExtra, setPreguntasExtra]   = useState([])
+  const [documentosExtra, setDocumentosExtra] = useState([])
+  const [nuevaPregunta, setNuevaPregunta]     = useState('')
+  const [nuevoDoc, setNuevoDoc]               = useState('')
+  const [nuevoDocReq, setNuevoDocReq]         = useState(true)
 
   // Revisión / bandeja
   const [revisar, setRevisar]         = useState(null)   // solicitud en revisión
@@ -100,6 +110,8 @@ export default function RecoleccionKYC() {
       correo_cliente: correo.trim(),
       nombre_cliente: nombre.trim() || null,
       sector,
+      preguntas_extra:  preguntasExtra,
+      documentos_extra: documentosExtra,
       estado:         'enviada',
       creado_por:     session?.user?.id,
       enviada_en:     new Date().toISOString(),
@@ -108,17 +120,32 @@ export default function RecoleccionKYC() {
     if (error) { setError(error.message); return }
     // Reset y refrescar
     setShowForm(false); setTipoPersona('fisica'); setModo('nuevo'); setClienteId(''); setCorreo(''); setNombre('')
+    setPreguntasExtra([]); setDocumentosExtra([])
     setSolicitudes(prev => [data, ...prev])
-    // Abrir el correo del oficial con el enlace listo para enviar
-    abrirCorreo(data)
+    // Enviar el correo al cliente automáticamente (Resend)
+    enviarCorreo(data)
   }
 
-  function abrirCorreo(sol) {
+  // Envía el enlace por correo (Resend, vía edge function). Si falla, abre el correo del oficial.
+  async function enviarCorreo(sol) {
+    setError('')
+    try {
+      const { error } = await supabase.functions.invoke('enviar-correo-kyc', {
+        body: { token: sol.token, link: enlacePortal(sol.token) },
+      })
+      if (error) throw error
+      setCopiado('mail-' + sol.id); setTimeout(() => setCopiado(null), 2500)
+    } catch {
+      abrirMailto(sol) // respaldo
+    }
+  }
+
+  function abrirMailto(sol) {
     const link = enlacePortal(sol.token)
     const asunto = encodeURIComponent(`Complete su información — ${tenant?.nombre || 'Debida diligencia'}`)
     const cuerpo = encodeURIComponent(
       `Estimado/a ${sol.nombre_cliente || 'cliente'},\n\n` +
-      `Para completar su proceso de debida diligencia, ingrese al siguiente enlace seguro y complete su información y documentos:\n\n${link}\n\n` +
+      `Para completar su proceso de debida diligencia, ingrese al siguiente enlace seguro:\n\n${link}\n\n` +
       `El enlace vence el ${fecha(sol.vence_en)}.\n\nSaludos,\n${tenant?.nombre || 'CNL Craniley'}`
     )
     window.open(`mailto:${sol.correo_cliente}?subject=${asunto}&body=${cuerpo}`, '_blank')
@@ -191,20 +218,22 @@ export default function RecoleccionKYC() {
     setAccion(''); setRevisar(null)
   }
 
-  async function descargarExpediente() {
+  // Informe (PDF independiente) con toda la información + índice de documentos.
+  function descargarExpediente() {
     setMsgRev('')
+    const html = generarExpedienteKycHTML({ tenant: tenant?.nombre, solicitud: revisar, anexos: docsRev })
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) { setMsgRev('Permita ventanas emergentes para el expediente.'); return }
-    w.document.write('<p style="font-family:Arial;padding:24px;color:#555">Generando expediente…</p>')
-    // Enlaces firmados para incrustar imágenes / enlazar PDFs como anexos
-    const anexos = []
+    w.document.write(html); w.document.close()
+  }
+
+  // Descarga cada documento como archivo independiente (uno por uno).
+  async function descargarTodosDocs() {
+    setMsgRev('')
     for (const doc of docsRev) {
-      const esImg = /\.(jpe?g|png|webp|gif)$/i.test(doc.nombre_archivo || doc.archivo_path || '')
-      const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600)
-      anexos.push({ ...doc, esImg, url: data?.signedUrl || null })
+      const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600, { download: doc.nombre_archivo || true })
+      if (data?.signedUrl) { window.open(data.signedUrl, '_blank'); await new Promise(r => setTimeout(r, 400)) }
     }
-    const html = generarExpedienteKycHTML({ tenant: tenant?.nombre, solicitud: revisar, anexos })
-    w.document.open(); w.document.write(html); w.document.close()
   }
 
   if (loading) return <div className="p-6 text-gray-500">Cargando…</div>
@@ -268,10 +297,60 @@ export default function RecoleccionKYC() {
             </div>
           </div>
 
+          {/* Revisión del checklist + preguntas/documentos extra */}
+          <details className="rounded-lg border border-gray-200">
+            <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-gray-700 select-none">
+              Revisar checklist y agregar preguntas/documentos (opcional)
+            </summary>
+            <div className="px-3 pb-3 pt-1 space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Documentos que se pedirán (checklist {tipoPersona === 'juridica' ? 'jurídica' : 'física'})</p>
+                <ul className="text-xs text-gray-500 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 max-h-32 overflow-y-auto">
+                  {gruposChecklist(contextoCliente({ tipo_persona: tipoPersona })).flatMap(g => g.items).map(it => (
+                    <li key={it.id}>• {it.label}{it.required ? ' *' : ''}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Preguntas extra */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Preguntas adicionales</p>
+                {preguntasExtra.map((p, i) => (
+                  <div key={p.clave} className="flex items-center justify-between text-sm border border-gray-100 rounded px-2 py-1 mb-1">
+                    <span>{p.label}</span>
+                    <button type="button" onClick={() => setPreguntasExtra(a => a.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600">×</button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <input className="input text-sm flex-1" value={nuevaPregunta} onChange={e => setNuevaPregunta(e.target.value)} placeholder="Ej. ¿Es usted PEP o familiar de uno?" />
+                  <button type="button" onClick={() => { if (nuevaPregunta.trim()) { setPreguntasExtra(a => [...a, { clave: slug(nuevaPregunta), label: nuevaPregunta.trim() }]); setNuevaPregunta('') } }}
+                    className="btn-secondary text-sm px-3">Agregar</button>
+                </div>
+              </div>
+
+              {/* Documentos extra */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Documentos adicionales</p>
+                {documentosExtra.map((d, i) => (
+                  <div key={d.id} className="flex items-center justify-between text-sm border border-gray-100 rounded px-2 py-1 mb-1">
+                    <span>{d.label}{d.required ? ' *' : ''}</span>
+                    <button type="button" onClick={() => setDocumentosExtra(a => a.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600">×</button>
+                  </div>
+                ))}
+                <div className="flex gap-2 items-center">
+                  <input className="input text-sm flex-1" value={nuevoDoc} onChange={e => setNuevoDoc(e.target.value)} placeholder="Ej. Constancia salarial" />
+                  <label className="flex items-center gap-1 text-xs text-gray-600"><input type="checkbox" checked={nuevoDocReq} onChange={e => setNuevoDocReq(e.target.checked)} /> Obligatorio</label>
+                  <button type="button" onClick={() => { if (nuevoDoc.trim()) { setDocumentosExtra(a => [...a, { id: slug(nuevoDoc), label: nuevoDoc.trim(), required: nuevoDocReq }]); setNuevoDoc('') } }}
+                    className="btn-secondary text-sm px-3">Agregar</button>
+                </div>
+              </div>
+            </div>
+          </details>
+
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={guardando} className="btn-primary text-sm disabled:opacity-50">
-              {guardando ? 'Creando…' : 'Crear y abrir correo'}
+              {guardando ? 'Creando…' : 'Crear y enviar al cliente'}
             </button>
           </div>
         </form>
@@ -314,7 +393,9 @@ export default function RecoleccionKYC() {
                           <button onClick={() => copiar(s)} className="text-xs text-brand-600 hover:underline">
                             {copiado === s.id ? '¡Copiado!' : 'Copiar enlace'}
                           </button>
-                          <button onClick={() => abrirCorreo(s)} className="text-xs text-gray-500 hover:text-brand-700">Reenviar</button>
+                          <button onClick={() => enviarCorreo(s)} className="text-xs text-gray-500 hover:text-brand-700">
+                            {copiado === 'mail-' + s.id ? '✓ Enviado' : 'Reenviar correo'}
+                          </button>
                         </>
                       )}
                     </div>
@@ -377,9 +458,16 @@ export default function RecoleccionKYC() {
             </div>
 
             <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-5 py-3 flex-wrap">
-              <button onClick={descargarExpediente} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
-                📑 Descargar expediente (PDF)
-              </button>
+              <div className="flex gap-2">
+                <button onClick={descargarExpediente} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                  📑 Informe (PDF)
+                </button>
+                {docsRev.length > 0 && (
+                  <button onClick={descargarTodosDocs} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                    ⬇ Documentos
+                  </button>
+                )}
+              </div>
               {revisar.estado === 'recibida' ? (
                 <div className="flex gap-2">
                   <button onClick={rechazar} disabled={accion !== ''}

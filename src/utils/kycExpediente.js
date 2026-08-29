@@ -30,23 +30,23 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [] }) {
   const nombre = solicitud?.nombre_cliente ||
     (esJ ? d.nombre_empresa : [d.nombre_cliente, d.primer_apellido].filter(Boolean).join(' ')) || '(sin nombre)'
 
+  const extraLabels = {}
+  ;(solicitud?.preguntas_extra || []).forEach(p => { extraLabels[p.clave] = p.label })
   const val = (k, v) => {
     if (k === 'genero') return GEN[v] || v
     return String(v)
   }
   const filas = Object.entries(d)
     .filter(([, v]) => v !== '' && v != null)
-    .map(([k, v]) => `<tr><td class="l">${ETIQUETAS[k] || k}</td><td class="v">${val(k, v)}</td></tr>`)
+    .map(([k, v]) => `<tr><td class="l">${ETIQUETAS[k] || extraLabels[k] || k}</td><td class="v">${val(k, v)}</td></tr>`)
     .join('') || '<tr><td colspan="2" class="l">Sin datos.</td></tr>'
 
   const anexosHtml = anexos.length === 0
     ? '<p class="muted">Sin documentos adjuntos.</p>'
-    : anexos.map((a, i) => {
-        const cab = `<div class="anexo-cab">Anexo ${i + 1} — ${a.etiqueta || a.doc_id} <span class="muted">(${a.nombre_archivo || ''})</span></div>`
-        if (a.esImg && a.url) return `<div class="anexo">${cab}<img class="anexo-img" src="${a.url}" alt="${a.etiqueta || ''}"></div>`
-        if (a.url) return `<div class="anexo">${cab}<p class="muted">Documento PDF/archivo — <a href="${a.url}">abrir/descargar</a> (el enlace vence en unos minutos).</p></div>`
-        return `<div class="anexo">${cab}<p class="muted">Archivo no disponible.</p></div>`
-      }).join('')
+    : `<table class="datos"><tbody>${anexos.map((a, i) =>
+        `<tr><td class="l">Anexo ${i + 1}</td><td class="v">${a.etiqueta || a.doc_id} <span class="muted">— ${a.nombre_archivo || ''}</span></td></tr>`
+      ).join('')}</tbody></table>
+      <p class="muted" style="margin-top:6px">Cada documento se descarga como archivo independiente desde la ficha de la solicitud.</p>`
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Expediente KYC — ${nombre}</title>
 <style>

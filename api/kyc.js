@@ -45,6 +45,8 @@ export default async function handler(req, res) {
       datos:       sol.datos || {},
       docs:        docs || [],
       machotes:    (machotes || []).filter(m => !m.sector || m.sector === sol.sector),
+      preguntasExtra:  sol.preguntas_extra || [],
+      documentosExtra: sol.documentos_extra || [],
       venceEn:     sol.vence_en,
     })
   }
