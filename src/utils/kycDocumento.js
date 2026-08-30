@@ -5,6 +5,7 @@
  */
 const TIPO_ID = { 1: 'Cédula de identidad', 2: 'Cédula jurídica', 3: 'DIMEX', 4: 'Pasaporte' }
 const GENERO = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
+const siNo = (v) => (v === 'si' ? 'Sí' : v === 'no' ? 'No' : '')
 
 function fila(label, valor) {
   if (!valor && valor !== 0) return ''
@@ -25,12 +26,17 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
     fila('País de constitución', datos.pais_constitucion),
     fila('Fecha de constitución', datos.fecha_constitucion),
     fila('Actividad económica', datos.actividad_economica),
+    fila('Descripción amplia de la actividad', datos.actividad_descripcion),
     fila('Dirección', dir),
     fila('Persona de contacto', datos.nombre_contacto),
     fila('Teléfono', datos.telefono),
     fila('Correo electrónico', datos.correo_electronico),
     fila('Representante legal', datos.rep_nombre),
     fila('Identificación del representante', datos.rep_identificacion),
+    fila('Miembros de la junta directiva', datos.junta_nombres),
+    fila('Socios (personas físicas)', datos.socios_fisicos_nombres),
+    fila('Socios (empresas)', datos.socios_empresas),
+    fila('¿Junta/representante/socios son PEP?', siNo(datos.pep_relacionados)),
     fila('Propósito de la relación', datos.proposito_relacion),
     fila('Origen de los fondos', datos.origen_fondos),
     fila('Ingreso mensual estimado', datos.ingreso_mensual_est ? `USD ${datos.ingreso_mensual_est}` : ''),
@@ -43,6 +49,8 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
     fila('Estado civil', datos.estado_civil),
     fila('Profesión u oficio', datos.profesion_nombre),
     fila('Actividad económica', datos.actividad_economica),
+    fila('Descripción amplia de la actividad', datos.actividad_descripcion),
+    fila('¿Es persona expuesta políticamente (PEP)?', siNo(datos.pep)),
     fila('País de nacimiento', datos.pais_nacimiento),
     fila('País de residencia', datos.pais_residencia),
     fila('Dirección', dir),

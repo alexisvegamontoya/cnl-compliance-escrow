@@ -13,6 +13,12 @@ const ETIQUETAS = {
   nombre_contacto: 'Persona de contacto', telefono: 'Teléfono', correo_electronico: 'Correo electrónico',
   proposito_relacion: 'Propósito de la relación', origen_fondos: 'Origen de los fondos',
   ingreso_mensual_est: 'Ingreso mensual estimado (USD)',
+  actividad_descripcion: 'Descripción amplia de la actividad',
+  pep: '¿Es persona expuesta políticamente (PEP)?',
+  pep_relacionados: '¿Junta/representante/socios son PEP?',
+  junta_nombres: 'Miembros de la junta directiva',
+  socios_fisicos_nombres: 'Socios (personas físicas)',
+  socios_empresas: 'Socios (empresas)',
   nombre_empresa: 'Razón social', cedula_juridica: 'Cédula jurídica',
   pais_constitucion: 'País de constitución', fecha_constitucion: 'Fecha de constitución',
   rep_nombre: 'Representante legal', rep_identificacion: 'Identificación del representante',
@@ -40,6 +46,7 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo 
     if (k === 'genero') return GEN[v] || v
     if (k === 'credito_plan_tipo') return PLAN_L[v] || v
     if (k === 'credito_garantia_tipo') return GAR_L[v] || v
+    if (k === 'pep' || k === 'pep_relacionados') return v === 'si' ? 'Sí' : v === 'no' ? 'No' : String(v)
     return String(v)
   }
   const filas = Object.entries(d)

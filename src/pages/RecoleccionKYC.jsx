@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { generarExpedienteKycHTML } from '../utils/kycExpediente'
-import { gruposChecklist, contextoCliente } from '../lib/checklistDocumental'
+import { docsKyc } from '../lib/kycChecklist'
 
 const slug = (s) => 'x_' + String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
@@ -68,6 +68,7 @@ export default function RecoleccionKYC() {
   // Personalización: preguntas y documentos extra que agrega el oficial
   const [preguntasExtra, setPreguntasExtra]   = useState([])
   const [documentosExtra, setDocumentosExtra] = useState([])
+  const [excluidos, setExcluidos]             = useState([]) // ids del checklist que el oficial quita
   const [nuevaPregunta, setNuevaPregunta]     = useState('')
   const [nuevoDoc, setNuevoDoc]               = useState('')
   const [nuevoDocReq, setNuevoDocReq]         = useState(true)
@@ -136,6 +137,7 @@ export default function RecoleccionKYC() {
       nombre_cliente: nombre.trim() || null,
       sector,
       preguntas_extra:  preguntasExtra,
+      documentos_excluidos: excluidos,
       documentos_extra: [
         ...documentosExtra,
         ...(esCreditoTenant && pedirAvaluo ? [{ id: 'credito_avaluo', label: 'Avalúo', required: false }] : []),
@@ -149,7 +151,7 @@ export default function RecoleccionKYC() {
     if (error) { setError(error.message); return }
     // Reset y refrescar
     setShowForm(false); setTipoPersona('fisica'); setModo('nuevo'); setClienteId(''); setCorreo(''); setNombre('')
-    setPreguntasExtra([]); setDocumentosExtra([]); setPedirAvaluo(false); setPedirFlujo(false)
+    setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false)
     setSolicitudes(prev => [data, ...prev])
     // Enviar el correo al cliente automáticamente (Resend)
     enviarCorreo(data)
@@ -211,9 +213,18 @@ export default function RecoleccionKYC() {
       const checklist = {}
       docsRev.forEach(doc => { if (!DOC_NO_CHECKLIST(doc.doc_id)) checklist[doc.doc_id] = { estado: 'disponible', nota: 'Recibido por portal KYC' } })
       payload.checklist_documental = checklist
+      // PEP: física (d.pep) o jurídica (algún relacionado d.pep_relacionados)
+      payload.pep = (d.pep === 'si' || d.pep_relacionados === 'si')
+      // Notas con la información adicional recibida por el portal
+      const notasPartes = []
+      if (d.actividad_descripcion) notasPartes.push(`Actividad: ${d.actividad_descripcion}`)
+      if (d.junta_nombres) notasPartes.push(`Junta directiva: ${d.junta_nombres}`)
+      if (d.socios_fisicos_nombres) notasPartes.push(`Socios (físicos): ${d.socios_fisicos_nombres}`)
+      if (d.socios_empresas) notasPartes.push(`Socios (empresas): ${d.socios_empresas}`)
       if (d.credito_monto || d.credito_plan_desc || d.credito_garantia_tipo) {
-        payload.notas = `[Solicitud de crédito] Monto: ${d.credito_monto || '—'} · Plan: ${d.credito_plan_desc || '—'} · Garantía: ${d.credito_garantia_desc || '—'}`
+        notasPartes.push(`[Crédito] Monto: ${d.credito_monto || '—'} · Plan: ${d.credito_plan_desc || '—'} · Garantía: ${d.credito_garantia_desc || '—'}`)
       }
+      if (notasPartes.length) payload.notas = notasPartes.join(' · ')
       // crear o actualizar cliente
       let clienteId = revisar.cliente_id
       if (clienteId) {
@@ -257,9 +268,32 @@ export default function RecoleccionKYC() {
     w.document.write(html); w.document.close()
   }
 
-  // Descarga cada documento como archivo independiente (uno por uno).
+  // Descarga los documentos. Si el navegador lo permite, deja ELEGIR la carpeta
+  // (File System Access API) y guarda todo ahí; si no, descarga uno por uno.
   async function descargarTodosDocs() {
     setMsgRev('')
+    if (docsRev.length === 0) return
+    if (window.showDirectoryPicker) {
+      let dir
+      try { dir = await window.showDirectoryPicker() }
+      catch (e) { if (e.name === 'AbortError') return; dir = null }
+      if (dir) {
+        let ok = 0
+        for (const doc of docsRev) {
+          try {
+            const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600)
+            if (!data?.signedUrl) continue
+            const blob = await (await fetch(data.signedUrl)).blob()
+            const nombre = (doc.nombre_archivo || `${doc.doc_id}`).replace(/[\\/:*?"<>|]+/g, '_')
+            const fh = await dir.getFileHandle(nombre, { create: true })
+            const w = await fh.createWritable(); await w.write(blob); await w.close(); ok++
+          } catch { /* sigue con el resto */ }
+        }
+        setMsgRev(`Se guardaron ${ok}/${docsRev.length} documentos en la carpeta elegida.`)
+        return
+      }
+    }
+    // Respaldo: descarga individual
     for (const doc of docsRev) {
       const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600, { download: doc.nombre_archivo || true })
       if (data?.signedUrl) { window.open(data.signedUrl, '_blank'); await new Promise(r => setTimeout(r, 400)) }
@@ -344,12 +378,16 @@ export default function RecoleccionKYC() {
             </summary>
             <div className="px-3 pb-3 pt-1 space-y-4">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Documentos que se pedirán (checklist {tipoPersona === 'juridica' ? 'jurídica' : 'física'})</p>
-                <ul className="text-xs text-gray-500 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 max-h-32 overflow-y-auto">
-                  {gruposChecklist(contextoCliente({ tipo_persona: tipoPersona })).flatMap(g => g.items).map(it => (
-                    <li key={it.id}>• {it.label}{it.required ? ' *' : ''}</li>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Documentos que se pedirán (checklist {tipoPersona === 'juridica' ? 'jurídica' : 'física'}) — destildá para quitar</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 max-h-40 overflow-y-auto">
+                  {docsKyc(tipoPersona).map(it => (
+                    <label key={it.id} className="flex items-start gap-2 text-xs text-gray-600">
+                      <input type="checkbox" className="mt-0.5" checked={!excluidos.includes(it.id)}
+                        onChange={e => setExcluidos(prev => e.target.checked ? prev.filter(x => x !== it.id) : [...prev, it.id])} />
+                      <span>{it.label}{it.required ? ' *' : ''}</span>
+                    </label>
                   ))}
-                </ul>
+                </div>
               </div>
 
               {/* Preguntas extra */}
@@ -517,7 +555,7 @@ export default function RecoleccionKYC() {
                 </button>
                 {docsRev.length > 0 && (
                   <button onClick={descargarTodosDocs} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
-                    ⬇ Documentos
+                    ⬇ Guardar documentos
                   </button>
                 )}
               </div>

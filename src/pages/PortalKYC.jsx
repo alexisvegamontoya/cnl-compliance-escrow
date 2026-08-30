@@ -7,8 +7,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { gruposChecklist, contextoCliente } from '../lib/checklistDocumental'
+import { docsKyc } from '../lib/kycChecklist'
 import { generarKycHTML } from '../utils/kycDocumento'
+import { PAISES_RIESGO, PROVINCIAS_CR, CANTONES_CR, ACTIVIDADES_PROFESIONES } from '../lib/metodologiaRiesgo'
+
+const PAISES = PAISES_RIESGO.map(p => p.pais).sort((a, b) => a.localeCompare(b, 'es'))
+const ACTIVIDADES = ACTIVIDADES_PROFESIONES.map(a => a.label)
+const cantonesDe = (prov) => CANTONES_CR.filter(c => c.provincia === prov).map(c => c.canton)
 
 const CAMPOS_FISICA = [
   { k: 'nombre_cliente', l: 'Nombre', req: true }, { k: 'primer_apellido', l: 'Primer apellido', req: true },
@@ -18,32 +23,39 @@ const CAMPOS_FISICA = [
   { k: 'fecha_nacimiento', l: 'Fecha de nacimiento', type: 'date' },
   { k: 'genero', l: 'Género', type: 'select', opts: [['M', 'Masculino'], ['F', 'Femenino'], ['otro', 'Otro']] },
   { k: 'estado_civil', l: 'Estado civil' }, { k: 'profesion_nombre', l: 'Profesión u oficio' },
-  { k: 'actividad_economica', l: 'Actividad económica', req: true },
-  { k: 'pais_nacimiento', l: 'País de nacimiento' }, { k: 'pais_residencia', l: 'País de residencia' },
-  { k: 'provincia', l: 'Provincia' }, { k: 'canton', l: 'Cantón' },
+  { k: 'actividad_economica', l: 'Actividad económica', type: 'actividad', req: true },
+  { k: 'pais_nacimiento', l: 'País de nacimiento', type: 'pais' }, { k: 'pais_residencia', l: 'País de residencia', type: 'pais' },
+  { k: 'provincia', l: 'Provincia', type: 'provincia' }, { k: 'canton', l: 'Cantón', type: 'canton' },
   { k: 'direccion_exacta', l: 'Dirección exacta', full: true, req: true },
   { k: 'telefono', l: 'Teléfono', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
   { k: 'origen_fondos', l: 'Origen de los fondos', req: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
+  { k: 'actividad_descripcion', l: 'Describa ampliamente su actividad económica', type: 'textarea', full: true, req: true },
+  { k: 'pep', l: '¿Es usted una persona expuesta políticamente (PEP)?', type: 'select', opts: [['no', 'No'], ['si', 'Sí']], req: true, full: true },
 ]
 
 const CAMPOS_JURIDICA = [
   { k: 'nombre_empresa', l: 'Razón social', req: true, full: true },
   { k: 'cedula_juridica', l: 'Cédula jurídica', req: true },
-  { k: 'pais_constitucion', l: 'País de constitución' }, { k: 'fecha_constitucion', l: 'Fecha de constitución', type: 'date' },
-  { k: 'actividad_economica', l: 'Actividad económica', full: true, req: true },
-  { k: 'provincia', l: 'Provincia' }, { k: 'canton', l: 'Cantón' },
+  { k: 'pais_constitucion', l: 'País de constitución', type: 'pais' }, { k: 'fecha_constitucion', l: 'Fecha de constitución', type: 'date' },
+  { k: 'actividad_economica', l: 'Actividad económica', type: 'actividad', full: true, req: true },
+  { k: 'provincia', l: 'Provincia', type: 'provincia' }, { k: 'canton', l: 'Cantón', type: 'canton' },
   { k: 'direccion_exacta', l: 'Dirección exacta', full: true, req: true },
   { k: 'nombre_contacto', l: 'Persona de contacto' },
   { k: 'telefono', l: 'Teléfono', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
   { k: 'origen_fondos', l: 'Origen de los fondos', req: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
+  { k: 'actividad_descripcion', l: 'Describa ampliamente la actividad de la empresa', type: 'textarea', full: true, req: true },
   { k: 'rep_nombre', l: 'Representante legal — Nombre completo', full: true, req: true },
   { k: 'rep_identificacion', l: 'Representante legal — Identificación', req: true },
   { k: 'rep_telefono', l: 'Representante legal — Teléfono' },
   { k: 'rep_correo', l: 'Representante legal — Correo' },
+  { k: 'pep_relacionados', l: '¿Algún miembro de junta directiva, representante legal o socio es una persona expuesta políticamente (PEP)?', type: 'select', opts: [['no', 'No'], ['si', 'Sí']], req: true, full: true },
+  { k: 'junta_nombres', l: 'Nombres de los miembros de la junta directiva', type: 'textarea', full: true },
+  { k: 'socios_fisicos_nombres', l: 'Nombres de los socios (personas físicas)', type: 'textarea', full: true },
+  { k: 'socios_empresas', l: 'Socios que son empresas (razón social y cédula jurídica)', type: 'textarea', full: true },
 ]
 
 const PLAN_OPCIONES = [
@@ -105,7 +117,8 @@ export default function PortalKYC() {
   const esCredito = cfg?.sector === 'credito'
   const campos = esJ ? CAMPOS_JURIDICA : CAMPOS_FISICA
   const preguntasExtra = cfg?.preguntasExtra || []
-  const docsBase = cfg ? gruposChecklist(contextoCliente({ tipo_persona: cfg.tipoPersona })).flatMap(g => g.items) : []
+  const excluidos = new Set(cfg?.documentosExcluidos || [])
+  const docsBase = cfg ? docsKyc(cfg.tipoPersona).filter(d => !excluidos.has(d.id)) : []
   const docsExtra = cfg?.documentosExtra || []
   const machotesDocs = (cfg?.machotes || []).map(m => ({ id: `machote_${m.clave}`, label: m.nombre, required: true, machote: m }))
   const docsCredito = esCredito
@@ -227,7 +240,7 @@ export default function PortalKYC() {
             <h2 className="text-base font-bold text-gray-900">{esJ ? 'Datos de la empresa' : 'Datos personales'}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {campos.map(c => (
-                <Campo key={c.k} c={c} v={datos[c.k]} onChange={v => set(c.k, v)} cls={inputCls} />
+                <Campo key={c.k} c={c} v={datos[c.k]} onChange={v => set(c.k, v)} cls={inputCls} provincia={datos.provincia} />
               ))}
             </div>
 
@@ -370,20 +383,53 @@ export default function PortalKYC() {
   )
 }
 
-function Campo({ c, v, onChange, cls }) {
+function Campo({ c, v, onChange, cls, provincia }) {
+  let control
+  if (c.type === 'select') {
+    control = (
+      <select className={cls} value={v || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">— Seleccione —</option>
+        {c.opts.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}
+      </select>
+    )
+  } else if (c.type === 'pais') {
+    control = (
+      <select className={cls} value={v || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">— Seleccione —</option>
+        {PAISES.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+    )
+  } else if (c.type === 'provincia') {
+    control = (
+      <select className={cls} value={v || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">— Seleccione —</option>
+        {PROVINCIAS_CR.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+    )
+  } else if (c.type === 'canton') {
+    const cs = cantonesDe(provincia)
+    control = (
+      <select className={cls} value={v || ''} onChange={e => onChange(e.target.value)} disabled={!provincia}>
+        <option value="">{provincia ? '— Seleccione —' : 'Seleccione provincia primero'}</option>
+        {cs.map(x => <option key={x} value={x}>{x}</option>)}
+      </select>
+    )
+  } else if (c.type === 'actividad') {
+    control = (
+      <>
+        <input className={cls} list="kyc-actividades" value={v || ''} onChange={e => onChange(e.target.value)} placeholder="Escriba o elija…" />
+        <datalist id="kyc-actividades">{ACTIVIDADES.map(a => <option key={a} value={a} />)}</datalist>
+      </>
+    )
+  } else if (c.type === 'textarea') {
+    control = <textarea className={cls} rows={3} value={v || ''} onChange={e => onChange(e.target.value)} />
+  } else {
+    control = <input className={cls} type={c.type || 'text'} value={v || ''} onChange={e => onChange(e.target.value)} />
+  }
   return (
     <div className={c.full ? 'sm:col-span-2' : ''}>
       <label className="block text-xs font-medium text-gray-600 mb-1">{c.l}{c.req && ' *'}</label>
-      {c.type === 'select' ? (
-        <select className={cls} value={v || ''} onChange={e => onChange(e.target.value)}>
-          <option value="">— Seleccione —</option>
-          {c.opts.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}
-        </select>
-      ) : c.type === 'textarea' ? (
-        <textarea className={cls} rows={3} value={v || ''} onChange={e => onChange(e.target.value)} />
-      ) : (
-        <input className={cls} type={c.type || 'text'} value={v || ''} onChange={e => onChange(e.target.value)} />
-      )}
+      {control}
     </div>
   )
 }
