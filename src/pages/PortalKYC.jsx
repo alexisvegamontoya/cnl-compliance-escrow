@@ -10,10 +10,12 @@ import { supabase } from '../lib/supabase'
 import { docsKyc } from '../lib/kycChecklist'
 import { generarKycHTML } from '../utils/kycDocumento'
 import EstructuraKyc from '../components/kyc/EstructuraKyc'
-import { PAISES_RIESGO, PROVINCIAS_CR, CANTONES_CR, ACTIVIDADES_PROFESIONES } from '../lib/metodologiaRiesgo'
+import TelInput from '../components/kyc/TelInput'
+import { PAISES_RIESGO, PROVINCIAS_CR, CANTONES_CR, ACTIVIDADES_PROFESIONES, ORIGENES_FONDOS } from '../lib/metodologiaRiesgo'
 
 const PAISES = PAISES_RIESGO.map(p => p.pais).sort((a, b) => a.localeCompare(b, 'es'))
 const ACTIVIDADES = ACTIVIDADES_PROFESIONES.map(a => a.label)
+const ORIGEN_FONDOS_OPTS = ORIGENES_FONDOS.map(o => [o, o])
 const cantonesDe = (prov) => CANTONES_CR.filter(c => c.provincia === prov).map(c => c.canton)
 
 const CAMPOS_FISICA = [
@@ -21,19 +23,34 @@ const CAMPOS_FISICA = [
   { k: 'segundo_apellido', l: 'Segundo apellido' },
   { k: 'tipo_identificacion', l: 'Tipo de identificación', type: 'select', opts: [['1', 'Cédula'], ['3', 'DIMEX'], ['4', 'Pasaporte']], req: true },
   { k: 'numero_identificacion', l: 'Número de identificación', req: true },
+  { k: 'venc_identificacion', l: 'Fecha de caducidad del documento de identificación', type: 'date' },
   { k: 'fecha_nacimiento', l: 'Fecha de nacimiento', type: 'date' },
   { k: 'genero', l: 'Género', type: 'select', opts: [['M', 'Masculino'], ['F', 'Femenino'], ['otro', 'Otro']] },
   { k: 'estado_civil', l: 'Estado civil' }, { k: 'profesion_nombre', l: 'Profesión u oficio' },
   { k: 'actividad_economica', l: 'Actividad económica', type: 'actividad', req: true },
   { k: 'pais_nacimiento', l: 'País de nacimiento', type: 'pais' }, { k: 'pais_residencia', l: 'País de residencia', type: 'pais' },
   { k: 'provincia', l: 'Provincia', type: 'provincia' }, { k: 'canton', l: 'Cantón', type: 'canton' },
+  { k: 'distrito', l: 'Distrito' },
   { k: 'direccion_exacta', l: 'Dirección exacta', full: true, req: true },
-  { k: 'telefono', l: 'Teléfono', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
+  { k: 'telefono', l: 'Teléfono', type: 'tel', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
-  { k: 'origen_fondos', l: 'Origen de los fondos', req: true },
+  { k: 'origen_fondos', l: 'Origen / fuente de los fondos', type: 'select', opts: ORIGEN_FONDOS_OPTS, req: true, full: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
   { k: 'actividad_descripcion', l: 'Describa ampliamente su actividad económica', type: 'textarea', full: true, req: true },
   { k: 'pep', l: '¿Es usted una persona expuesta políticamente (PEP)?', type: 'select', opts: [['no', 'No'], ['si', 'Sí']], req: true, full: true },
+]
+
+// Datos de la empresa donde labora (persona física).
+const CAMPOS_EMPLEADOR = [
+  { k: 'empleador_nombre_comercial', l: 'Nombre comercial' },
+  { k: 'empleador_razon_social', l: 'Razón social' },
+  { k: 'empleador_tipo_sociedad', l: 'Tipo de sociedad' },
+  { k: 'empleador_actividad', l: 'Actividad de la empresa', full: true },
+  { k: 'empleador_telefono', l: 'Teléfono', type: 'tel' },
+  { k: 'empleador_correo', l: 'Correo de contacto', type: 'email' },
+  { k: 'empleador_web', l: 'Página web' },
+  { k: 'empleador_puesto', l: 'Puesto que desempeña' },
+  { k: 'empleador_antiguedad', l: 'Tiempo de laborar en la empresa' },
 ]
 
 const CAMPOS_JURIDICA = [
@@ -48,9 +65,9 @@ const CAMPOS_JURIDICA = [
   { k: 'distrito', l: 'Distrito' },
   { k: 'direccion_exacta', l: 'Dirección exacta', full: true, req: true },
   { k: 'nombre_contacto', l: 'Persona de contacto' },
-  { k: 'telefono', l: 'Teléfono', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
+  { k: 'telefono', l: 'Teléfono', type: 'tel', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
-  { k: 'origen_fondos', l: 'Origen de los fondos', req: true },
+  { k: 'origen_fondos', l: 'Origen / fuente de los fondos', type: 'select', opts: ORIGEN_FONDOS_OPTS, req: true, full: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
 ]
 
@@ -166,6 +183,10 @@ export default function PortalKYC() {
       if (datos.pep_junta === 'si' && !String(datos.pep_junta_detalle || '').trim()) f.push('Detalle del PEP (quién/cargo/periodo)')
       if (!datos.pep_relacion) f.push('Pregunta relación con PEP')
       if (datos.pep_relacion === 'si' && !String(datos.pep_relacion_detalle || '').trim()) f.push('Detalle de la relación con PEP')
+    } else {
+      if (datos.pep === 'si' && !String(datos.pep_puesto || '').trim()) f.push('Puesto PEP que ocupa u ocupó')
+      if (!datos.pep_relacion) f.push('¿Relación con un PEP?')
+      if (datos.pep_relacion === 'si' && !String(datos.pep_relacion_detalle || '').trim()) f.push('Tipo de relación con el PEP')
     }
     if (esCredito) {
       if (!String(datos.credito_monto || '').trim()) f.push('Monto del crédito')
@@ -263,6 +284,47 @@ export default function PortalKYC() {
                 <Campo key={c.k} c={c} v={datos[c.k]} onChange={v => set(c.k, v)} cls={inputCls} provincia={datos.provincia} />
               ))}
             </div>
+
+            {!esJ && (
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <h3 className="text-sm font-bold text-gray-800">Empresa donde labora</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {CAMPOS_EMPLEADOR.map(c => (
+                    <Campo key={c.k} c={c} v={datos[c.k]} onChange={v => set(c.k, v)} cls={inputCls} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!esJ && (
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <h3 className="text-sm font-bold text-gray-800">Personas expuestas políticamente (PEP)</h3>
+                {datos.pep === 'si' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Puesto que ocupa u ocupó *</label>
+                      <input className={inputCls} value={datos.pep_puesto || ''} onChange={e => set('pep_puesto', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Tiempo desde que dejó el cargo</label>
+                      <input className={inputCls} value={datos.pep_tiempo || ''} onChange={e => set('pep_tiempo', e.target.value)} placeholder="Ej. 2 años / Aún en el cargo" />
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">¿Tiene relación directa (consanguinidad) o indirecta (afinidad) con una persona expuesta políticamente (PEP)? *</label>
+                  <select className={inputCls} value={datos.pep_relacion || ''} onChange={e => set('pep_relacion', e.target.value)}>
+                    <option value="">— Seleccione —</option><option value="no">No</option><option value="si">Sí</option>
+                  </select>
+                </div>
+                {datos.pep_relacion === 'si' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">¿Cuál es el tipo de relación? *</label>
+                    <input className={inputCls} value={datos.pep_relacion_detalle || ''} onChange={e => set('pep_relacion_detalle', e.target.value)} placeholder="Indique el vínculo y el nombre/cargo del PEP" />
+                  </div>
+                )}
+              </div>
+            )}
 
             {esJ && (
               <div className="pt-2 border-t border-gray-100">
@@ -477,6 +539,8 @@ function Campo({ c, v, onChange, cls, provincia }) {
         <datalist id="kyc-actividades">{ACTIVIDADES.map(a => <option key={a} value={a} />)}</datalist>
       </>
     )
+  } else if (c.type === 'tel') {
+    control = <TelInput value={v} onChange={onChange} cls={cls} />
   } else if (c.type === 'textarea') {
     control = <textarea className={cls} rows={3} value={v || ''} onChange={e => onChange(e.target.value)} />
   } else {

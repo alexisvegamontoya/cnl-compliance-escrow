@@ -275,6 +275,14 @@ export const OPCIONES = {
 // ACTIVIDADES / PROFESIONES — Metodología N06
 // valor: 1=BAJO  2=MEDIO  3=ALTO
 // ------------------------------------
+// Origen / fuente de los fondos (lista compartida portal KYC + gestor de clientes).
+export const ORIGENES_FONDOS = [
+  'Asalariado', 'Inversiones', 'Convenios', 'Fideicomisos', 'Alquileres',
+  'Pensionado', 'Ahorros',
+  'Trabajador independiente inscrito a la CCSS y/o Hacienda',
+  'Trabajador independiente no inscrito a la CCSS ni Hacienda',
+]
+
 export const ACTIVIDADES_PROFESIONES = [
   // BAJO
   { label: 'ABOGADO / NOTARIO', valor: 3 },

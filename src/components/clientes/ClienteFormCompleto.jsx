@@ -12,6 +12,7 @@ import {
   PROVINCIAS_CR,
   PAISES_RIESGO,
   OPCIONES,
+  ORIGENES_FONDOS,
   criteriosPerfil,
 } from '../../lib/metodologiaRiesgo'
 import EstructuraEmpresa from './EstructuraEmpresa'
@@ -52,15 +53,17 @@ const TIPOS_ID = [
 ]
 
 const ESTADOS_CIVILES  = ['Soltero/a', 'Casado/a', 'Divorciado/a', 'Viudo/a', 'Unión libre']
-const ORIGENES_FONDOS  = ['Salario / planilla', 'Negocio propio', 'Venta de bienes', 'Inversiones', 'Herencia', 'Remesas', 'Pensión', 'Préstamo', 'Otro']
 
 const EMPTY_FISICA = {
   tipo_persona: 'fisica',
   tipo_identificacion: '1',
   numero_identificacion: '',
+  venc_identificacion: '',
   nombre_cliente: '',
   primer_apellido: '',
   segundo_apellido: '',
+  distrito: '',
+  empleador: {},
   fecha_nacimiento: '',
   genero: '',
   estado_civil: '',
@@ -242,6 +245,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
         'nombre_contacto','telefono','correo_electronico','fecha_vinculacion',
         'proposito_relacion','origen_fondos','ingreso_mensual_est',
         'fecha_constitucion','pagina_web','distrito','paises_ingresos',
+        'venc_identificacion','empleador',
         'estado_dd','estado_listas','estado_calificacion',
         'nivel_riesgo_actual','notas','activo',
         // Fase 2 — datos para la calificación de riesgo (valor de riesgo 0.5–3)
@@ -453,6 +457,11 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
 
               {tipoPers === 'fisica' ? (
                 <>
+                  <div className="col-span-2">
+                    <label className="label text-xs">Fecha de caducidad del documento de identificación</label>
+                    <input type="date" className="input text-sm" value={form.venc_identificacion || ''}
+                      onChange={e => set('venc_identificacion', e.target.value)} />
+                  </div>
                   <div>
                     <label className="label text-xs">Nombre *</label>
                     <input className="input text-sm" value={form.nombre_cliente}
@@ -652,6 +661,31 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
               </div>
             </div>
           </div>
+
+          {/* Empresa donde labora (persona física) */}
+          {tipoPers === 'fisica' && (() => {
+            const emp = form.empleador || {}
+            const setEmp = (k, v) => set('empleador', { ...emp, [k]: v })
+            const F = [
+              ['nombre_comercial', 'Nombre comercial'], ['razon_social', 'Razón social'],
+              ['tipo_sociedad', 'Tipo de sociedad'], ['actividad', 'Actividad de la empresa'],
+              ['telefono', 'Teléfono'], ['correo', 'Correo de contacto'], ['web', 'Página web'],
+              ['puesto', 'Puesto que desempeña'], ['antiguedad', 'Tiempo de laborar en la empresa'],
+            ]
+            return (
+              <div className="card space-y-3">
+                <p className="text-sm font-bold text-gray-700 border-b pb-2">Empresa donde labora</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {F.map(([k, l]) => (
+                    <div key={k} className={k === 'actividad' ? 'col-span-2' : ''}>
+                      <label className="label text-xs">{l}</label>
+                      <input className="input text-sm" value={emp[k] || ''} onChange={e => setEmp(k, e.target.value)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Datos para la calificación de riesgo (se auto-llenan en la calificación) */}
           {(() => {

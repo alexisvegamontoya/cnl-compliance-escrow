@@ -40,6 +40,7 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
     fila('Nombre completo', nombre),
     fila('Tipo de identificación', TIPO_ID[datos.tipo_identificacion] || datos.tipo_identificacion),
     fila('Número de identificación', datos.numero_identificacion),
+    fila('Fecha de caducidad del documento', datos.venc_identificacion),
     fila('Fecha de nacimiento', datos.fecha_nacimiento),
     fila('Género', GENERO[datos.genero] || datos.genero),
     fila('Estado civil', datos.estado_civil),
@@ -134,6 +135,28 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
 
   const seccionesJur = esJ ? (reps.map(bloqueRep).join('') + tablaJunta + tablaSocios + bloqueSociosEmp + bloquePep) : ''
 
+  // ── Secciones de persona física: empresa donde labora + detalle PEP ──
+  const empRows = [
+    fila('Nombre comercial', datos.empleador_nombre_comercial),
+    fila('Razón social', datos.empleador_razon_social),
+    fila('Tipo de sociedad', datos.empleador_tipo_sociedad),
+    fila('Actividad de la empresa', datos.empleador_actividad),
+    fila('Teléfono', datos.empleador_telefono),
+    fila('Correo de contacto', datos.empleador_correo),
+    fila('Página web', datos.empleador_web),
+    fila('Puesto que desempeña', datos.empleador_puesto),
+    fila('Tiempo de laborar en la empresa', datos.empleador_antiguedad),
+  ].join('')
+  const seccionEmpleador = (!esJ && empRows) ? `<div class="seccion"><h2>Empresa donde labora</h2><table class="datos"><tbody>${empRows}</tbody></table></div>` : ''
+  const pepFRows = [
+    datos.pep === 'si' ? fila('Puesto PEP que ocupa u ocupó', datos.pep_puesto) : '',
+    datos.pep === 'si' ? fila('Tiempo desde que dejó el cargo', datos.pep_tiempo) : '',
+    fila('¿Relación (consanguinidad/afinidad) con un PEP?', siNo(datos.pep_relacion)),
+    datos.pep_relacion === 'si' ? fila('Tipo de relación con el PEP', datos.pep_relacion_detalle) : '',
+  ].join('')
+  const seccionPepF = (!esJ && pepFRows) ? `<div class="seccion"><h2>Personas expuestas políticamente (PEP)</h2><table class="datos"><tbody>${pepFRows}</tbody></table></div>` : ''
+  const seccionesFisica = !esJ ? (seccionEmpleador + seccionPepF) : ''
+
   const declaracion = `Para efectos del presente contrato declaro expresamente lo siguiente:
 1. Tanto mi actividad, como profesión u oficio, son lícitos y los ejerzo dentro de los marcos legales.
 2. Los dineros y fondos involucrados no provienen de ninguna actividad ilícita de las contempladas en la legislación costarricense.
@@ -184,6 +207,7 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
   <div class="seccion"><h2>${esJ ? 'Datos de la empresa' : 'Datos personales'}</h2>
     <table class="datos"><tbody>${filasDatos}</tbody></table>
   </div>
+  ${esJ ? seccionesJur : seccionesFisica}
   ${filasCredito}
 
   <div class="declaracion"><h4>Declaración del cliente — Ley 7786</h4><p>${declaracion.replace(/\n/g, '<br>')}</p></div>

@@ -16,8 +16,9 @@ const slug = (s) => 'x_' + String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, 
 // Columnas del cliente que se pueden llenar desde el portal.
 const CLIENTE_COLS = [
   'nombre_cliente', 'primer_apellido', 'segundo_apellido', 'tipo_identificacion', 'numero_identificacion',
+  'venc_identificacion',
   'fecha_nacimiento', 'genero', 'estado_civil', 'profesion_nombre', 'actividad_economica',
-  'pais_nacimiento', 'pais_residencia', 'provincia', 'canton', 'direccion_exacta', 'nombre_contacto',
+  'pais_nacimiento', 'pais_residencia', 'provincia', 'canton', 'distrito', 'direccion_exacta', 'nombre_contacto',
   'telefono', 'correo_electronico', 'proposito_relacion', 'origen_fondos', 'ingreso_mensual_est',
   'nombre_empresa', 'cedula_juridica', 'pais_constitucion', 'fecha_constitucion',
   'pagina_web', 'distrito', 'paises_ingresos',
@@ -258,6 +259,15 @@ export default function RecoleccionKYC() {
       if (esJ) {
         payload.tipo_identificacion = 2 // cédula jurídica
         if (!payload.numero_identificacion && d.cedula_juridica) payload.numero_identificacion = d.cedula_juridica
+      } else {
+        // Empresa donde labora (persona física) → columna jsonb
+        const emp = {
+          nombre_comercial: d.empleador_nombre_comercial, razon_social: d.empleador_razon_social,
+          tipo_sociedad: d.empleador_tipo_sociedad, actividad: d.empleador_actividad,
+          telefono: d.empleador_telefono, correo: d.empleador_correo, web: d.empleador_web,
+          puesto: d.empleador_puesto, antiguedad: d.empleador_antiguedad,
+        }
+        if (Object.values(emp).some(v => v)) payload.empleador = emp
       }
       // checklist con lo recibido
       const checklist = {}
@@ -274,6 +284,7 @@ export default function RecoleccionKYC() {
       const notasPartes = []
       if (d.actividad_descripcion) notasPartes.push(`Actividad: ${d.actividad_descripcion}`)
       if (d.paises_ingresos) notasPartes.push(`Ingresos generados en: ${d.paises_ingresos}`)
+      if (d.pep === 'si' && (d.pep_puesto || d.pep_tiempo)) notasPartes.push(`PEP: ${d.pep_puesto || ''}${d.pep_tiempo ? ' — tiempo desde que dejó el cargo: ' + d.pep_tiempo : ''}`)
       if (d.pep_junta === 'si' && d.pep_junta_detalle) notasPartes.push(`PEP (junta/rep/socio): ${d.pep_junta_detalle}`)
       if (d.pep_relacion === 'si' && d.pep_relacion_detalle) notasPartes.push(`Relación con PEP: ${d.pep_relacion_detalle}`)
       // Compatibilidad con solicitudes viejas (campos de texto plano)
@@ -348,8 +359,9 @@ export default function RecoleccionKYC() {
     const motivo = window.prompt('Motivo de la devolución (se le enviará al cliente para que corrija):', '')
     if (motivo == null) return // canceló
     setAccion('rechazando')
+    const nuevoVence = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
     await supabase.from('solicitudes_kyc')
-      .update({ estado: 'rechazada', motivo_rechazo: motivo.trim() || null }).eq('id', revisar.id)
+      .update({ estado: 'rechazada', motivo_rechazo: motivo.trim() || null, vence_en: nuevoVence }).eq('id', revisar.id)
     try {
       await supabase.functions.invoke('enviar-correo-kyc', {
         body: { token: revisar.token, link: enlacePortal(revisar.token), motivo: motivo.trim() },
@@ -575,12 +587,13 @@ export default function RecoleccionKYC() {
                   <td className="px-4 py-2 text-gray-500">{fecha(s.enviada_en || s.creado_en)}</td>
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2 justify-end">
-                      {(s.estado === 'recibida' || s.estado === 'aprobada' || s.estado === 'rechazada') ? (
+                      {(s.estado === 'recibida' || s.estado === 'aprobada' || s.estado === 'rechazada') && (
                         <button onClick={() => abrirRevision(s)}
                           className={`text-xs font-semibold ${s.estado === 'recibida' ? 'text-violet-700 hover:underline' : 'text-gray-500 hover:text-brand-700'}`}>
                           {s.estado === 'recibida' ? '🔎 Revisar' : 'Ver'}
                         </button>
-                      ) : (
+                      )}
+                      {s.estado !== 'recibida' && s.estado !== 'aprobada' && (
                         <>
                           <button onClick={() => copiar(s)} className="text-xs text-brand-600 hover:underline">
                             {copiado === s.id ? '¡Copiado!' : 'Copiar enlace'}
