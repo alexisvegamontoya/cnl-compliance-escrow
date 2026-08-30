@@ -18,11 +18,17 @@ function fechaCR(iso: string | null) {
   try { return new Date(iso).toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' }) } catch { return '' }
 }
 
-function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null, motivo?: string) {
+function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null, motivo?: string, tipo?: string) {
   const esCorreccion = !!motivo
-  const intro = esCorreccion
+  const esRecordatorio = tipo === 'recordatorio'
+  const titulo = esRecordatorio ? 'Recordatorio: información pendiente'
+    : esCorreccion ? 'Su información requiere correcciones' : 'Formulario de Debida Diligencia (KYC)'
+  const intro = esRecordatorio
+    ? `Le recordamos que aún no hemos recibido su información de debida diligencia. Le agradecemos completar el formulario y adjuntar los documentos de respaldo a la brevedad para poder continuar con el proceso.`
+    : esCorreccion
     ? `Revisamos su información y necesitamos que realice unas correcciones antes de continuar. Por favor ingrese nuevamente al formulario, ajuste lo indicado y vuelva a enviarlo.`
     : `Como parte de nuestro proceso de debida diligencia, le solicitamos completar su información y adjuntar los documentos de respaldo en el siguiente formulario seguro. Al finalizar podrá descargar el formulario KYC, firmarlo y subirlo para concluir.`
+  const cta = esRecordatorio ? 'Completar ahora' : 'Completar mi información'
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px"><tr><td align="center">
@@ -30,7 +36,7 @@ function correoHTML(tenant: string, nombre: string, link: string, vence: string,
   <tr><td style="background:#0A1247;padding:24px 32px;text-align:center">
     ${logo ? `<img src="${logo}" alt="${tenant}" style="height:48px;width:auto;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">` : ''}
     <p style="color:#fff;margin:0;font-size:16px;font-weight:bold">${tenant}</p>
-    <h1 style="color:rgba(255,255,255,.92);margin:8px 0 0;font-size:15px;font-weight:600">${esCorreccion ? 'Su información requiere correcciones' : 'Formulario de Debida Diligencia (KYC)'}</h1>
+    <h1 style="color:rgba(255,255,255,.92);margin:8px 0 0;font-size:15px;font-weight:600">${titulo}</h1>
     <p style="color:rgba(240,226,190,.85);margin:6px 0 0;font-size:12px">Ley 7786 · Acuerdo SUGEF 13-19</p>
   </td></tr>
   <tr><td style="background:#C31B26;height:4px"></td></tr>
@@ -39,9 +45,9 @@ function correoHTML(tenant: string, nombre: string, link: string, vence: string,
     <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 16px">${intro}</p>
     ${esCorreccion ? `<div style="background:#fdf3f3;border-left:4px solid #C31B26;border-radius:6px;padding:12px 16px;margin:0 0 16px"><p style="margin:0;font-size:13px;color:#4e0b10"><strong>Motivo:</strong> ${motivo}</p></div>` : ''}
     <div style="text-align:center;margin:26px 0">
-      <a href="${link}" style="background:#C31B26;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:700;display:inline-block">Completar mi información</a>
+      <a href="${link}" style="background:#C31B26;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:700;display:inline-block">${cta}</a>
     </div>
-    ${vence ? `<div style="background:#fff8e6;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 16px;margin:0 0 20px"><p style="margin:0;font-size:13px;color:#78350f">⏰ El enlace vence el <strong>${vence}</strong>.</p></div>` : ''}
+    ${vence ? `<div style="background:#fff8e6;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 16px;margin:0 0 20px"><p style="margin:0;font-size:13px;color:#78350f">⏰ ${esRecordatorio ? 'Fecha límite:' : 'El enlace vence el'} <strong>${vence}</strong>.</p></div>` : ''}
     <p style="color:#888;font-size:12px;line-height:1.6;margin:0">Si el botón no funciona, copie y pegue este enlace:<br>
       <a href="${link}" style="color:#0A1247;word-break:break-all">${link}</a></p>
   </td></tr>
@@ -55,8 +61,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
     if (!RESEND_API_KEY) return json({ error: 'RESEND_API_KEY no configurada.' }, 500)
-    const { token, link, motivo } = await req.json()
+    const { token, link, motivo, tipo, cc } = await req.json()
     if (!token || !link) return json({ error: 'Faltan datos (token/link).' }, 400)
+    const esRecordatorio = tipo === 'recordatorio'
 
     // Buscar la solicitud (service role)
     const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,nombre_cliente,vence_en,tenants(nombre,logo_url)`, {
@@ -67,14 +74,18 @@ Deno.serve(async (req) => {
     if (!sol) return json({ error: 'Solicitud no encontrada.' }, 404)
 
     const tenant = sol.tenants?.nombre || FROM_NAME
-    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null, motivo)
-    const asunto = motivo
+    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null, motivo, tipo)
+    const asunto = esRecordatorio
+      ? `Recordatorio: información pendiente — ${tenant}`
+      : motivo
       ? `Correcciones requeridas en su información — ${tenant}`
       : `Complete su información de debida diligencia — ${tenant}`
     const texto = [
       `Estimado/a ${sol.nombre_cliente || 'cliente'},`,
       '',
-      motivo
+      esRecordatorio
+        ? `Aún no hemos recibido su información de debida diligencia para ${tenant}. Le agradecemos completar el formulario a la brevedad:`
+        : motivo
         ? `Su información requiere correcciones. Motivo: ${motivo}`
         : `Como parte del proceso de debida diligencia de ${tenant}, complete su informacion y documentos en el siguiente formulario seguro:`,
       '',
@@ -83,12 +94,16 @@ Deno.serve(async (req) => {
       `Enviado por ${FROM_NAME} en nombre de ${tenant}. Sus datos son confidenciales.`,
     ].join('\n')
 
+    // Copia al oficial (por ejemplo, en el recordatorio de vencimiento)
+    const ccList = (Array.isArray(cc) ? cc : cc ? [cc] : []).filter((x: string) => x && x !== sol.correo_cliente)
+
     const envio = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: `${FROM_NAME} <${FROM_EMAIL}>`,
         to: [sol.correo_cliente],
+        ...(ccList.length ? { cc: ccList } : {}),
         reply_to: FROM_EMAIL,
         subject: asunto,
         html,

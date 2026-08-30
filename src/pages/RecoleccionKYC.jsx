@@ -191,7 +191,9 @@ export default function RecoleccionKYC() {
       ],
       estado:         'enviada',
       creado_por:     session?.user?.id,
+      correo_oficial: session?.user?.email || null,
       enviada_en:     new Date().toISOString(),
+      vence_en:       new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     }).select('*').single()
     setGuardando(false)
     if (error) { setError(error.message); return }
