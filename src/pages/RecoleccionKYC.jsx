@@ -24,6 +24,50 @@ const CLIENTE_COLS = [
 ]
 const DOC_NO_CHECKLIST = (id) => id === 'kyc_firmado' || String(id).startsWith('machote_')
 
+// Claves de datos jurídica que son estructuras (arreglos) — se muestran aparte, no en la tabla plana.
+const ESTRUCTURA_KEYS = ['representantes', 'junta', 'socios', 'socios_empresas']
+const TID_LBL = { cedula: 'Cédula', dimex: 'DIMEX', pasaporte: 'Pasaporte' }
+
+// Render legible de las estructuras jurídicas (representantes, junta, socios) en el modal de revisión.
+function bloquesEstructura(d) {
+  const reps = Array.isArray(d.representantes) ? d.representantes.filter(r => r && r.nombre) : []
+  const junta = Array.isArray(d.junta) ? d.junta.filter(m => m && m.nombre) : []
+  const socios = Array.isArray(d.socios) ? d.socios.filter(s => s && s.nombre) : []
+  const sociosEmp = Array.isArray(d.socios_empresas) ? d.socios_empresas.filter(s => s && s.nombre) : []
+  if (!reps.length && !junta.length && !socios.length && !sociosEmp.length) return null
+  const H = ({ children }) => <p className="text-[11px] font-semibold text-gray-500 uppercase mt-3 mb-1">{children}</p>
+  return (
+    <div className="mt-2 space-y-1">
+      {reps.map((r, i) => (
+        <div key={'r' + i} className="rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2 text-xs">
+          <H>Representante legal {reps.length > 1 ? i + 1 : ''}</H>
+          <div className="font-semibold text-gray-800">{r.nombre} {r.es_pep === 'si' && <span className="text-amber-600">· PEP</span>}</div>
+          <div className="text-gray-500">{TID_LBL[r.tipo_id] || r.tipo_id} {r.num_id} · {r.nacionalidad} · {r.ocupacion}</div>
+          {(r.correo || r.telefono) && <div className="text-gray-500">{r.correo} {r.telefono}</div>}
+        </div>
+      ))}
+      {junta.length > 0 && (
+        <div><H>Junta directiva</H>
+          {junta.map((m, i) => <div key={'j' + i} className="text-xs text-gray-700">• {m.nombre} — {m.cedula} — <span className="text-gray-500">{m.cargo}</span></div>)}
+        </div>
+      )}
+      {socios.length > 0 && (
+        <div><H>Socios / accionistas (≥10%)</H>
+          {socios.map((s, i) => <div key={'s' + i} className="text-xs text-gray-700">• {s.nombre} — {s.identificacion} — <span className="text-gray-500">{s.participacion}%</span></div>)}
+        </div>
+      )}
+      {sociosEmp.length > 0 && (
+        <div><H>Socios que son empresas</H>
+          {sociosEmp.map((s, i) => (
+            <div key={'se' + i} className="text-xs text-gray-700">• {s.nombre} — {s.identificacion} — <span className="text-gray-500">{s.participacion}%</span>
+              {s.rep_nombre && <span className="text-gray-500"> · Rep: {s.rep_nombre}</span>}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const ESTADO = {
   enviada:   { label: 'Enviada',    clase: 'bg-blue-50 text-blue-700' },
   en_proceso:{ label: 'En proceso', clase: 'bg-amber-50 text-amber-700' },
@@ -579,7 +623,9 @@ export default function RecoleccionKYC() {
                 <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Información recibida</p>
                 <table className="w-full text-sm">
                   <tbody>
-                    {Object.entries(revisar.datos || {}).filter(([, v]) => v !== '' && v != null).map(([k, v]) => (
+                    {Object.entries(revisar.datos || {})
+                      .filter(([k, v]) => v !== '' && v != null && !ESTRUCTURA_KEYS.includes(k) && !Array.isArray(v) && typeof v !== 'object')
+                      .map(([k, v]) => (
                       <tr key={k} className="border-b border-gray-50">
                         <td className="py-1.5 pr-3 text-gray-500 align-top w-2/5">{k}</td>
                         <td className="py-1.5 font-medium text-gray-800">{String(v)}</td>
@@ -588,6 +634,7 @@ export default function RecoleccionKYC() {
                     {Object.keys(revisar.datos || {}).length === 0 && <tr><td className="py-2 text-gray-400 text-sm">Sin datos.</td></tr>}
                   </tbody>
                 </table>
+                {bloquesEstructura(revisar.datos || {})}
               </div>
 
               <div>

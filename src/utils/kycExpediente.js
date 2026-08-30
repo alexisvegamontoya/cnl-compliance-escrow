@@ -16,9 +16,15 @@ const ETIQUETAS = {
   actividad_descripcion: 'Descripción amplia de la actividad',
   pep: '¿Es persona expuesta políticamente (PEP)?',
   pep_relacionados: '¿Junta/representante/socios son PEP?',
+  pep_junta: '¿Algún miembro de junta, representante o socio es PEP?',
+  pep_junta_detalle: 'Detalle PEP (quién, cargo y periodo)',
+  pep_relacion: '¿Relación (consanguinidad/afinidad) con un PEP?',
+  pep_relacion_detalle: 'Detalle del tipo de actividad (relación PEP)',
   junta_nombres: 'Miembros de la junta directiva',
   socios_fisicos_nombres: 'Socios (personas físicas)',
   socios_empresas: 'Socios (empresas)',
+  pagina_web: 'Página web', distrito: 'Distrito',
+  paises_ingresos: 'País(es) donde genera la mayoría de sus ingresos',
   nombre_empresa: 'Razón social', cedula_juridica: 'Cédula jurídica',
   pais_constitucion: 'País de constitución', fecha_constitucion: 'Fecha de constitución',
   rep_nombre: 'Representante legal', rep_identificacion: 'Identificación del representante',
@@ -49,10 +55,40 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo 
     if (k === 'pep' || k === 'pep_relacionados') return v === 'si' ? 'Sí' : v === 'no' ? 'No' : String(v)
     return String(v)
   }
+  const ESTRUCTURA = ['representantes', 'junta', 'socios', 'socios_empresas']
   const filas = Object.entries(d)
-    .filter(([, v]) => v !== '' && v != null)
+    .filter(([k, v]) => v !== '' && v != null && !Array.isArray(v) && typeof v !== 'object' && !ESTRUCTURA.includes(k))
     .map(([k, v]) => `<tr><td class="l">${ETIQUETAS[k] || extraLabels[k] || k}</td><td class="v">${val(k, v)}</td></tr>`)
     .join('') || '<tr><td colspan="2" class="l">Sin datos.</td></tr>'
+
+  // Secciones estructuradas de persona jurídica
+  const TID = { cedula: 'Cédula de identidad', dimex: 'DIMEX', pasaporte: 'Pasaporte' }
+  const reps = Array.isArray(d.representantes) ? d.representantes.filter(r => r && r.nombre) : []
+  const junta = Array.isArray(d.junta) ? d.junta.filter(m => m && m.nombre) : []
+  const socios = Array.isArray(d.socios) ? d.socios.filter(s => s && s.nombre) : []
+  const sociosEmp = Array.isArray(d.socios_empresas) ? d.socios_empresas.filter(s => s && s.nombre) : []
+  const fj = (l, v) => (v || v === 0) ? `<tr><td class="l">${l}</td><td class="v">${v}</td></tr>` : ''
+  const estructuraHtml = (reps.length || junta.length || socios.length || sociosEmp.length) ? `
+    ${reps.map((r, i) => `<h2>Representante legal ${reps.length > 1 ? i + 1 : ''}</h2>
+      <table class="datos"><tbody>
+        ${fj('Nombre', r.nombre)}${fj('Identificación', `${TID[r.tipo_id] || r.tipo_id || ''} ${r.num_id || ''}`.trim())}
+        ${fj('Vencimiento del documento', r.venc_id)}${fj('Nacionalidad', r.nacionalidad)}
+        ${fj('Fecha de nacimiento', r.fecha_nac)}${fj('País de nacimiento', r.pais_nac)}
+        ${fj('Ocupación', r.ocupacion)}${fj('Estado civil', r.estado_civil)}
+        ${fj('Dirección', r.direccion)}${fj('Teléfono', r.telefono)}${fj('Correo', r.correo)}
+        ${fj('¿Es PEP?', r.es_pep === 'si' ? 'Sí' : 'No')}
+      </tbody></table>`).join('')}
+    ${junta.length ? `<h2>Junta directiva</h2><table class="datos"><tbody>
+      ${junta.map(m => `<tr><td class="l">${m.cargo || 'Miembro'}</td><td class="v">${m.nombre}${m.cedula ? ' — ' + m.cedula : ''}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    ${socios.length ? `<h2>Socios / accionistas (≥10%)</h2><table class="datos"><tbody>
+      ${socios.map(s => `<tr><td class="l">${s.nombre}</td><td class="v">${s.identificacion || ''}${s.participacion ? ' — ' + s.participacion + '%' : ''}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    ${sociosEmp.length ? `<h2>Socios que son empresas</h2>${sociosEmp.map(s => `<table class="datos"><tbody>
+      ${fj('Empresa', s.nombre)}${fj('Cédula jurídica', s.identificacion)}${fj('% Participación', s.participacion ? s.participacion + '%' : '')}
+      ${fj('Representante legal', s.rep_nombre)}${fj('Socios', s.socios)}
+    </tbody></table>`).join('')}` : ''}
+  ` : ''
 
   const anexosHtml = anexos.length === 0
     ? '<p class="muted">Sin documentos adjuntos.</p>'
@@ -91,6 +127,7 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo 
 
   <h2>Información suministrada por el cliente</h2>
   <table class="datos"><tbody>${filas}</tbody></table>
+  ${estructuraHtml}
 
   <h2>Anexos — documentos de respaldo (${anexos.length})</h2>
   ${anexosHtml}
