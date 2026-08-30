@@ -24,6 +24,7 @@ export default function ModulosSujetosObligados() {
   const [mNombre, setMNombre]   = useState('')
   const [mClave, setMClave]     = useState('autorizacion_cic')
   const [mSector, setMSector]   = useState('credito')
+  const [mTipo, setMTipo]       = useState('')
   const [mArchivo, setMArchivo] = useState(null)
   const [subiendo, setSubiendo] = useState(false)
 
@@ -69,7 +70,8 @@ export default function ModulosSujetosObligados() {
     if (up.error) { setSubiendo(false); setError(up.error.message); return }
     const url = supabase.storage.from('machotes').getPublicUrl(path).data.publicUrl
     const { error } = await supabase.from('machotes').insert({
-      nombre: mNombre.trim(), clave: mClave.trim(), sector: mSector || null, archivo_url: url, archivo_path: path,
+      nombre: mNombre.trim(), clave: mClave.trim(), sector: mSector || null,
+      tipo_persona: mTipo || null, archivo_url: url, archivo_path: path,
     })
     setSubiendo(false)
     if (error) { await supabase.storage.from('machotes').remove([path]); setError(error.message); return }
@@ -165,6 +167,14 @@ export default function ModulosSujetosObligados() {
               <option value="credito">Facilidades crediticias</option>
             </select>
           </div>
+          <div>
+            <label className="label text-xs">Tipo de persona</label>
+            <select className="input text-sm" value={mTipo} onChange={e => setMTipo(e.target.value)}>
+              <option value="">Ambos</option>
+              <option value="fisica">Persona física</option>
+              <option value="juridica">Persona jurídica</option>
+            </select>
+          </div>
           <div className="sm:col-span-3">
             <input type="file" accept="application/pdf,.doc,.docx,image/*" onChange={e => setMArchivo(e.target.files?.[0] || null)}
               className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-brand-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white" />
@@ -181,7 +191,7 @@ export default function ModulosSujetosObligados() {
             {machotes.map(m => (
               <div key={m.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 text-sm">
                 <span className="text-gray-700">
-                  📄 {m.nombre} <span className="text-xs text-gray-400">· {m.sector || 'general'} · {m.clave}</span>
+                  📄 {m.nombre} <span className="text-xs text-gray-400">· {m.sector || 'general'} · {m.tipo_persona || 'ambos'} · {m.clave}</span>
                 </span>
                 <div className="flex items-center gap-3">
                   <a href={m.archivo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">Ver</a>

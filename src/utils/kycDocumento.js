@@ -18,25 +18,21 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
   const tenantNombre = tenant || '[Sujeto obligado]'
   const nombre = esJ ? datos.nombre_empresa
     : [datos.nombre_cliente, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' ')
-  const dir = [datos.direccion_exacta, datos.canton, datos.provincia].filter(Boolean).join(', ')
+  const dir = [datos.direccion_exacta, datos.distrito, datos.canton, datos.provincia].filter(Boolean).join(', ')
 
   const filasDatos = esJ ? [
     fila('Razón social', datos.nombre_empresa),
     fila('Cédula jurídica', datos.cedula_juridica),
+    fila('Página web', datos.pagina_web),
     fila('País de constitución', datos.pais_constitucion),
     fila('Fecha de constitución', datos.fecha_constitucion),
     fila('Actividad económica', datos.actividad_economica),
     fila('Descripción amplia de la actividad', datos.actividad_descripcion),
+    fila('País(es) donde genera la mayoría de sus ingresos', datos.paises_ingresos),
     fila('Dirección', dir),
     fila('Persona de contacto', datos.nombre_contacto),
     fila('Teléfono', datos.telefono),
     fila('Correo electrónico', datos.correo_electronico),
-    fila('Representante legal', datos.rep_nombre),
-    fila('Identificación del representante', datos.rep_identificacion),
-    fila('Miembros de la junta directiva', datos.junta_nombres),
-    fila('Socios (personas físicas)', datos.socios_fisicos_nombres),
-    fila('Socios (empresas)', datos.socios_empresas),
-    fila('¿Junta/representante/socios son PEP?', siNo(datos.pep_relacionados)),
     fila('Propósito de la relación', datos.proposito_relacion),
     fila('Origen de los fondos', datos.origen_fondos),
     fila('Ingreso mensual estimado', datos.ingreso_mensual_est ? `USD ${datos.ingreso_mensual_est}` : ''),
@@ -74,6 +70,69 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
       ${fila('Descripción de la garantía', datos.credito_garantia_desc)}
       ${fila('Relación con el tercero (garantía)', datos.credito_tercero_relacion)}
     </tbody></table></div>` : ''
+
+  // ── Secciones estructuradas de persona jurídica ──
+  const TID = { cedula: 'Cédula de identidad', dimex: 'DIMEX', pasaporte: 'Pasaporte' }
+  const SX = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
+  const reps = Array.isArray(datos.representantes) ? datos.representantes.filter(r => r && r.nombre) : []
+  const junta = Array.isArray(datos.junta) ? datos.junta.filter(m => m && (m.nombre || m.cargo)) : []
+  const socios = Array.isArray(datos.socios) ? datos.socios.filter(s => s && s.nombre) : []
+  const sociosEmp = Array.isArray(datos.socios_empresas) ? datos.socios_empresas.filter(s => s && s.nombre) : []
+
+  const bloqueRep = (r, i) => `
+    <div class="seccion"><h2>Representante legal ${reps.length > 1 ? i + 1 : ''}</h2>
+      <table class="datos"><tbody>
+        ${fila('Nombre completo', r.nombre)}
+        ${fila('Tipo de identificación', TID[r.tipo_id] || r.tipo_id)}
+        ${fila('Número de identificación', r.num_id)}
+        ${fila('Vencimiento del documento', r.venc_id)}
+        ${fila('Nacionalidad', r.nacionalidad)}
+        ${fila('Fecha de nacimiento', r.fecha_nac)}
+        ${fila('País de nacimiento', r.pais_nac)}
+        ${fila('Ocupación', r.ocupacion)}
+        ${fila('Estado civil', r.estado_civil)}
+        ${fila('Sexo', SX[r.sexo] || r.sexo)}
+        ${fila('Dirección', r.direccion)}
+        ${fila('Teléfono', r.telefono)}
+        ${fila('Correo electrónico', r.correo)}
+        ${fila('¿Es persona expuesta políticamente (PEP)?', siNo(r.es_pep))}
+      </tbody></table>
+    </div>`
+
+  const tablaJunta = junta.length ? `
+    <div class="seccion"><h2>Junta directiva</h2>
+      <table class="cuadro"><thead><tr><th>Nombre</th><th>Cédula</th><th>Cargo</th></tr></thead>
+      <tbody>${junta.map(m => `<tr><td>${m.nombre || ''}</td><td>${m.cedula || ''}</td><td>${m.cargo || ''}</td></tr>`).join('')}</tbody></table>
+    </div>` : ''
+
+  const tablaSocios = socios.length ? `
+    <div class="seccion"><h2>Socios / accionistas (≥ 10%)</h2>
+      <table class="cuadro"><thead><tr><th>Nombre</th><th>Identificación</th><th>% Participación</th></tr></thead>
+      <tbody>${socios.map(s => `<tr><td>${s.nombre || ''}</td><td>${s.identificacion || ''}</td><td>${s.participacion ? s.participacion + '%' : ''}</td></tr>`).join('')}</tbody></table>
+    </div>` : ''
+
+  const bloqueSociosEmp = sociosEmp.length ? `
+    <div class="seccion"><h2>Socios que son empresas</h2>
+      ${sociosEmp.map(s => `<table class="datos" style="margin-bottom:8px"><tbody>
+        ${fila('Nombre de la empresa', s.nombre)}
+        ${fila('Cédula jurídica', s.identificacion)}
+        ${fila('% Participación', s.participacion ? s.participacion + '%' : '')}
+        ${fila('Representante legal', s.rep_nombre)}
+        ${fila('Socios de la empresa socia', s.socios)}
+      </tbody></table>`).join('')}
+    </div>` : ''
+
+  const bloquePep = esJ ? `
+    <div class="seccion"><h2>Personas expuestas políticamente (PEP)</h2>
+      <table class="datos"><tbody>
+        ${fila('¿Algún miembro de junta directiva, representante legal o socio es PEP?', siNo(datos.pep_junta))}
+        ${fila('Detalle (quién, cargo y periodo)', datos.pep_junta_detalle)}
+        ${fila('¿Algún socio, director o representante tiene relación (consanguinidad/afinidad) con un PEP?', siNo(datos.pep_relacion))}
+        ${fila('Detalle del tipo de actividad', datos.pep_relacion_detalle)}
+      </tbody></table>
+    </div>` : ''
+
+  const seccionesJur = esJ ? (reps.map(bloqueRep).join('') + tablaJunta + tablaSocios + bloqueSociosEmp + bloquePep) : ''
 
   const declaracion = `Para efectos del presente contrato declaro expresamente lo siguiente:
 1. Tanto mi actividad, como profesión u oficio, son lícitos y los ejerzo dentro de los marcos legales.

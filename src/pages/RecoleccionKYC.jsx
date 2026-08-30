@@ -20,6 +20,7 @@ const CLIENTE_COLS = [
   'pais_nacimiento', 'pais_residencia', 'provincia', 'canton', 'direccion_exacta', 'nombre_contacto',
   'telefono', 'correo_electronico', 'proposito_relacion', 'origen_fondos', 'ingreso_mensual_est',
   'nombre_empresa', 'cedula_juridica', 'pais_constitucion', 'fecha_constitucion',
+  'pagina_web', 'distrito', 'paises_ingresos',
 ]
 const DOC_NO_CHECKLIST = (id) => id === 'kyc_firmado' || String(id).startsWith('machote_')
 
@@ -206,21 +207,35 @@ export default function RecoleccionKYC() {
     setAccion('aprobando'); setMsgRev('')
     try {
       const d = revisar.datos || {}
-      const payload = { tenant_id: tenant.id, tipo_persona: revisar.tipo_persona }
+      const esJ = revisar.tipo_persona === 'juridica'
+      const tid = revisar.tenant_id  // el cliente pertenece al SO dueño de la solicitud, no al superadmin
+      const payload = { tenant_id: tid, tipo_persona: revisar.tipo_persona }
       CLIENTE_COLS.forEach(c => { if (d[c] !== undefined && d[c] !== '' && d[c] !== null) payload[c] = d[c] })
-      if (revisar.tipo_persona === 'juridica' && !payload.numero_identificacion && d.cedula_juridica) payload.numero_identificacion = d.cedula_juridica
+      if (esJ) {
+        payload.tipo_identificacion = 2 // cédula jurídica
+        if (!payload.numero_identificacion && d.cedula_juridica) payload.numero_identificacion = d.cedula_juridica
+      }
       // checklist con lo recibido
       const checklist = {}
       docsRev.forEach(doc => { if (!DOC_NO_CHECKLIST(doc.doc_id)) checklist[doc.doc_id] = { estado: 'disponible', nota: 'Recibido por portal KYC' } })
       payload.checklist_documental = checklist
-      // PEP: física (d.pep) o jurídica (algún relacionado d.pep_relacionados)
-      payload.pep = (d.pep === 'si' || d.pep_relacionados === 'si')
+      // Estructura jurídica recibida por el portal
+      const reps = Array.isArray(d.representantes) ? d.representantes.filter(r => r && r.nombre) : []
+      const junta = Array.isArray(d.junta) ? d.junta.filter(m => m && m.nombre) : []
+      const socios = Array.isArray(d.socios) ? d.socios.filter(s => s && s.nombre) : []
+      const sociosEmp = Array.isArray(d.socios_empresas) ? d.socios_empresas.filter(s => s && s.nombre) : []
+      // PEP: física (d.pep) o jurídica (preguntas de empresa o algún representante)
+      payload.pep = (d.pep === 'si' || d.pep_junta === 'si' || d.pep_relacion === 'si' || d.pep_relacionados === 'si' || reps.some(r => r.es_pep === 'si'))
       // Notas con la información adicional recibida por el portal
       const notasPartes = []
       if (d.actividad_descripcion) notasPartes.push(`Actividad: ${d.actividad_descripcion}`)
-      if (d.junta_nombres) notasPartes.push(`Junta directiva: ${d.junta_nombres}`)
-      if (d.socios_fisicos_nombres) notasPartes.push(`Socios (físicos): ${d.socios_fisicos_nombres}`)
-      if (d.socios_empresas) notasPartes.push(`Socios (empresas): ${d.socios_empresas}`)
+      if (d.paises_ingresos) notasPartes.push(`Ingresos generados en: ${d.paises_ingresos}`)
+      if (d.pep_junta === 'si' && d.pep_junta_detalle) notasPartes.push(`PEP (junta/rep/socio): ${d.pep_junta_detalle}`)
+      if (d.pep_relacion === 'si' && d.pep_relacion_detalle) notasPartes.push(`Relación con PEP: ${d.pep_relacion_detalle}`)
+      // Compatibilidad con solicitudes viejas (campos de texto plano)
+      if (typeof d.junta_nombres === 'string' && d.junta_nombres) notasPartes.push(`Junta directiva: ${d.junta_nombres}`)
+      if (typeof d.socios_fisicos_nombres === 'string' && d.socios_fisicos_nombres) notasPartes.push(`Socios (físicos): ${d.socios_fisicos_nombres}`)
+      if (typeof d.socios_empresas === 'string' && d.socios_empresas) notasPartes.push(`Socios (empresas): ${d.socios_empresas}`)
       if (d.credito_monto || d.credito_plan_desc || d.credito_garantia_tipo) {
         notasPartes.push(`[Crédito] Monto: ${d.credito_monto || '—'} · Plan: ${d.credito_plan_desc || '—'} · Garantía: ${d.credito_garantia_desc || '—'}`)
       }
@@ -235,13 +250,45 @@ export default function RecoleccionKYC() {
         if (error) throw error
         clienteId = nuevo.id
       }
-      // representante legal (jurídica)
-      if (revisar.tipo_persona === 'juridica' && d.rep_nombre) {
-        await supabase.from('clientes_personas_relacionadas').insert({
-          tenant_id: tenant.id, cliente_id: clienteId, tipo_relacion: 'representante_legal',
-          tipo_entidad: 'persona_fisica', nombre: d.rep_nombre, identificacion: d.rep_identificacion || null,
+      // Volcado de la estructura jurídica → personas relacionadas
+      if (esJ) {
+        const rel = []
+        reps.forEach((r, i) => rel.push({
+          tipo_relacion: 'representante_legal', tipo_entidad: 'persona_fisica',
+          nombre: r.nombre, identificacion: r.num_id || null, tipo_id: r.tipo_id || null,
+          venc_identificacion: r.venc_id || null, nacionalidad: r.nacionalidad || null,
+          fecha_nacimiento: r.fecha_nac || null, pais_nacimiento: r.pais_nac || null,
+          ocupacion: r.ocupacion || null, estado_civil: r.estado_civil || null, sexo: r.sexo || null,
+          correo: r.correo || null, telefono: r.telefono || null, es_pep: r.es_pep === 'si',
+          notas: r.direccion ? `Dirección: ${r.direccion}` : null, orden: i, activo: true,
+        }))
+        // Compatibilidad: representante en campos de texto plano (solicitudes viejas)
+        if (!reps.length && d.rep_nombre) rel.push({
+          tipo_relacion: 'representante_legal', tipo_entidad: 'persona_fisica',
+          nombre: d.rep_nombre, identificacion: d.rep_identificacion || null,
           telefono: d.rep_telefono || null, correo: d.rep_correo || null, orden: 0, activo: true,
         })
+        junta.forEach((m, i) => rel.push({
+          tipo_relacion: 'junta_directiva', tipo_entidad: 'persona_fisica',
+          nombre: m.nombre, identificacion: m.cedula || null, cargo: m.cargo || null, orden: i, activo: true,
+        }))
+        socios.forEach((s, i) => rel.push({
+          tipo_relacion: 'socio', tipo_entidad: 'persona_fisica',
+          nombre: s.nombre, identificacion: s.identificacion || null,
+          porcentaje_participacion: s.participacion ? Number(s.participacion) : null, orden: i, activo: true,
+        }))
+        sociosEmp.forEach((s, i) => rel.push({
+          tipo_relacion: 'socio', tipo_entidad: 'persona_juridica',
+          nombre: s.nombre, identificacion: s.identificacion || null,
+          porcentaje_participacion: s.participacion ? Number(s.participacion) : null,
+          sub_personas: s.rep_nombre ? [{ tipo_relacion: 'representante_legal', nombre: s.rep_nombre }] : [],
+          notas: s.socios ? `Socios: ${s.socios}` : null, orden: i, activo: true,
+        }))
+        if (rel.length) {
+          const filas = rel.map(r => ({ ...r, tenant_id: tid, cliente_id: clienteId }))
+          const { error } = await supabase.from('clientes_personas_relacionadas').insert(filas)
+          if (error) throw error
+        }
       }
       await supabase.from('solicitudes_kyc').update({ estado: 'aprobada', cliente_id: clienteId }).eq('id', revisar.id)
       setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'aprobada', cliente_id: clienteId } : s))

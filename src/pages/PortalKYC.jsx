@@ -9,6 +9,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { docsKyc } from '../lib/kycChecklist'
 import { generarKycHTML } from '../utils/kycDocumento'
+import EstructuraKyc from '../components/kyc/EstructuraKyc'
 import { PAISES_RIESGO, PROVINCIAS_CR, CANTONES_CR, ACTIVIDADES_PROFESIONES } from '../lib/metodologiaRiesgo'
 
 const PAISES = PAISES_RIESGO.map(p => p.pais).sort((a, b) => a.localeCompare(b, 'es'))
@@ -38,24 +39,19 @@ const CAMPOS_FISICA = [
 const CAMPOS_JURIDICA = [
   { k: 'nombre_empresa', l: 'Razón social', req: true, full: true },
   { k: 'cedula_juridica', l: 'Cédula jurídica', req: true },
+  { k: 'pagina_web', l: 'Página web' },
   { k: 'pais_constitucion', l: 'País de constitución', type: 'pais' }, { k: 'fecha_constitucion', l: 'Fecha de constitución', type: 'date' },
   { k: 'actividad_economica', l: 'Actividad económica', type: 'actividad', full: true, req: true },
+  { k: 'actividad_descripcion', l: 'Describa ampliamente la actividad de la empresa', type: 'textarea', full: true, req: true },
+  { k: 'paises_ingresos', l: 'País(es) donde la empresa genera la mayoría de sus ingresos', full: true, req: true },
   { k: 'provincia', l: 'Provincia', type: 'provincia' }, { k: 'canton', l: 'Cantón', type: 'canton' },
+  { k: 'distrito', l: 'Distrito' },
   { k: 'direccion_exacta', l: 'Dirección exacta', full: true, req: true },
   { k: 'nombre_contacto', l: 'Persona de contacto' },
   { k: 'telefono', l: 'Teléfono', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
   { k: 'origen_fondos', l: 'Origen de los fondos', req: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
-  { k: 'actividad_descripcion', l: 'Describa ampliamente la actividad de la empresa', type: 'textarea', full: true, req: true },
-  { k: 'rep_nombre', l: 'Representante legal — Nombre completo', full: true, req: true },
-  { k: 'rep_identificacion', l: 'Representante legal — Identificación', req: true },
-  { k: 'rep_telefono', l: 'Representante legal — Teléfono' },
-  { k: 'rep_correo', l: 'Representante legal — Correo' },
-  { k: 'pep_relacionados', l: '¿Algún miembro de junta directiva, representante legal o socio es una persona expuesta políticamente (PEP)?', type: 'select', opts: [['no', 'No'], ['si', 'Sí']], req: true, full: true },
-  { k: 'junta_nombres', l: 'Nombres de los miembros de la junta directiva', type: 'textarea', full: true },
-  { k: 'socios_fisicos_nombres', l: 'Nombres de los socios (personas físicas)', type: 'textarea', full: true },
-  { k: 'socios_empresas', l: 'Socios que son empresas (razón social y cédula jurídica)', type: 'textarea', full: true },
 ]
 
 const PLAN_OPCIONES = [
@@ -123,7 +119,16 @@ export default function PortalKYC() {
     ? docsKyc(cfg.tipoPersona).filter(d => !excluidos.has(d.id) && !(esCredito && d.id === 'kyc_eeff_o_ingresos'))
     : []
   const docsExtra = cfg?.documentosExtra || []
-  const machotesDocs = (cfg?.machotes || []).map(m => ({ id: `machote_${m.id}`, label: m.nombre, required: true, machote: m }))
+  const machotesDocs = (cfg?.machotes || [])
+    .filter(m => {
+      const tp = m.tipo_persona || 'ambos'
+      // La jurídica ve todos (la CIC física es del representante legal); la física no ve los solo-jurídica.
+      return esJ ? true : tp !== 'juridica'
+    })
+    .map(m => {
+      const esFisicaEnJuridica = esJ && m.tipo_persona === 'fisica'
+      return { id: `machote_${m.id}`, label: m.nombre + (esFisicaEnJuridica ? ' (del representante legal)' : ''), required: true, machote: m }
+    })
   const docsCredito = esCredito
     ? [...DOCS_CREDITO, ...(datos.credito_plan_tipo === 'construccion'
         ? [{ id: 'credito_presupuesto_obra', label: 'Presupuesto de la obra', required: true }] : [])]
@@ -155,6 +160,13 @@ export default function PortalKYC() {
   function faltantesPaso1() {
     const f = campos.filter(c => c.req && !String(datos[c.k] || '').trim()).map(c => c.l)
     preguntasExtra.forEach(p => { if (!String(datos[p.clave] || '').trim()) f.push(p.label) })
+    if (esJ) {
+      if (!(datos.representantes?.length && String(datos.representantes[0].nombre || '').trim())) f.push('Al menos un representante legal')
+      if (!datos.pep_junta) f.push('Pregunta PEP (junta/representante/socios)')
+      if (datos.pep_junta === 'si' && !String(datos.pep_junta_detalle || '').trim()) f.push('Detalle del PEP (quién/cargo/periodo)')
+      if (!datos.pep_relacion) f.push('Pregunta relación con PEP')
+      if (datos.pep_relacion === 'si' && !String(datos.pep_relacion_detalle || '').trim()) f.push('Detalle de la relación con PEP')
+    }
     if (esCredito) {
       if (!String(datos.credito_monto || '').trim()) f.push('Monto del crédito')
       if (!String(datos.credito_plan_tipo || '').trim()) f.push('Plan de inversión')
@@ -251,6 +263,42 @@ export default function PortalKYC() {
                 <Campo key={c.k} c={c} v={datos[c.k]} onChange={v => set(c.k, v)} cls={inputCls} provincia={datos.provincia} />
               ))}
             </div>
+
+            {esJ && (
+              <div className="pt-2 border-t border-gray-100">
+                <EstructuraKyc datos={datos} set={set} />
+              </div>
+            )}
+
+            {esJ && (
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <h3 className="text-sm font-bold text-gray-800">Personas expuestas políticamente (PEP)</h3>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">¿Algún miembro de junta directiva, representante legal o socio es una persona expuesta políticamente (PEP)? *</label>
+                  <select className={inputCls} value={datos.pep_junta || ''} onChange={e => set('pep_junta', e.target.value)}>
+                    <option value="">— Seleccione —</option><option value="no">No</option><option value="si">Sí</option>
+                  </select>
+                </div>
+                {datos.pep_junta === 'si' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Indique quién, qué cargo ocupa u ocupó y durante qué periodo *</label>
+                    <textarea className={inputCls} rows={2} value={datos.pep_junta_detalle || ''} onChange={e => set('pep_junta_detalle', e.target.value)} />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">¿Algún Socio, Director o Representante de la empresa tiene relación directa (consanguinidad) o indirecta (afinidad) con una persona expuesta políticamente (PEP)? *</label>
+                  <select className={inputCls} value={datos.pep_relacion || ''} onChange={e => set('pep_relacion', e.target.value)}>
+                    <option value="">— Seleccione —</option><option value="no">No</option><option value="si">Sí</option>
+                  </select>
+                </div>
+                {datos.pep_relacion === 'si' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Detalle del tipo de actividad *</label>
+                    <textarea className={inputCls} rows={2} value={datos.pep_relacion_detalle || ''} onChange={e => set('pep_relacion_detalle', e.target.value)} />
+                  </div>
+                )}
+              </div>
+            )}
 
             {esCredito && (
               <div className="pt-2 space-y-3">

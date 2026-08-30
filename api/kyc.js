@@ -34,7 +34,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const [{ data: docs }, { data: machotes }] = await Promise.all([
       admin.from('solicitudes_kyc_documentos').select('doc_id, nombre_archivo, subido_en').eq('solicitud_id', sol.id),
-      admin.from('machotes').select('id, clave, nombre, archivo_url, sector').eq('activo', true),
+      admin.from('machotes').select('id, clave, nombre, archivo_url, sector, tipo_persona').eq('activo', true),
     ])
     return res.status(200).json({
       tenant:      sol.tenants?.nombre || '',
@@ -89,6 +89,10 @@ export default async function handler(req, res) {
   }
 
   if (action === 'enviar') {
+    // Refuerzo del lado servidor: no se puede enviar sin el KYC firmado subido.
+    const { data: kyc } = await admin.from('solicitudes_kyc_documentos')
+      .select('id').eq('solicitud_id', sol.id).eq('doc_id', 'kyc_firmado').limit(1).maybeSingle()
+    if (!kyc) return res.status(400).json({ error: 'Debe descargar el KYC, firmarlo y subirlo antes de enviar.' })
     const { error: e } = await admin.from('solicitudes_kyc')
       .update({ estado: 'recibida', recibida_en: new Date().toISOString(), datos: req.body.datos || sol.datos })
       .eq('id', sol.id)
