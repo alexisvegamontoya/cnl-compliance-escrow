@@ -120,7 +120,7 @@ export default function PortalKYC() {
   const excluidos = new Set(cfg?.documentosExcluidos || [])
   const docsBase = cfg ? docsKyc(cfg.tipoPersona).filter(d => !excluidos.has(d.id)) : []
   const docsExtra = cfg?.documentosExtra || []
-  const machotesDocs = (cfg?.machotes || []).map(m => ({ id: `machote_${m.clave}`, label: m.nombre, required: true, machote: m }))
+  const machotesDocs = (cfg?.machotes || []).map(m => ({ id: `machote_${m.id}`, label: m.nombre, required: true, machote: m }))
   const docsCredito = esCredito
     ? [...DOCS_CREDITO, ...(datos.credito_plan_tipo === 'construccion'
         ? [{ id: 'credito_presupuesto_obra', label: 'Presupuesto de la obra', required: true }] : [])]
