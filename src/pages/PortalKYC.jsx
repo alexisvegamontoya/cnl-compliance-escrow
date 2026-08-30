@@ -118,7 +118,10 @@ export default function PortalKYC() {
   const campos = esJ ? CAMPOS_JURIDICA : CAMPOS_FISICA
   const preguntasExtra = cfg?.preguntasExtra || []
   const excluidos = new Set(cfg?.documentosExcluidos || [])
-  const docsBase = cfg ? docsKyc(cfg.tipoPersona).filter(d => !excluidos.has(d.id)) : []
+  // En crédito, los EEFF detallados van en la sección de crédito: no repetir el general.
+  const docsBase = cfg
+    ? docsKyc(cfg.tipoPersona).filter(d => !excluidos.has(d.id) && !(esCredito && d.id === 'kyc_eeff_o_ingresos'))
+    : []
   const docsExtra = cfg?.documentosExtra || []
   const machotesDocs = (cfg?.machotes || []).map(m => ({ id: `machote_${m.id}`, label: m.nombre, required: true, machote: m }))
   const docsCredito = esCredito

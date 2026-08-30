@@ -380,7 +380,7 @@ export default function RecoleccionKYC() {
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Documentos que se pedirán (checklist {tipoPersona === 'juridica' ? 'jurídica' : 'física'}) — destildá para quitar</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 max-h-40 overflow-y-auto">
-                  {docsKyc(tipoPersona).map(it => (
+                  {docsKyc(tipoPersona).filter(it => !(esCreditoTenant && it.id === 'kyc_eeff_o_ingresos')).map(it => (
                     <label key={it.id} className="flex items-start gap-2 text-xs text-gray-600">
                       <input type="checkbox" className="mt-0.5" checked={!excluidos.includes(it.id)}
                         onChange={e => setExcluidos(prev => e.target.checked ? prev.filter(x => x !== it.id) : [...prev, it.id])} />
