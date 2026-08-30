@@ -18,7 +18,11 @@ function fechaCR(iso: string | null) {
   try { return new Date(iso).toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' }) } catch { return '' }
 }
 
-function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null) {
+function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null, motivo?: string) {
+  const esCorreccion = !!motivo
+  const intro = esCorreccion
+    ? `Revisamos su información y necesitamos que realice unas correcciones antes de continuar. Por favor ingrese nuevamente al formulario, ajuste lo indicado y vuelva a enviarlo.`
+    : `Como parte de nuestro proceso de debida diligencia, le solicitamos completar su información y adjuntar los documentos de respaldo en el siguiente formulario seguro. Al finalizar podrá descargar el formulario KYC, firmarlo y subirlo para concluir.`
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px"><tr><td align="center">
@@ -26,16 +30,14 @@ function correoHTML(tenant: string, nombre: string, link: string, vence: string,
   <tr><td style="background:#0A1247;padding:24px 32px;text-align:center">
     ${logo ? `<img src="${logo}" alt="${tenant}" style="height:48px;width:auto;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">` : ''}
     <p style="color:#fff;margin:0;font-size:16px;font-weight:bold">${tenant}</p>
-    <h1 style="color:rgba(255,255,255,.92);margin:8px 0 0;font-size:15px;font-weight:600">Formulario de Debida Diligencia (KYC)</h1>
+    <h1 style="color:rgba(255,255,255,.92);margin:8px 0 0;font-size:15px;font-weight:600">${esCorreccion ? 'Su información requiere correcciones' : 'Formulario de Debida Diligencia (KYC)'}</h1>
     <p style="color:rgba(240,226,190,.85);margin:6px 0 0;font-size:12px">Ley 7786 · Acuerdo SUGEF 13-19</p>
   </td></tr>
   <tr><td style="background:#C31B26;height:4px"></td></tr>
   <tr><td style="padding:30px 32px">
     <p style="color:#444;font-size:15px;margin:0 0 14px">Estimado/a <strong>${nombre || 'cliente'}</strong>,</p>
-    <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 16px">
-      Como parte de nuestro proceso de debida diligencia, le solicitamos completar su información y adjuntar los
-      documentos de respaldo en el siguiente formulario seguro. Al finalizar podrá descargar el formulario KYC,
-      firmarlo y subirlo para concluir.</p>
+    <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 16px">${intro}</p>
+    ${esCorreccion ? `<div style="background:#fdf3f3;border-left:4px solid #C31B26;border-radius:6px;padding:12px 16px;margin:0 0 16px"><p style="margin:0;font-size:13px;color:#4e0b10"><strong>Motivo:</strong> ${motivo}</p></div>` : ''}
     <div style="text-align:center;margin:26px 0">
       <a href="${link}" style="background:#C31B26;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:700;display:inline-block">Completar mi información</a>
     </div>
@@ -53,7 +55,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
     if (!RESEND_API_KEY) return json({ error: 'RESEND_API_KEY no configurada.' }, 500)
-    const { token, link } = await req.json()
+    const { token, link, motivo } = await req.json()
     if (!token || !link) return json({ error: 'Faltan datos (token/link).' }, 400)
 
     // Buscar la solicitud (service role)
@@ -65,7 +67,21 @@ Deno.serve(async (req) => {
     if (!sol) return json({ error: 'Solicitud no encontrada.' }, 404)
 
     const tenant = sol.tenants?.nombre || FROM_NAME
-    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null)
+    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null, motivo)
+    const asunto = motivo
+      ? `Correcciones requeridas en su información — ${tenant}`
+      : `Complete su información de debida diligencia — ${tenant}`
+    const texto = [
+      `Estimado/a ${sol.nombre_cliente || 'cliente'},`,
+      '',
+      motivo
+        ? `Su información requiere correcciones. Motivo: ${motivo}`
+        : `Como parte del proceso de debida diligencia de ${tenant}, complete su informacion y documentos en el siguiente formulario seguro:`,
+      '',
+      link,
+      '',
+      `Enviado por ${FROM_NAME} en nombre de ${tenant}. Sus datos son confidenciales.`,
+    ].join('\n')
 
     const envio = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -74,8 +90,10 @@ Deno.serve(async (req) => {
         from: `${FROM_NAME} <${FROM_EMAIL}>`,
         to: [sol.correo_cliente],
         reply_to: FROM_EMAIL,
-        subject: `Complete su información de debida diligencia — ${tenant}`,
+        subject: asunto,
         html,
+        text: texto,
+        headers: { 'List-Unsubscribe': `<mailto:${FROM_EMAIL}>` },
       }),
     })
     if (!envio.ok) {

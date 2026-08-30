@@ -235,6 +235,11 @@ export default function PortalKYC() {
           ))}
         </div>
 
+        {cfg.estado === 'rechazada' && cfg.motivo && (
+          <div className="rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-sm px-4 py-3">
+            <strong>Su información fue devuelta para corrección.</strong> Motivo: {cfg.motivo}. Por favor corrija lo indicado y vuelva a enviar.
+          </div>
+        )}
         {error && <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
 
         {/* PASO 1 — Información */}

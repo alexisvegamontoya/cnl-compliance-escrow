@@ -28,7 +28,7 @@ const ESTADO = {
   en_proceso:{ label: 'En proceso', clase: 'bg-amber-50 text-amber-700' },
   recibida:  { label: 'Recibida',   clase: 'bg-violet-50 text-violet-700' },
   aprobada:  { label: 'Aprobada',   clase: 'bg-green-50 text-green-700' },
-  rechazada: { label: 'Rechazada',  clase: 'bg-red-50 text-red-700' },
+  rechazada: { label: 'Devuelta',   clase: 'bg-amber-50 text-amber-700' },
 }
 
 function fecha(iso) {
@@ -250,11 +250,21 @@ export default function RecoleccionKYC() {
     setAccion('')
   }
 
+  // Devuelve la solicitud al cliente para corrección: guarda el motivo, reabre el
+  // enlace y le envía un correo indicando qué corregir.
   async function rechazar() {
     if (!revisar) return
+    const motivo = window.prompt('Motivo de la devolución (se le enviará al cliente para que corrija):', '')
+    if (motivo == null) return // canceló
     setAccion('rechazando')
-    await supabase.from('solicitudes_kyc').update({ estado: 'rechazada' }).eq('id', revisar.id)
-    setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'rechazada' } : s))
+    await supabase.from('solicitudes_kyc')
+      .update({ estado: 'rechazada', motivo_rechazo: motivo.trim() || null }).eq('id', revisar.id)
+    try {
+      await supabase.functions.invoke('enviar-correo-kyc', {
+        body: { token: revisar.token, link: enlacePortal(revisar.token), motivo: motivo.trim() },
+      })
+    } catch { /* si falla el correo, la devolución igual queda registrada */ }
+    setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'rechazada', motivo_rechazo: motivo.trim() } : s))
     setAccion(''); setRevisar(null)
   }
 
@@ -562,8 +572,8 @@ export default function RecoleccionKYC() {
               {revisar.estado === 'recibida' ? (
                 <div className="flex gap-2">
                   <button onClick={rechazar} disabled={accion !== ''}
-                    className="text-sm px-4 py-1.5 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50">
-                    {accion === 'rechazando' ? '…' : 'Rechazar'}
+                    className="text-sm px-4 py-1.5 border border-amber-300 rounded-lg text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+                    {accion === 'rechazando' ? '…' : '↩ Devolver para corrección'}
                   </button>
                   <button onClick={aprobar} disabled={accion !== ''}
                     className="btn-primary text-sm disabled:opacity-50">

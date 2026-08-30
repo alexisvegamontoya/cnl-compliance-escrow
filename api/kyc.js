@@ -42,6 +42,7 @@ export default async function handler(req, res) {
       tipoPersona: sol.tipo_persona,
       sector:      sol.sector || null,
       estado:      sol.estado,
+      motivo:      sol.motivo_rechazo || null,
       nombre:      sol.nombre_cliente || '',
       datos:       sol.datos || {},
       docs:        docs || [],
