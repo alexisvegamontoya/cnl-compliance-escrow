@@ -304,7 +304,7 @@ export default function RecoleccionKYC() {
           fecha_nacimiento: r.fecha_nac || null, pais_nacimiento: r.pais_nac || null,
           ocupacion: r.ocupacion || null, estado_civil: r.estado_civil || null, sexo: r.sexo || null,
           correo: r.correo || null, telefono: r.telefono || null, es_pep: r.es_pep === 'si',
-          notas: r.direccion ? `Dirección: ${r.direccion}` : null, orden: i, activo: true,
+          direccion: r.direccion || null, orden: i, activo: true,
         }))
         // Compatibilidad: representante en campos de texto plano (solicitudes viejas)
         if (!reps.length && d.rep_nombre) rel.push({

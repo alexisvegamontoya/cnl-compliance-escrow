@@ -93,13 +93,16 @@ const EMPTY_JURIDICA = {
   cedula_juridica: '',
   nombre_empresa: '',
   nombre_cliente: '',
+  pagina_web: '',
   pais_constitucion: 'Costa Rica',
   fecha_constitucion: '',
   actividad_economica: '',
   actividad_eco_nombre: '',
   actividad_eco_valor: null,
+  paises_ingresos: '',
   provincia: '',
   canton: '',
+  distrito: '',
   direccion_exacta: '',
   nombre_contacto: '',
   telefono: '',
@@ -238,7 +241,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
         'provincia','canton','direccion_exacta',
         'nombre_contacto','telefono','correo_electronico','fecha_vinculacion',
         'proposito_relacion','origen_fondos','ingreso_mensual_est',
-        'fecha_constitucion',
+        'fecha_constitucion','pagina_web','distrito','paises_ingresos',
         'estado_dd','estado_listas','estado_calificacion',
         'nivel_riesgo_actual','notas','activo',
         // Fase 2 — datos para la calificación de riesgo (valor de riesgo 0.5–3)
@@ -293,7 +296,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
           await supabase.from('clientes_personas_relacionadas').delete().eq('cliente_id', clienteId)
         }
         const personasPayload = personas.map((p, i) => ({
-          tenant_id: tenant?.id,
+          tenant_id: payload.tenant_id,
           cliente_id: clienteId,
           tipo_relacion: p.tipo_relacion,
           tipo_entidad: p.tipo_entidad,
@@ -308,6 +311,13 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
           direccion: p.direccion || null,
           telefono: p.telefono || null,
           correo: p.correo || null,
+          venc_identificacion: p.venc_identificacion || null,
+          fecha_nacimiento: p.fecha_nacimiento || null,
+          pais_nacimiento: p.pais_nacimiento || null,
+          ocupacion: p.ocupacion || null,
+          estado_civil: p.estado_civil || null,
+          sexo: p.sexo || null,
+          es_pep: p.es_pep || false,
           sub_personas: p.sub_personas || [],
           notas: p.notas || null,
           orden: i,
@@ -487,6 +497,11 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
                     <input className="input text-sm" value={form.nombre_empresa}
                       onChange={e => set('nombre_empresa', e.target.value)} placeholder="Nombre completo de la empresa" />
                   </div>
+                  <div className="col-span-2">
+                    <label className="label text-xs">Página web</label>
+                    <input className="input text-sm" value={form.pagina_web || ''}
+                      onChange={e => set('pagina_web', e.target.value)} placeholder="https://..." />
+                  </div>
                   <div>
                     <label className="label text-xs">País de constitución</label>
                     <select className="input text-sm" value={form.pais_constitucion}
@@ -589,12 +604,25 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
                   {cantonesProvincia.map(c => <option key={c.canton}>{c.canton}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="label text-xs">Distrito</label>
+                <input className="input text-sm" value={form.distrito || ''}
+                  onChange={e => set('distrito', e.target.value)} placeholder="Distrito" />
+              </div>
               <div className="col-span-2">
                 <label className="label text-xs">Dirección exacta</label>
                 <input className="input text-sm" value={form.direccion_exacta}
                   onChange={e => set('direccion_exacta', e.target.value)}
                   placeholder="Dirección completa..." />
               </div>
+              {tipoPers === 'juridica' && (
+                <div className="col-span-2">
+                  <label className="label text-xs">País(es) donde genera la mayoría de sus ingresos</label>
+                  <input className="input text-sm" value={form.paises_ingresos || ''}
+                    onChange={e => set('paises_ingresos', e.target.value)}
+                    placeholder="Ej. Costa Rica, Panamá..." />
+                </div>
+              )}
             </div>
           </div>
 

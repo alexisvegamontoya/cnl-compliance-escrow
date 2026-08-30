@@ -9,6 +9,8 @@ import { PAISES_RIESGO } from '../../lib/metodologiaRiesgo'
 const PAISES = PAISES_RIESGO.map(p => p.pais).sort()
 const ROLES_JUNTA = ['Presidente', 'Vicepresidente', 'Secretario', 'Tesorero', 'Vocal', 'Fiscal', 'Otro']
 const TIPOS_ID = ['Cédula', 'DIMEX', 'Pasaporte', 'Cédula Jurídica', 'Otro']
+const ESTADOS_CIVILES = ['Soltero/a', 'Casado/a', 'Divorciado/a', 'Viudo/a', 'Unión libre']
+const SEXOS = [['M', 'Masculino'], ['F', 'Femenino'], ['otro', 'Otro']]
 
 function PersonaTag({ persona, onRemove, onClick }) {
   const isEmpresa = persona.tipo_entidad === 'persona_juridica'
@@ -29,6 +31,7 @@ function PersonaTag({ persona, onRemove, onClick }) {
             </span>
           )}
           {persona.cargo && <span>{persona.cargo}</span>}
+          {persona.es_pep && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">PEP</span>}
           {persona.identificacion && <span>· {persona.identificacion}</span>}
           {persona.porcentaje_participacion != null && (
             <span className="font-medium text-brand-700">{persona.porcentaje_participacion}%</span>
@@ -67,6 +70,14 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
   const [direccion, setDireccion] = useState('')
   const [telefono, setTelefono] = useState('')
   const [correo, setCorreo] = useState('')
+  // Datos ampliados del representante legal
+  const [vencId, setVencId] = useState('')
+  const [fechaNac, setFechaNac] = useState('')
+  const [paisNac, setPaisNac] = useState('Costa Rica')
+  const [ocupacion, setOcupacion] = useState('')
+  const [estadoCivil, setEstadoCivil] = useState('')
+  const [sexo, setSexo] = useState('')
+  const [esPep, setEsPep] = useState(false)
 
   const esSocio = tipoRelacion === 'socio'
   const esJunta = tipoRelacion === 'junta_directiva'
@@ -89,6 +100,13 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
       direccion: direccion.trim(),
       telefono: telefono.trim(),
       correo: correo.trim(),
+      venc_identificacion: esRep ? (vencId || null) : null,
+      fecha_nacimiento: esRep ? (fechaNac || null) : null,
+      pais_nacimiento: esRep ? paisNac : null,
+      ocupacion: esRep ? ocupacion.trim() : null,
+      estado_civil: esRep ? estadoCivil : null,
+      sexo: esRep ? sexo : null,
+      es_pep: esRep ? esPep : false,
       sub_personas: [],
       notas,
     })
@@ -179,9 +197,42 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
           </div>
         )}
 
-        {/* Datos de contacto — representante legal */}
+        {/* Datos ampliados — representante legal */}
         {esRep && (
           <>
+            <div>
+              <label className="label text-xs">Vencimiento del documento</label>
+              <input type="date" className="input text-sm" value={vencId} onChange={e => setVencId(e.target.value)} />
+            </div>
+            <div>
+              <label className="label text-xs">Fecha de nacimiento</label>
+              <input type="date" className="input text-sm" value={fechaNac} onChange={e => setFechaNac(e.target.value)} />
+            </div>
+            <div>
+              <label className="label text-xs">País de nacimiento</label>
+              <select className="input text-sm" value={paisNac} onChange={e => setPaisNac(e.target.value)}>
+                {PAISES.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs">Ocupación</label>
+              <input className="input text-sm" value={ocupacion} onChange={e => setOcupacion(e.target.value)}
+                placeholder="Ocupación..." />
+            </div>
+            <div>
+              <label className="label text-xs">Estado civil</label>
+              <select className="input text-sm" value={estadoCivil} onChange={e => setEstadoCivil(e.target.value)}>
+                <option value="">— Seleccione —</option>
+                {ESTADOS_CIVILES.map(ec => <option key={ec}>{ec}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs">Sexo</label>
+              <select className="input text-sm" value={sexo} onChange={e => setSexo(e.target.value)}>
+                <option value="">— Seleccione —</option>
+                {SEXOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
             <div className="col-span-2">
               <label className="label text-xs">Dirección</label>
               <input className="input text-sm" value={direccion} onChange={e => setDireccion(e.target.value)}
@@ -196,6 +247,13 @@ function FormPersona({ tipoRelacion, onSave, onCancel, clientesBusqueda = [] }) 
               <label className="label text-xs">Correo electrónico</label>
               <input className="input text-sm" type="email" value={correo} onChange={e => setCorreo(e.target.value)}
                 placeholder="correo@ejemplo.com" />
+            </div>
+            <div className="col-span-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={esPep} onChange={e => setEsPep(e.target.checked)}
+                  className="w-4 h-4 rounded accent-brand-700" />
+                <span className="text-sm text-gray-700">Es persona expuesta políticamente (PEP)</span>
+              </label>
             </div>
           </>
         )}
