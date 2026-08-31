@@ -12,12 +12,14 @@ export default function TelInput({ value, onChange, cls }) {
   const code = m ? m[1] : '506'
   const num = m ? m[2] : (value || '')
   const emit = (c, n) => onChange(n ? `(${c}) ${n}` : '')
+  // El selector no debe llevar w-full (choca con w-24); el número ocupa el resto.
+  const base = (cls || '').replace(/\bw-full\b/g, '').trim()
   return (
     <div className="flex gap-2">
-      <select className={`${cls} w-24 flex-none`} value={code} onChange={e => emit(e.target.value, num)}>
+      <select className={`${base} w-24 flex-none`} value={code} onChange={e => emit(e.target.value, num)}>
         {CODIGOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
-      <input className={cls} value={num} onChange={e => emit(code, e.target.value)} placeholder="Número de teléfono" />
+      <input className={`${base} flex-1 min-w-0`} value={num} onChange={e => emit(code, e.target.value)} placeholder="Número de teléfono" />
     </div>
   )
 }
