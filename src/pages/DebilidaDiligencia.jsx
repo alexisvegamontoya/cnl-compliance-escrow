@@ -289,10 +289,13 @@ function ReporteDD({ tipo, datos, participantes, resultadosListas, perfil, check
       </div>
 
       <style>{`
+        @page { size: A4 portrait; margin: 12mm; }
         @media print {
           .print\\:hidden { display: none !important; }
-          body { margin: 0; }
-          #reporte-dd { position: static; overflow: visible; }
+          html, body { margin: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #reporte-dd { position: static; overflow: visible; font-size: 12px; }
+          #reporte-dd .max-w-4xl { max-width: none !important; }
         }
       `}</style>
     </div>

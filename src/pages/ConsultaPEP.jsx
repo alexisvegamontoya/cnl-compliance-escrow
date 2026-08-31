@@ -324,10 +324,13 @@ function Reporte({ consulta, resultados, allResultados, nivelRiesgo, metadata, o
 
       {/* CSS de impresión */}
       <style>{`
+        @page { size: A4 portrait; margin: 12mm; }
         @media print {
           .print\\:hidden { display: none !important; }
-          body { margin: 0; }
-          #reporte-pep { position: static; overflow: visible; }
+          html, body { margin: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #reporte-pep { position: static; overflow: visible; font-size: 12px; }
+          #reporte-pep .max-w-4xl { max-width: none !important; }
         }
       `}</style>
     </div>

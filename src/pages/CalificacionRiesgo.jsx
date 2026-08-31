@@ -448,7 +448,7 @@ function ReporteImprimible({ clienteActual, nombreCliente, tipoPersona, claseDat
   const criteriosCan  = criteriosPerfil(claseDato, tipoPersona, 'canales', variante)
 
   return (
-    <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '28px 32px', color: '#14141a', maxWidth: '780px', margin: '0 auto' }}>
+    <div id="reporte-cal" style={{ position: 'fixed', top: '-9999px', left: 0, visibility: 'hidden', fontFamily: 'Arial, sans-serif', padding: '4px 6px', color: '#14141a', maxWidth: '700px', margin: '0 auto' }}>
       {/* Encabezado */}
       <div style={{ borderBottom: '3px solid #0a1247', paddingBottom: '10px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>

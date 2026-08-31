@@ -50,10 +50,10 @@ export function documentoHTML({ titulo, subtitulo = '', cuerpo, tenant, profile,
   <meta charset="UTF-8">
   <title>${esc(titulo)} — ${esc(tenantNombre)}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 11px; color: #14141a; background: #fff;
+      font-size: 11.5px; color: #14141a; background: #fff;
       padding: 20px 30px;
     }
     .header {
@@ -181,7 +181,7 @@ export function documentoHTML({ titulo, subtitulo = '', cuerpo, tenant, profile,
  * Chrome repite los elementos fijos en cada página impresa, por lo que el
  * encabezado se dibuja encima del texto a partir de la segunda hoja.
  */
-export function imprimirNodo(idElemento, { titulo = 'Documento', orientacion = 'portrait', anchoMax = '780px' } = {}) {
+export function imprimirNodo(idElemento, { titulo = 'Documento', orientacion = 'portrait', anchoMax = '700px' } = {}) {
   const nodo = document.getElementById(idElemento)
   if (!nodo) {
     alert('No se encontró el contenido a imprimir.')
@@ -199,9 +199,9 @@ export function imprimirNodo(idElemento, { titulo = 'Documento', orientacion = '
   <meta charset="UTF-8">
   <title>${esc(titulo)}</title>
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
-      font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #14141a;
+      font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #14141a;
       background: #fff; margin: 0 auto; padding: 0; max-width: ${anchoMax};
     }
     img { max-width: 100%; }
@@ -209,7 +209,7 @@ export function imprimirNodo(idElemento, { titulo = 'Documento', orientacion = '
     tr, td, th { page-break-inside: avoid; break-inside: avoid; }
     thead { display: table-header-group; }
     h1, h2, h3, h4 { page-break-after: avoid; break-after: avoid; }
-    @page { size: A4 ${orientacion}; margin: 15mm; }
+    @page { size: A4 ${orientacion}; margin: 12mm; }
   </style>
 </head>
 <body>${nodo.innerHTML}</body>
