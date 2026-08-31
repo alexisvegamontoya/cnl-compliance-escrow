@@ -70,6 +70,8 @@ export default async function handler(req, res) {
   if (action === 'upload-url') {
     const docId = String(req.body.docId || 'doc').replace(/[^a-z0-9_-]/gi, '_')
     const ext = (String(req.body.filename || '').split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const PERMITIDAS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'doc', 'docx']
+    if (!PERMITIDAS.includes(ext)) return res.status(400).json({ error: 'Tipo de archivo no permitido. Suba PDF, imagen o Word.' })
     const path = `${sol.tenant_id}/${sol.id}/${docId}-${Date.now()}.${ext}`
     const { data, error: e } = await admin.storage.from('kyc').createSignedUploadUrl(path)
     if (e) return res.status(500).json({ error: e.message })
@@ -79,7 +81,12 @@ export default async function handler(req, res) {
   if (action === 'registrar-doc') {
     const { docId, etiqueta, path, filename } = req.body
     if (!path) return res.status(400).json({ error: 'Falta la ruta del archivo.' })
-    // Un solo archivo por doc_id: si ya había, se reemplaza el registro (el archivo viejo queda huérfano y se limpia luego).
+    // Un solo archivo por doc_id: si ya había, se elimina el archivo viejo del bucket
+    // (evita huérfanos) y se reemplaza el registro.
+    const { data: previos } = await admin.from('solicitudes_kyc_documentos')
+      .select('archivo_path').eq('solicitud_id', sol.id).eq('doc_id', docId)
+    const viejos = (previos || []).map(p => p.archivo_path).filter(p => p && p !== path)
+    if (viejos.length) { try { await admin.storage.from('kyc').remove(viejos) } catch { /* limpieza best-effort */ } }
     await admin.from('solicitudes_kyc_documentos').delete().eq('solicitud_id', sol.id).eq('doc_id', docId)
     const { error: e } = await admin.from('solicitudes_kyc_documentos').insert({
       solicitud_id: sol.id, tenant_id: sol.tenant_id,

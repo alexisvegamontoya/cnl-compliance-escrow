@@ -166,6 +166,10 @@ export default function PortalKYC() {
 
   async function subir(docId, etiqueta, file) {
     if (!file) return
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    const PERMITIDAS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'doc', 'docx']
+    if (!PERMITIDAS.includes(ext)) { setError('Tipo de archivo no permitido. Suba PDF, imagen (JPG/PNG) o Word.'); return }
+    if (file.size > 15 * 1024 * 1024) { setError('El archivo supera los 15 MB. Comprímalo e intente de nuevo.'); return }
     setError(''); setSubiendo(docId)
     try {
       const { path, token: upToken } = await api({ token, action: 'upload-url', docId, filename: file.name })
