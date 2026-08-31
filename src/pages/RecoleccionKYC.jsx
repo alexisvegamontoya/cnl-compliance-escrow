@@ -297,6 +297,15 @@ export default function RecoleccionKYC() {
         notasPartes.push(`[Crédito] Monto: ${d.credito_monto || '—'} · Plan: ${d.credito_plan_desc || '—'} · Garantía: ${d.credito_garantia_desc || '—'}`)
       }
       if (notasPartes.length) payload.notas = notasPartes.join(' · ')
+      // Fecha de vinculación = fecha de aprobación (si no venía)
+      if (!payload.fecha_vinculacion) payload.fecha_vinculacion = new Date().toISOString().slice(0, 10)
+      // País: la jurídica captura país de constitución; se usa también como ubicación/residencia.
+      if (esJ) {
+        if (!payload.pais_residencia && d.pais_constitucion) payload.pais_residencia = d.pais_constitucion
+        if (!payload.pais_ubicacion && d.pais_constitucion) payload.pais_ubicacion = d.pais_constitucion
+      } else if (!payload.pais_ubicacion && d.pais_residencia) {
+        payload.pais_ubicacion = d.pais_residencia
+      }
       // crear o actualizar cliente
       let clienteId = revisar.cliente_id
       // Si no viene vinculado, buscar por cédula: el cliente puede ya existir en el gestor.
@@ -329,28 +338,30 @@ export default function RecoleccionKYC() {
         if (!reps.length && d.rep_nombre) rel.push({
           tipo_relacion: 'representante_legal', tipo_entidad: 'persona_fisica',
           nombre: d.rep_nombre, identificacion: d.rep_identificacion || null,
-          telefono: d.rep_telefono || null, correo: d.rep_correo || null, orden: 0, activo: true,
+          telefono: d.rep_telefono || null, correo: d.rep_correo || null, es_pep: false, orden: 0, activo: true,
         })
         junta.forEach((m, i) => rel.push({
           tipo_relacion: 'junta_directiva', tipo_entidad: 'persona_fisica',
-          nombre: m.nombre, identificacion: m.cedula || null, cargo: m.cargo || null, orden: i, activo: true,
+          nombre: m.nombre, identificacion: m.cedula || null, cargo: m.cargo || null, es_pep: false, orden: i, activo: true,
         }))
         socios.forEach((s, i) => rel.push({
           tipo_relacion: 'socio', tipo_entidad: 'persona_fisica',
           nombre: s.nombre, identificacion: s.identificacion || null,
-          porcentaje_participacion: s.participacion ? Number(s.participacion) : null, orden: i, activo: true,
+          porcentaje_participacion: s.participacion ? Number(s.participacion) : null, es_pep: false, orden: i, activo: true,
         }))
         sociosEmp.forEach((s, i) => rel.push({
           tipo_relacion: 'socio', tipo_entidad: 'persona_juridica',
           nombre: s.nombre, identificacion: s.identificacion || null,
           porcentaje_participacion: s.participacion ? Number(s.participacion) : null,
           sub_personas: s.rep_nombre ? [{ tipo_relacion: 'representante_legal', nombre: s.rep_nombre }] : [],
-          notas: s.socios ? `Socios: ${s.socios}` : null, orden: i, activo: true,
+          notas: s.socios ? `Socios: ${s.socios}` : null, es_pep: false, orden: i, activo: true,
         }))
         if (rel.length) {
           // Reemplazar la estructura previa (evita duplicar si el cliente ya existía).
           await supabase.from('clientes_personas_relacionadas').delete().eq('cliente_id', clienteId)
-          const filas = rel.map(r => ({ ...r, tenant_id: tid, cliente_id: clienteId }))
+          // Normalizar claves: PostgREST rellena con NULL las columnas ausentes en un
+          // insert múltiple, y es_pep es NOT NULL. Aseguramos que toda fila la traiga.
+          const filas = rel.map(r => ({ es_pep: false, ...r, tenant_id: tid, cliente_id: clienteId }))
           const { error } = await supabase.from('clientes_personas_relacionadas').insert(filas)
           if (error) throw error
         }
