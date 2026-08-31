@@ -17,7 +17,7 @@ const REP_VACIO = {
 const inp = 'w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-brand-500'
 
 export default function EstructuraKyc({ datos, set }) {
-  const arr = (k) => datos[k] || []
+  const arr = (k) => (Array.isArray(datos[k]) ? datos[k] : [])
   const upd = (k, i, f, v) => set(k, arr(k).map((it, j) => (j === i ? { ...it, [f]: v } : it)))
   const add = (k, tpl) => set(k, [...arr(k), tpl])
   const del = (k, i) => set(k, arr(k).filter((_, j) => j !== i))
