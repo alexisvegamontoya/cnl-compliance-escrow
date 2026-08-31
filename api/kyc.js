@@ -17,6 +17,7 @@ async function cargarSolicitud(admin, token) {
     .eq('token', token)
     .maybeSingle()
   if (!sol) return { error: 'Enlace no válido.', code: 404 }
+  if (sol.estado === 'cancelada') return { error: 'Esta solicitud fue cancelada. Contacte al sujeto obligado.', code: 409 }
   if (sol.vence_en && new Date(sol.vence_en) < new Date()) return { error: 'El enlace venció. Solicite uno nuevo.', code: 410 }
   if (sol.estado === 'aprobada') return { error: 'Esta solicitud ya fue procesada.', code: 409 }
   return { sol }

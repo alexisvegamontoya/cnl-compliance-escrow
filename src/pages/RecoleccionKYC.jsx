@@ -78,7 +78,12 @@ const ESTADO = {
   recibida:  { label: 'Recibida',   clase: 'bg-violet-50 text-violet-700' },
   aprobada:  { label: 'Aprobada',   clase: 'bg-green-50 text-green-700' },
   rechazada: { label: 'Devuelta',   clase: 'bg-amber-50 text-amber-700' },
+  cancelada: { label: 'Cancelada',  clase: 'bg-gray-100 text-gray-500' },
 }
+const FILTROS = [
+  ['todas', 'Todas'], ['recibida', 'Por revisar'], ['enviada', 'Enviadas'],
+  ['en_proceso', 'En proceso'], ['aprobada', 'Aprobadas'], ['rechazada', 'Devueltas'], ['cancelada', 'Canceladas'],
+]
 
 function fecha(iso) {
   if (!iso) return '—'
@@ -131,6 +136,7 @@ export default function RecoleccionKYC() {
   const [accion, setAccion]           = useState('')     // '' | 'aprobando' | 'rechazando'
   const [msgRev, setMsgRev]           = useState('')
   const [alertaListas, setAlertaListas] = useState(null) // { cliente, estado, n } tras tamizaje al aprobar
+  const [filtro, setFiltro]           = useState('todas')
 
   const cargar = useCallback(async () => {
     if (!soActivo) { setLoading(false); return }
@@ -450,6 +456,21 @@ export default function RecoleccionKYC() {
     setAccion(''); setRevisar(null)
   }
 
+  // Extiende la vigencia del enlace 3 días más (para solicitudes aún abiertas).
+  async function extender(sol) {
+    const nuevo = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+    await supabase.from('solicitudes_kyc').update({ vence_en: nuevo, recordatorio_vencimiento_en: null }).eq('id', sol.id)
+    setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, vence_en: nuevo } : s))
+    setCopiado('ext-' + sol.id); setTimeout(() => setCopiado(null), 1800)
+  }
+
+  // Cancela una solicitud (no borra datos): el enlace deja de funcionar.
+  async function cancelar(sol) {
+    if (!window.confirm(`¿Cancelar la solicitud de "${sol.nombre_cliente || sol.correo_cliente}"? El enlace dejará de funcionar.`)) return
+    await supabase.from('solicitudes_kyc').update({ estado: 'cancelada' }).eq('id', sol.id)
+    setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, estado: 'cancelada' } : s))
+  }
+
   // Informe (PDF independiente) con toda la información + índice de documentos.
   function descargarExpediente() {
     setMsgRev('')
@@ -688,6 +709,24 @@ export default function RecoleccionKYC() {
         </form>
       )}
 
+      {/* Filtros + contador de pendientes */}
+      {solicitudes.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {FILTROS.map(([v, l]) => {
+            const n = v === 'todas' ? solicitudes.length : solicitudes.filter(s => s.estado === v).length
+            if (v !== 'todas' && n === 0) return null
+            const activo = filtro === v
+            const esPend = v === 'recibida' && n > 0
+            return (
+              <button key={v} onClick={() => setFiltro(v)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${activo ? 'bg-brand-700 text-white border-brand-700' : esPend ? 'bg-violet-50 text-violet-700 border-violet-300' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'}`}>
+                {l} <span className={`ml-1 ${activo ? 'opacity-80' : 'opacity-50'}`}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Listado */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="w-full text-sm">
@@ -698,14 +737,18 @@ export default function RecoleccionKYC() {
               <th className="px-4 py-2 font-semibold">Correo</th>
               <th className="px-4 py-2 font-semibold">Estado</th>
               <th className="px-4 py-2 font-semibold">Enviada</th>
-              <th className="px-4 py-2 font-semibold text-right">Enlace</th>
+              <th className="px-4 py-2 font-semibold text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {solicitudes.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Todavía no hay solicitudes. Creá la primera.</td></tr>
-            ) : solicitudes.map(s => {
+            {(() => {
+              const visibles = filtro === 'todas' ? solicitudes : solicitudes.filter(s => s.estado === filtro)
+              if (visibles.length === 0) {
+                return <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">{solicitudes.length === 0 ? 'Todavía no hay solicitudes. Creá la primera.' : 'No hay solicitudes en este filtro.'}</td></tr>
+              }
+              return visibles.map(s => {
               const est = ESTADO[s.estado] || ESTADO.enviada
+              const abierta = s.estado !== 'recibida' && s.estado !== 'aprobada' && s.estado !== 'cancelada'
               return (
                 <tr key={s.id} className="border-t border-gray-100">
                   <td className="px-4 py-2 font-medium text-gray-800">{s.nombre_cliente || '—'}</td>
@@ -714,28 +757,33 @@ export default function RecoleccionKYC() {
                   <td className="px-4 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${est.clase}`}>{est.label}</span></td>
                   <td className="px-4 py-2 text-gray-500">{fecha(s.enviada_en || s.creado_en)}</td>
                   <td className="px-4 py-2">
-                    <div className="flex items-center gap-2 justify-end">
+                    <div className="flex items-center gap-2 justify-end flex-wrap">
                       {(s.estado === 'recibida' || s.estado === 'aprobada' || s.estado === 'rechazada') && (
                         <button onClick={() => abrirRevision(s)}
                           className={`text-xs font-semibold ${s.estado === 'recibida' ? 'text-violet-700 hover:underline' : 'text-gray-500 hover:text-brand-700'}`}>
                           {s.estado === 'recibida' ? '🔎 Revisar' : 'Ver'}
                         </button>
                       )}
-                      {s.estado !== 'recibida' && s.estado !== 'aprobada' && (
+                      {abierta && (
                         <>
                           <button onClick={() => copiar(s)} className="text-xs text-brand-600 hover:underline">
                             {copiado === s.id ? '¡Copiado!' : 'Copiar enlace'}
                           </button>
                           <button onClick={() => enviarCorreo(s)} className="text-xs text-gray-500 hover:text-brand-700">
-                            {copiado === 'mail-' + s.id ? '✓ Enviado' : 'Reenviar correo'}
+                            {copiado === 'mail-' + s.id ? '✓ Enviado' : 'Reenviar'}
                           </button>
+                          <button onClick={() => extender(s)} className="text-xs text-gray-500 hover:text-brand-700">
+                            {copiado === 'ext-' + s.id ? '✓ +3 días' : 'Extender'}
+                          </button>
+                          <button onClick={() => cancelar(s)} className="text-xs text-red-500 hover:text-red-700">Cancelar</button>
                         </>
                       )}
                     </div>
                   </td>
                 </tr>
               )
-            })}
+            })
+            })()}
           </tbody>
         </table>
       </div>
