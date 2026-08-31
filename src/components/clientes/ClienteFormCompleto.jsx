@@ -766,12 +766,17 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
                 placeholder="Describa el propósito de la relación comercial (Art. 29, Acuerdo SUGEF 13-19)..." />
             </div>
             <div>
-              <label className="label text-xs">Origen de fondos</label>
-              <select className="input text-sm" value={form.origen_fondos}
-                onChange={e => set('origen_fondos', e.target.value)}>
-                <option value="">— Seleccione —</option>
-                {ORIGENES_FONDOS.map(o => <option key={o}>{o}</option>)}
-              </select>
+              <label className="label text-xs">Origen / fuente de los fondos</label>
+              {tipoPers === 'fisica' ? (
+                <select className="input text-sm" value={form.origen_fondos}
+                  onChange={e => set('origen_fondos', e.target.value)}>
+                  <option value="">— Seleccione —</option>
+                  {ORIGENES_FONDOS.map(o => <option key={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input className="input text-sm" value={form.origen_fondos || ''}
+                  onChange={e => set('origen_fondos', e.target.value)} placeholder="Origen / fuente de los fondos" />
+              )}
             </div>
             <div>
               <label className="label text-xs">Ingreso mensual estimado (USD)</label>

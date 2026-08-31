@@ -67,7 +67,7 @@ const CAMPOS_JURIDICA = [
   { k: 'nombre_contacto', l: 'Persona de contacto' },
   { k: 'telefono', l: 'Teléfono', type: 'tel', req: true }, { k: 'correo_electronico', l: 'Correo electrónico', type: 'email', req: true },
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
-  { k: 'origen_fondos', l: 'Origen / fuente de los fondos', type: 'select', opts: ORIGEN_FONDOS_OPTS, req: true, full: true },
+  { k: 'origen_fondos', l: 'Origen / fuente de los fondos', req: true, full: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
 ]
 
