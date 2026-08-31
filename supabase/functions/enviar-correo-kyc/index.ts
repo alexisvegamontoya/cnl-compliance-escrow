@@ -64,9 +64,10 @@ Deno.serve(async (req) => {
     const { token, link, motivo, tipo, cc } = await req.json()
     if (!token || !link) return json({ error: 'Faltan datos (token/link).' }, 400)
     const esRecordatorio = tipo === 'recordatorio'
+    const esAvisoOficial = tipo === 'aviso_oficial'
 
     // Buscar la solicitud (service role)
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,nombre_cliente,vence_en,tenants(nombre,logo_url)`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,correo_oficial,nombre_cliente,vence_en,tenants(nombre,logo_url)`, {
       headers: { apikey: SERVICE_KEY!, Authorization: `Bearer ${SERVICE_KEY}` },
     })
     const rows = await r.json()
@@ -74,6 +75,34 @@ Deno.serve(async (req) => {
     if (!sol) return json({ error: 'Solicitud no encontrada.' }, 404)
 
     const tenant = sol.tenants?.nombre || FROM_NAME
+
+    // ── Aviso al oficial: el cliente ya envió su información ──
+    if (esAvisoOficial) {
+      if (!sol.correo_oficial) return json({ ok: true, skipped: 'sin correo_oficial' })
+      const cli = sol.nombre_cliente || 'un cliente'
+      const htmlOf = `<!DOCTYPE html><html lang="es"><body style="margin:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:28px 16px"><tr><td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.08)">
+          <tr><td style="background:#0A1247;padding:20px 28px"><p style="color:#fff;margin:0;font-size:15px;font-weight:bold">${tenant}</p>
+            <p style="color:rgba(255,255,255,.85);margin:4px 0 0;font-size:13px">Recolección KYC — información recibida</p></td></tr>
+          <tr><td style="padding:26px 28px">
+            <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 14px"><strong>${cli}</strong> completó y envió su información de debida diligencia. Ya puede revisarla y aprobarla en el sistema.</p>
+            <div style="text-align:center;margin:22px 0"><a href="${link}" style="background:#0A1247;color:#fff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700">Revisar en el sistema</a></div>
+          </td></tr>
+        </table></td></tr></table></body></html>`
+      const envioOf = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `${FROM_NAME} <${FROM_EMAIL}>`, to: [sol.correo_oficial], reply_to: FROM_EMAIL,
+          subject: `Información recibida de ${cli} — ${tenant}`,
+          html: htmlOf,
+          text: `${cli} completó y envió su información de debida diligencia. Revísela en el sistema: ${link}`,
+        }),
+      })
+      if (!envioOf.ok) return json({ error: 'Resend: ' + (await envioOf.text()).slice(0, 300) }, 502)
+      return json({ ok: true })
+    }
     const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null, motivo, tipo)
     const asunto = esRecordatorio
       ? `Recordatorio: información pendiente — ${tenant}`

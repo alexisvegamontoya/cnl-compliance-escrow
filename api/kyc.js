@@ -7,7 +7,7 @@
  *   GET  /api/kyc?token=...            → configuración + datos + documentos
  *   POST /api/kyc { token, action }    → guardar | upload-url | registrar-doc | enviar
  */
-import { clienteAdmin } from './_auth.js'
+import { clienteAdmin, SUPABASE_URL } from './_auth.js'
 
 async function cargarSolicitud(admin, token) {
   if (!token) return { error: 'Falta el token.', code: 400 }
@@ -103,6 +103,15 @@ export default async function handler(req, res) {
       })
       .eq('id', sol.id)
     if (e) return res.status(500).json({ error: e.message })
+    // Aviso al oficial de que ya llegó la información (fire-and-forget).
+    try {
+      const appUrl = (process.env.APP_URL || '').replace(/\/$/, '')
+      await fetch(`${SUPABASE_URL}/functions/v1/enviar-correo-kyc`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: sol.token, link: `${appUrl}/recoleccion-kyc`, tipo: 'aviso_oficial' }),
+      })
+    } catch { /* el aviso al oficial no debe afectar el envío del cliente */ }
     return res.status(200).json({ ok: true })
   }
 
