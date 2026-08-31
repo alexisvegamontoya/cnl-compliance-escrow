@@ -119,6 +119,8 @@ export default function RecoleccionKYC() {
   const [clienteId, setClienteId]     = useState('')
   const [correo, setCorreo]           = useState('')
   const [nombre, setNombre]           = useState('')
+  const [masivo, setMasivo]           = useState(false)
+  const [listaMasiva, setListaMasiva] = useState('')
   const [guardando, setGuardando]     = useState(false)
   // Personalización: preguntas y documentos extra que agrega el oficial
   const [preguntasExtra, setPreguntasExtra]   = useState([])
@@ -217,6 +219,46 @@ export default function RecoleccionKYC() {
     logAudit({ accion: 'crear', tabla: 'solicitudes_kyc', registro_id: data.id, descripcion: `Solicitud KYC creada: ${data.nombre_cliente || correo.trim()}`, tenant_id: soActivo })
     // Enviar el correo al cliente automáticamente (Resend)
     enviarCorreo(data)
+  }
+
+  // Envío masivo: una solicitud por línea ("correo" o "nombre, correo"). Mismo
+  // tipo/checklist/extras que el formulario, y envía el correo a cada cliente.
+  async function crearMasivo(ev) {
+    ev.preventDefault(); setError('')
+    if (!soActivo) { setError('Seleccione el sujeto obligado.'); return }
+    const parsed = listaMasiva.split(/\n/).map(l => l.trim()).filter(Boolean).map(l => {
+      const parts = l.split(/[,;\t]/).map(p => p.trim()).filter(Boolean)
+      return { correo: parts.find(p => /@/.test(p)) || '', nombre: parts.find(p => !/@/.test(p)) || '' }
+    }).filter(x => /@/.test(x.correo))
+    if (!parsed.length) { setError('Ingrese al menos un correo válido (uno por línea).'); return }
+    setGuardando(true)
+    const sector = /cr[eé]dit|financ|prestamist|ahorro|cooperativ/i.test(soActividad || '') ? 'credito' : null
+    const documentos_extra = [
+      ...documentosExtra,
+      ...(esCreditoTenant && pedirAvaluo ? [{ id: 'credito_avaluo', label: 'Avalúo', required: false }] : []),
+      ...(esCreditoTenant && pedirFlujo ? [{ id: 'credito_flujo_caja', label: 'Flujo de caja proyectado a un año', required: false }] : []),
+    ]
+    const nuevas = []
+    for (const p of parsed) {
+      const { data, error } = await supabase.from('solicitudes_kyc').insert({
+        tenant_id: soActivo, tipo_persona: tipoPersona, cliente_id: null,
+        correo_cliente: p.correo, nombre_cliente: p.nombre || null, sector,
+        preguntas_extra: preguntasExtra, documentos_excluidos: excluidos, documentos_extra,
+        estado: 'enviada', creado_por: session?.user?.id, correo_oficial: session?.user?.email || null,
+        enviada_en: new Date().toISOString(), vence_en: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      }).select('*').single()
+      if (!error && data) {
+        nuevas.push(data)
+        enviarCorreo(data)
+        logAudit({ accion: 'crear', tabla: 'solicitudes_kyc', registro_id: data.id, descripcion: `Solicitud KYC (masivo): ${p.nombre || p.correo}`, tenant_id: soActivo })
+      }
+    }
+    setGuardando(false)
+    setSolicitudes(prev => [...nuevas, ...prev])
+    setShowForm(false); setMasivo(false); setListaMasiva('')
+    setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false)
+    setMsgRev('')
+    setError(nuevas.length < parsed.length ? `Se enviaron ${nuevas.length}/${parsed.length} solicitudes.` : '')
   }
 
   // Envía el enlace por correo (Resend, vía edge function). Si falla, abre el correo del oficial.
@@ -608,8 +650,13 @@ export default function RecoleccionKYC() {
       )}
 
       {showForm && (
-        <form onSubmit={crear} className="card space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Nueva solicitud</h2>
+        <form onSubmit={masivo ? crearMasivo : crear} className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">{masivo ? 'Envío masivo' : 'Nueva solicitud'}</h2>
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={masivo} onChange={e => setMasivo(e.target.checked)} /> Envío masivo
+            </label>
+          </div>
 
           <div className="flex gap-2">
             {[['fisica', '👤 Persona Física'], ['juridica', '🏢 Persona Jurídica']].map(([v, l]) => (
@@ -620,7 +667,16 @@ export default function RecoleccionKYC() {
             ))}
           </div>
 
-          <div className="flex gap-4 text-sm">
+          {masivo && (
+            <div>
+              <label className="label text-xs">Clientes (uno por línea: <em>correo</em> o <em>nombre, correo</em>)</label>
+              <textarea className="input text-sm font-mono" rows={6} value={listaMasiva} onChange={e => setListaMasiva(e.target.value)}
+                placeholder={'ana@empresa.com\nJuan Pérez, juan@correo.com\ncarlos@correo.com'} />
+              <p className="text-xs text-gray-400 mt-1">Se creará y enviará una solicitud {tipoPersona === 'juridica' ? 'jurídica' : 'física'} a cada uno, con el mismo checklist configurado abajo.</p>
+            </div>
+          )}
+
+          <div className={`flex gap-4 text-sm ${masivo ? 'hidden' : ''}`}>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="radio" checked={modo === 'nuevo'} onChange={() => { setModo('nuevo'); setClienteId('') }} />
               Cliente nuevo
@@ -641,7 +697,7 @@ export default function RecoleccionKYC() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid grid-cols-2 gap-3 ${masivo ? 'hidden' : ''}`}>
             <div>
               <label className="label text-xs">Nombre del cliente</label>
               <input className="input text-sm" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre o razón social" />
@@ -722,7 +778,7 @@ export default function RecoleccionKYC() {
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={guardando} className="btn-primary text-sm disabled:opacity-50">
-              {guardando ? 'Creando…' : 'Crear y enviar al cliente'}
+              {guardando ? 'Enviando…' : masivo ? 'Crear y enviar a todos' : 'Crear y enviar al cliente'}
             </button>
           </div>
         </form>
