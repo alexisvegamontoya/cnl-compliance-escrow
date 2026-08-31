@@ -734,7 +734,12 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
                 <Row label="Fecha constitución" v={cliente.fecha_constitucion} />
                 <Row label="País de constitución" v={cliente.pais_constitucion} />
                 <Row label="Actividad económica" v={cliente.actividad_eco_nombre || cliente.actividad_economica} />
+                <Row label="Página web" v={cliente.pagina_web} />
+                <Row label="País(es) de ingresos" v={cliente.paises_ingresos} />
               </>
+            )}
+            {cliente.tipo_persona === 'fisica' && (
+              <Row label="Caducidad documento" v={cliente.venc_identificacion} />
             )}
           </div>
           <div className="card space-y-3">
@@ -743,6 +748,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
             <Row label="País residencia" v={cliente.pais_ubicacion || cliente.pais_residencia} />
             <Row label="Provincia" v={cliente.provincia} />
             <Row label="Cantón" v={cliente.canton} />
+            <Row label="Distrito" v={cliente.distrito} />
             <Row label="Dirección" v={cliente.direccion_exacta} />
             <Row label="Contacto" v={cliente.nombre_contacto} />
             <Row label="Teléfono" v={cliente.telefono} />
@@ -755,11 +761,29 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
               <Row label="Propósito de relación" v={cliente.proposito_relacion} />
               <Row label="Origen de fondos" v={cliente.origen_fondos} />
               <Row label="Ingreso mensual est." v={cliente.ingreso_mensual_est ? `USD ${Number(cliente.ingreso_mensual_est).toLocaleString()}` : null} />
+              <Row label="Inscripción CCSS" v={({ al_dia: 'Inscrito — al día', morosidad: 'Inscrito — morosidad', arreglo: 'Inscrito — arreglo de pago', no_inscrito: 'No inscrito' })[cliente.ccss_estado] || cliente.ccss_estado} />
+              <Row label="Condición SUGEF" v={({ no: 'No es sujeto obligado', '15': 'Art. 15', '15bis': 'Art. 15 bis', '15ter': 'Art. 15 ter', pendiente: 'Inscripción pendiente' })[cliente.sugef_estado] || cliente.sugef_estado} />
             </div>
             {cliente.notas && (
               <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">{cliente.notas}</div>
             )}
           </div>
+          {cliente.tipo_persona === 'fisica' && cliente.empleador && Object.values(cliente.empleador).some(Boolean) && (
+            <div className="card col-span-2 space-y-3">
+              <p className="text-sm font-bold text-gray-700 border-b pb-2">Empresa donde labora</p>
+              <div className="grid grid-cols-3 gap-4">
+                <Row label="Nombre comercial" v={cliente.empleador.nombre_comercial} />
+                <Row label="Razón social" v={cliente.empleador.razon_social} />
+                <Row label="Tipo de sociedad" v={cliente.empleador.tipo_sociedad} />
+                <Row label="Actividad" v={cliente.empleador.actividad} />
+                <Row label="Teléfono" v={cliente.empleador.telefono} />
+                <Row label="Correo" v={cliente.empleador.correo} />
+                <Row label="Página web" v={cliente.empleador.web} />
+                <Row label="Puesto" v={cliente.empleador.puesto} />
+                <Row label="Antigüedad" v={cliente.empleador.antiguedad} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

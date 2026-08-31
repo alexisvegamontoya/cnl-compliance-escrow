@@ -390,6 +390,12 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
             <tr><td style="color:#9a9aa4; padding:2px 0;">Identificación:</td><td>${cliente.cedula_juridica||cliente.numero_identificacion||'—'}</td></tr>
             <tr><td style="color:#9a9aa4; padding:2px 0;">País residencia:</td><td>${cliente.pais_ubicacion||cliente.pais_nacimiento||'—'}</td></tr>
             <tr><td style="color:#9a9aa4; padding:2px 0;">Actividad:</td><td>${cliente.actividad_eco_nombre||cliente.profesion_nombre||cliente.actividad_economica||'—'}</td></tr>
+            <tr><td style="color:#9a9aa4; padding:2px 0;">Dirección:</td><td>${[cliente.direccion_exacta, cliente.distrito, cliente.canton, cliente.provincia].filter(Boolean).join(', ')||'—'}</td></tr>
+            ${cliente.telefono||cliente.correo_electronico?`<tr><td style="color:#9a9aa4; padding:2px 0;">Contacto:</td><td>${[cliente.telefono, cliente.correo_electronico].filter(Boolean).join(' · ')}</td></tr>`:''}
+            ${cliente.pagina_web?`<tr><td style="color:#9a9aa4; padding:2px 0;">Página web:</td><td>${cliente.pagina_web}</td></tr>`:''}
+            ${cliente.paises_ingresos?`<tr><td style="color:#9a9aa4; padding:2px 0;">País(es) de ingresos:</td><td>${cliente.paises_ingresos}</td></tr>`:''}
+            ${cliente.ccss_estado?`<tr><td style="color:#9a9aa4; padding:2px 0;">CCSS:</td><td>${({al_dia:'Inscrito — al día',morosidad:'Inscrito — morosidad',arreglo:'Inscrito — arreglo de pago',no_inscrito:'No inscrito'})[cliente.ccss_estado]||cliente.ccss_estado}</td></tr>`:''}
+            ${cliente.sugef_estado?`<tr><td style="color:#9a9aa4; padding:2px 0;">SUGEF (Ley 7786):</td><td>${({no:'No es sujeto obligado','15':'Art. 15','15bis':'Art. 15 bis','15ter':'Art. 15 ter',pendiente:'Inscripción pendiente'})[cliente.sugef_estado]||cliente.sugef_estado}</td></tr>`:''}
             <tr><td style="color:#9a9aa4; padding:2px 0;">Propósito:</td><td>${cliente.proposito_relacion||'—'}</td></tr>
           </tbody></table>
         </div>
