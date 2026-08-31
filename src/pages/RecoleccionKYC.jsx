@@ -12,6 +12,7 @@ import { docsKyc } from '../lib/kycChecklist'
 import { tamizarPersona, ETIQUETA_LISTAS } from '../lib/tamizaje'
 import { calificarCliente, persistirCalificacion } from '../lib/calificacionAuto'
 import { ACTIVIDADES_PROFESIONES } from '../lib/metodologiaRiesgo'
+import { logAudit } from '../lib/auditLog'
 
 const slug = (s) => 'x_' + String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
@@ -137,6 +138,8 @@ export default function RecoleccionKYC() {
   const [msgRev, setMsgRev]           = useState('')
   const [alertaListas, setAlertaListas] = useState(null) // { cliente, estado, n } tras tamizaje al aprobar
   const [filtro, setFiltro]           = useState('todas')
+  const [editando, setEditando]       = useState(false)
+  const [guardandoEd, setGuardandoEd] = useState(false)
 
   const cargar = useCallback(async () => {
     if (!soActivo) { setLoading(false); return }
@@ -211,6 +214,7 @@ export default function RecoleccionKYC() {
     setShowForm(false); setTipoPersona('fisica'); setModo('nuevo'); setClienteId(''); setCorreo(''); setNombre('')
     setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false)
     setSolicitudes(prev => [data, ...prev])
+    logAudit({ accion: 'crear', tabla: 'solicitudes_kyc', registro_id: data.id, descripcion: `Solicitud KYC creada: ${data.nombre_cliente || correo.trim()}`, tenant_id: soActivo })
     // Enviar el correo al cliente automáticamente (Resend)
     enviarCorreo(data)
   }
@@ -247,10 +251,22 @@ export default function RecoleccionKYC() {
 
   // ── Revisión / volcado al gestor ──
   async function abrirRevision(sol) {
-    setRevisar(sol); setMsgRev(''); setDocsRev([])
+    setRevisar(sol); setMsgRev(''); setDocsRev([]); setEditando(false)
     const { data } = await supabase.from('solicitudes_kyc_documentos')
       .select('*').eq('solicitud_id', sol.id).order('subido_en')
     setDocsRev(data || [])
+  }
+
+  // Editar antes de aprobar: corregir un dato del cliente y guardarlo en la solicitud.
+  const setDatoRev = (k, v) => setRevisar(r => ({ ...r, datos: { ...(r.datos || {}), [k]: v } }))
+  async function guardarEdicion() {
+    if (!revisar) return
+    setGuardandoEd(true); setMsgRev('')
+    const { error } = await supabase.from('solicitudes_kyc').update({ datos: revisar.datos }).eq('id', revisar.id)
+    setGuardandoEd(false)
+    if (error) { setMsgRev('No se pudo guardar: ' + error.message); return }
+    setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, datos: revisar.datos } : s))
+    setEditando(false)
   }
 
   async function descargarDoc(doc) {
@@ -431,6 +447,7 @@ export default function RecoleccionKYC() {
 
       await supabase.from('solicitudes_kyc').update({ estado: 'aprobada', cliente_id: clienteId }).eq('id', revisar.id)
       setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'aprobada', cliente_id: clienteId } : s))
+      logAudit({ accion: 'aprobar', tabla: 'solicitudes_kyc', registro_id: revisar.id, descripcion: `KYC aprobado y volcado al gestor: ${revisar.nombre_cliente || nombreCli}${alerta ? ' [ALERTA en listas]' : ''}`, tenant_id: tid })
       setAlertaListas(alerta)
       setRevisar(null)
     } catch (err) { setMsgRev('No se pudo aprobar: ' + err.message) }
@@ -453,6 +470,7 @@ export default function RecoleccionKYC() {
       })
     } catch { /* si falla el correo, la devolución igual queda registrada */ }
     setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'rechazada', motivo_rechazo: motivo.trim() } : s))
+    logAudit({ accion: 'devolver', tabla: 'solicitudes_kyc', registro_id: revisar.id, descripcion: `KYC devuelto para corrección: ${motivo.trim() || 'sin motivo'}`, tenant_id: revisar.tenant_id })
     setAccion(''); setRevisar(null)
   }
 
@@ -469,6 +487,7 @@ export default function RecoleccionKYC() {
     if (!window.confirm(`¿Cancelar la solicitud de "${sol.nombre_cliente || sol.correo_cliente}"? El enlace dejará de funcionar.`)) return
     await supabase.from('solicitudes_kyc').update({ estado: 'cancelada' }).eq('id', sol.id)
     setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, estado: 'cancelada' } : s))
+    logAudit({ accion: 'cancelar', tabla: 'solicitudes_kyc', registro_id: sol.id, descripcion: `Solicitud KYC cancelada: ${sol.nombre_cliente || sol.correo_cliente}`, tenant_id: sol.tenant_id })
   }
 
   // Informe (PDF independiente) con toda la información + índice de documentos.
@@ -815,21 +834,37 @@ export default function RecoleccionKYC() {
               )}
 
               <div>
-                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Información recibida</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-600 uppercase">Información recibida</p>
+                  {revisar.estado === 'recibida' && (
+                    editando ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditando(false); }} className="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
+                        <button onClick={guardarEdicion} disabled={guardandoEd} className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50">{guardandoEd ? 'Guardando…' : 'Guardar cambios'}</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setEditando(true)} className="text-xs text-brand-600 hover:underline">✎ Editar datos</button>
+                    )
+                  )}
+                </div>
                 <table className="w-full text-sm">
                   <tbody>
                     {Object.entries(revisar.datos || {})
-                      .filter(([k, v]) => v !== '' && v != null && !ESTRUCTURA_KEYS.includes(k) && !Array.isArray(v) && typeof v !== 'object')
+                      .filter(([k, v]) => (editando || (v !== '' && v != null)) && !ESTRUCTURA_KEYS.includes(k) && !Array.isArray(v) && typeof v !== 'object')
                       .map(([k, v]) => (
                       <tr key={k} className="border-b border-gray-50">
                         <td className="py-1.5 pr-3 text-gray-500 align-top w-2/5">{k}</td>
-                        <td className="py-1.5 font-medium text-gray-800">{String(v)}</td>
+                        <td className="py-1.5 font-medium text-gray-800">
+                          {editando
+                            ? <input className="w-full rounded border border-gray-200 px-2 py-1 text-sm" value={v == null ? '' : String(v)} onChange={e => setDatoRev(k, e.target.value)} />
+                            : String(v)}
+                        </td>
                       </tr>
                     ))}
                     {Object.keys(revisar.datos || {}).length === 0 && <tr><td className="py-2 text-gray-400 text-sm">Sin datos.</td></tr>}
                   </tbody>
                 </table>
-                {bloquesEstructura(revisar.datos || {})}
+                {!editando && bloquesEstructura(revisar.datos || {})}
               </div>
 
               <div>
