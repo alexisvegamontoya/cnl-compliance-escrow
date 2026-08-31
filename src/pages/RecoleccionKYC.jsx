@@ -10,6 +10,8 @@ import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { generarExpedienteKycHTML } from '../utils/kycExpediente'
 import { docsKyc } from '../lib/kycChecklist'
 import { tamizarPersona, ETIQUETA_LISTAS } from '../lib/tamizaje'
+import { calificarCliente, persistirCalificacion } from '../lib/calificacionAuto'
+import { ACTIVIDADES_PROFESIONES } from '../lib/metodologiaRiesgo'
 
 const slug = (s) => 'x_' + String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
@@ -308,6 +310,13 @@ export default function RecoleccionKYC() {
       } else if (!payload.pais_ubicacion && d.pais_residencia) {
         payload.pais_ubicacion = d.pais_residencia
       }
+      // Enriquecer la actividad para la calificación de riesgo (nombre + valor 1-3)
+      const actLabel = (esJ ? d.actividad_economica : (d.profesion_nombre || d.actividad_economica)) || ''
+      if (actLabel) {
+        const m = ACTIVIDADES_PROFESIONES.find(a => a.label?.toLowerCase() === actLabel.toLowerCase())
+        if (esJ) { payload.actividad_eco_nombre = actLabel; if (m) payload.actividad_eco_valor = m.valor }
+        else { payload.profesion_nombre = payload.profesion_nombre || actLabel; if (m) payload.profesion_valor = m.valor }
+      }
       // crear o actualizar cliente
       let clienteId = revisar.cliente_id
       // Si no viene vinculado, buscar por cédula: el cliente puede ya existir en el gestor.
@@ -368,24 +377,51 @@ export default function RecoleccionKYC() {
           if (error) throw error
         }
       }
-      // Tamizaje automático de listas internacionales al aprobar (no bloquea si falla).
+      // ── Automatización al aprobar: tamizaje + calificación + DD (no bloquean si fallan) ──
       let alerta = null
+      const hoyAuto = new Date().toISOString().slice(0, 10)
+      const nombreCli = esJ
+        ? (d.nombre_empresa || '')
+        : `${d.nombre_cliente || ''} ${d.primer_apellido || ''} ${d.segundo_apellido || ''}`.trim()
+      const identCli = esJ ? (d.cedula_juridica || d.numero_identificacion) : d.numero_identificacion
+      let estadoListas = null, hayPEP = false, resListas = []
+      // 1) Listas internacionales
       try {
-        const nombreCli = esJ
-          ? (d.nombre_empresa || '')
-          : `${d.nombre_cliente || ''} ${d.primer_apellido || ''} ${d.segundo_apellido || ''}`.trim()
-        const identCli = esJ ? (d.cedula_juridica || d.numero_identificacion) : d.numero_identificacion
         const t = await tamizarPersona(nombreCli, identCli)
+        estadoListas = t.estado_listas; hayPEP = t.hayPEP; resListas = t.res
         await supabase.from('clientes').update({
-          estado_listas: t.estado_listas,
-          aparece_en_listas: t.hayAlerta,
-          pep: payload.pep || t.hayPEP,
-          fecha_consulta_listas: new Date().toISOString().slice(0, 10),
+          estado_listas: t.estado_listas, aparece_en_listas: t.hayAlerta,
+          pep: payload.pep || t.hayPEP, fecha_consulta_listas: hoyAuto,
         }).eq('id', clienteId)
         if (t.estado_listas !== 'verificado') {
           alerta = { cliente: revisar.nombre_cliente || nombreCli, estado: t.estado_listas, n: t.coincidencias.length }
         }
       } catch { /* el tamizaje no debe impedir la aprobación */ }
+      // 2) Calificación de riesgo preliminar
+      try {
+        const { data: tRow } = await supabase.from('tenants').select('clase_dato').eq('id', tid).maybeSingle()
+        const result = calificarCliente({ ...payload, id: clienteId }, {
+          claseDato: Number(tRow?.clase_dato) || 0,
+          listasNivel: estadoListas,
+          tipoPersona: revisar.tipo_persona,
+        })
+        await persistirCalificacion({ tenantId: tid, clienteId, calificadorId: session?.user?.id, result })
+      } catch { /* la calificación no debe impedir la aprobación */ }
+      // 3) Expediente de debida diligencia automático
+      try {
+        const nivelDD = estadoListas === 'alerta' ? 'ALERTA' : estadoListas === 'revisar' ? 'REVISAR' : 'SIN_COINCIDENCIA'
+        const participantes = [...reps, ...junta, ...socios, ...sociosEmp]
+          .map(p => ({ nombre: p.nombre, identificacion: p.identificacion || p.num_id || p.cedula || null }))
+        await supabase.from('expedientes_dd').insert({
+          tenant_id: tid, tipo: esJ ? 'J' : 'F',
+          datos_cliente: d, participantes,
+          resultados_listas: { [nombreCli]: { nivel: nivelDD, esPEP: hayPEP, resultados: resListas } },
+          perfil_ia: null,
+          justificacion_manual: 'Expediente generado automáticamente al aprobar la recolección KYC.',
+          checklist, estado: 'completado', created_by: session?.user?.id,
+        })
+        await supabase.from('clientes').update({ estado_dd: 'completado', fecha_debida_diligencia: hoyAuto }).eq('id', clienteId)
+      } catch { /* la DD no debe impedir la aprobación */ }
 
       await supabase.from('solicitudes_kyc').update({ estado: 'aprobada', cliente_id: clienteId }).eq('id', revisar.id)
       setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'aprobada', cliente_id: clienteId } : s))

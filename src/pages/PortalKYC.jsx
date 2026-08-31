@@ -21,7 +21,7 @@ const cantonesDe = (prov) => CANTONES_CR.filter(c => c.provincia === prov).map(c
 const CAMPOS_FISICA = [
   { k: 'nombre_cliente', l: 'Nombre', req: true }, { k: 'primer_apellido', l: 'Primer apellido', req: true },
   { k: 'segundo_apellido', l: 'Segundo apellido' },
-  { k: 'tipo_identificacion', l: 'Tipo de identificación', type: 'select', opts: [['1', 'Cédula'], ['3', 'DIMEX'], ['4', 'Pasaporte']], req: true },
+  { k: 'tipo_identificacion', l: 'Tipo de identificación', type: 'select', opts: [['1', 'Cédula'], ['3', 'DIMEX'], ['5', 'Pasaporte']], req: true },
   { k: 'numero_identificacion', l: 'Número de identificación', req: true },
   { k: 'venc_identificacion', l: 'Fecha de caducidad del documento de identificación', type: 'date' },
   { k: 'fecha_nacimiento', l: 'Fecha de nacimiento', type: 'date' },
