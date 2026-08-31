@@ -653,6 +653,12 @@ export default function RecoleccionKYC() {
             <div className="px-5 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
               {msgRev && <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{msgRev}</div>}
 
+              {revisar.consentimiento_datos && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2">
+                  🔒 El cliente otorgó su consentimiento para el tratamiento de datos (Ley 8968){revisar.consentimiento_en ? ` el ${fecha(revisar.consentimiento_en)}` : ''}.
+                </div>
+              )}
+
               <div>
                 <p className="text-xs font-semibold text-gray-600 uppercase mb-2">Información recibida</p>
                 <table className="w-full text-sm">

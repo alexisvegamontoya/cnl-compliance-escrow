@@ -166,6 +166,8 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
 
   const advertencia = `Se advierte al público que esta empresa es supervisada solamente en materia de prevención de legitimación de capitales, financiamiento al terrorismo y financiamiento de la proliferación de armas de destrucción masiva, y además se encuentra sujeta a disposiciones vinculantes de la Unidad de Inteligencia Financiera del Instituto Costarricense sobre Drogas. Por lo tanto, la SUGEF no supervisa en materia financiera esta empresa, ni los negocios que ofrece, ni su seguridad, estabilidad o solvencia.`
 
+  const proteccionDatos = `${tenantNombre}, como responsable de la base de datos, tratará la información y documentos aquí suministrados con la finalidad exclusiva de cumplir sus obligaciones de debida diligencia y de prevención de la legitimación de capitales, el financiamiento al terrorismo y de la proliferación de armas de destrucción masiva (Ley 7786 y normativa SUGEF/CONASSIF). Los datos se conservan de forma confidencial y con acceso restringido, y no se comparten con terceros salvo con las autoridades legalmente facultadas cuando la ley lo exija. Conforme a la Ley 8968 de Protección de la Persona frente al tratamiento de sus datos personales, el titular tiene derecho a acceder, rectificar, actualizar y solicitar la eliminación de sus datos, salvo los que deban conservarse por obligación legal. Con su firma, el titular otorga su consentimiento informado para el tratamiento descrito.`
+
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>KYC — ${nombre || ''}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -211,6 +213,7 @@ export function generarKycHTML({ tenant, tipoPersona, datos = {}, logo }) {
   ${filasCredito}
 
   <div class="declaracion"><h4>Declaración del cliente — Ley 7786</h4><p>${declaracion.replace(/\n/g, '<br>')}</p></div>
+  <div class="declaracion"><h4>Tratamiento de datos personales — Ley 8968</h4><p>${proteccionDatos}</p></div>
   <div class="advertencia"><strong>ADVERTENCIA SUGEF</strong>${advertencia}</div>
 
   <div class="firmas">

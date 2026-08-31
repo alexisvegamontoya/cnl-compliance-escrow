@@ -93,8 +93,13 @@ export default async function handler(req, res) {
     const { data: kyc } = await admin.from('solicitudes_kyc_documentos')
       .select('id').eq('solicitud_id', sol.id).eq('doc_id', 'kyc_firmado').limit(1).maybeSingle()
     if (!kyc) return res.status(400).json({ error: 'Debe descargar el KYC, firmarlo y subirlo antes de enviar.' })
+    // Consentimiento informado del titular (Ley 8968).
+    if (req.body.consentimiento !== true) return res.status(400).json({ error: 'Debe aceptar el tratamiento de sus datos personales antes de enviar.' })
     const { error: e } = await admin.from('solicitudes_kyc')
-      .update({ estado: 'recibida', recibida_en: new Date().toISOString(), datos: req.body.datos || sol.datos })
+      .update({
+        estado: 'recibida', recibida_en: new Date().toISOString(), datos: req.body.datos || sol.datos,
+        consentimiento_datos: true, consentimiento_en: new Date().toISOString(),
+      })
       .eq('id', sol.id)
     if (e) return res.status(500).json({ error: e.message })
     return res.status(200).json({ ok: true })

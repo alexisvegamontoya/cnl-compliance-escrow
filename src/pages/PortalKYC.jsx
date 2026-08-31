@@ -90,6 +90,13 @@ const DOCS_CREDITO = [
   { id: 'credito_eeff_fiadora', label: 'Estados financieros de la empresa fiadora (si aplica)', required: false },
 ]
 
+// Aviso de privacidad / tratamiento de datos (Ley 8968 + Ley 7786). El nombre del
+// sujeto obligado se interpola al mostrarlo.
+function avisoPrivacidad(tenant) {
+  const so = tenant || 'el sujeto obligado'
+  return `${so}, como responsable de la base de datos, tratará la información y documentos que usted suministra con la finalidad exclusiva de cumplir sus obligaciones de debida diligencia (conozca a su cliente) y de prevención de la legitimación de capitales, el financiamiento al terrorismo y de la proliferación de armas de destrucción masiva, conforme a la Ley 7786 y la normativa de SUGEF/CONASSIF. Sus datos se transmiten mediante conexión cifrada (HTTPS/TLS) y se almacenan de forma confidencial con acceso restringido únicamente al personal autorizado de ${so}. No se comparten con terceros, salvo con las autoridades legalmente facultadas (UIF, ICD, SUGEF) cuando la ley lo exija. De acuerdo con la Ley 8968 de Protección de la Persona frente al tratamiento de sus datos personales, usted tiene derecho a acceder, rectificar, actualizar y solicitar la eliminación de sus datos, salvo aquellos que deban conservarse por obligación legal.`
+}
+
 async function api(body) {
   const r = await fetch('/api/kyc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   const j = await r.json()
@@ -109,6 +116,7 @@ export default function PortalKYC() {
   const [subiendo, setSubiendo] = useState(null)
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  const [consiente, setConsiente] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -218,8 +226,9 @@ export default function PortalKYC() {
   async function enviar() {
     setError('')
     if (!docSubido('kyc_firmado')) { setError('Debe descargar el KYC, firmarlo y subirlo antes de enviar.'); return }
+    if (!consiente) { setError('Debe aceptar el tratamiento de sus datos personales para enviar.'); return }
     setEnviando(true)
-    try { await api({ token, action: 'enviar', datos }); setEnviado(true) }
+    try { await api({ token, action: 'enviar', datos, consentimiento: true }); setEnviado(true) }
     catch (err) { setError('No se pudo enviar: ' + err.message) }
     setEnviando(false)
   }
@@ -266,6 +275,16 @@ export default function PortalKYC() {
               {i < PASOS.length - 1 && <span className="text-gray-300">·</span>}
             </div>
           ))}
+        </div>
+
+        {/* Aviso de seguridad / confianza */}
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-start gap-3">
+          <span className="text-emerald-600 text-lg leading-none mt-0.5">🔒</span>
+          <div className="text-xs text-emerald-900 leading-relaxed">
+            <strong>Conexión segura y confidencial.</strong> Su información viaja cifrada (HTTPS/TLS) y se guarda con acceso restringido
+            solo al personal autorizado de <strong>{cfg.tenant}</strong>. No se comparte con terceros, salvo con las autoridades que la ley exige
+            (Ley 7786). El tratamiento de sus datos se rige por la Ley 8968 de Protección de Datos Personales.
+          </div>
         </div>
 
         {cfg.estado === 'rechazada' && cfg.motivo && (
@@ -476,6 +495,18 @@ export default function PortalKYC() {
               </button>
               <SubirDoc id="kyc_firmado" subiendo={subiendo} subido={docSubido('kyc_firmado')} onFile={f => subir('kyc_firmado', 'KYC firmado', f)} />
             </div>
+
+            {/* Aviso de privacidad y consentimiento (Ley 8968) */}
+            <div className="pt-3 border-t border-gray-100 space-y-2">
+              <h3 className="text-sm font-bold text-gray-800">Tratamiento de sus datos personales</h3>
+              <p className="text-[11px] leading-relaxed text-gray-500 max-h-40 overflow-y-auto border border-gray-100 rounded-lg p-3 bg-gray-50">
+                {avisoPrivacidad(cfg.tenant)}
+              </p>
+              <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+                <input type="checkbox" className="mt-0.5" checked={consiente} onChange={e => setConsiente(e.target.checked)} />
+                <span>He leído y acepto el tratamiento de mis datos personales conforme a lo anterior, y declaro que la información suministrada es veraz. *</span>
+              </label>
+            </div>
           </div>
         )}
 
@@ -486,7 +517,7 @@ export default function PortalKYC() {
           {paso < 3 ? (
             <button onClick={siguiente} className="btn-primary px-8 py-2.5 text-sm">Siguiente →</button>
           ) : (
-            <button onClick={enviar} disabled={enviando || !docSubido('kyc_firmado')}
+            <button onClick={enviar} disabled={enviando || !docSubido('kyc_firmado') || !consiente}
               className="btn-primary px-8 py-2.5 text-base disabled:opacity-50">
               {enviando ? 'Enviando…' : '📨 Enviar información'}
             </button>
