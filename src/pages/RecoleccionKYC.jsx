@@ -460,15 +460,42 @@ export default function RecoleccionKYC() {
     w.document.write(html); w.document.close()
   }
 
-  // Descarga los documentos. Si el navegador lo permite, deja ELEGIR la carpeta
-  // (File System Access API) y guarda todo ahí; si no, descarga uno por uno.
+  // Genera en el navegador los 3 informes en PDF (listas, riesgo, DD) del cliente
+  // ya aprobado. No deja nada en el servidor: devuelve [{ nombre, blob }].
+  async function armarInformesPdf() {
+    if (!revisar?.cliente_id) return []
+    try {
+      const { data: cli } = await supabase.from('clientes').select('*').eq('id', revisar.cliente_id).maybeSingle()
+      if (!cli) return []
+      const logo = soList.find(t => t.id === revisar.tenant_id)?.logo_url || tenant?.logo_url || null
+      const nombreCli = cli.nombre_empresa || `${cli.nombre_cliente || ''} ${cli.primer_apellido || ''} ${cli.segundo_apellido || ''}`.trim()
+      const screening = await tamizarPersona(nombreCli, cli.numero_identificacion || cli.cedula_juridica).catch(() => null)
+      const { data: calif } = await supabase.from('calificaciones_riesgo').select('*')
+        .eq('cliente_id', cli.id).eq('vigente', true).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      const chkItems = docsKyc(cli.tipo_persona === 'juridica' ? 'juridica' : 'fisica')
+      const { htmlAPdfBlob } = await import('../lib/htmlPdf')
+      const { informeListasHTML, informeRiesgoHTML, informeDDHTML } = await import('../utils/informesCliente')
+      const base = { tenant: soNombre, logo, cliente: cli }
+      return [
+        { nombre: 'Informe-Listas-Internacionales.pdf', blob: await htmlAPdfBlob(informeListasHTML({ ...base, screening })) },
+        { nombre: 'Calificacion-de-Riesgo.pdf', blob: await htmlAPdfBlob(informeRiesgoHTML({ ...base, calificacion: calif })) },
+        { nombre: 'Debida-Diligencia.pdf', blob: await htmlAPdfBlob(informeDDHTML({ ...base, screening, checklistItems: chkItems })) },
+      ]
+    } catch { return [] }
+  }
+
+  // Descarga los documentos + los 3 informes en PDF. Si el navegador lo permite,
+  // deja ELEGIR la carpeta (File System Access API) y guarda todo ahí; si no,
+  // descarga uno por uno. Nada se almacena en el servidor.
   async function descargarTodosDocs() {
-    setMsgRev('')
-    if (docsRev.length === 0) return
+    setMsgRev('Preparando documentos e informes…')
+    const extras = await armarInformesPdf()
+    const total = docsRev.length + extras.length
+    if (total === 0) { setMsgRev(''); return }
     if (window.showDirectoryPicker) {
       let dir
       try { dir = await window.showDirectoryPicker() }
-      catch (e) { if (e.name === 'AbortError') return; dir = null }
+      catch (e) { if (e.name === 'AbortError') { setMsgRev(''); return } dir = null }
       if (dir) {
         let ok = 0
         for (const doc of docsRev) {
@@ -481,7 +508,13 @@ export default function RecoleccionKYC() {
             const w = await fh.createWritable(); await w.write(blob); await w.close(); ok++
           } catch { /* sigue con el resto */ }
         }
-        setMsgRev(`Se guardaron ${ok}/${docsRev.length} documentos en la carpeta elegida.`)
+        for (const ex of extras) {
+          try {
+            const fh = await dir.getFileHandle(ex.nombre, { create: true })
+            const w = await fh.createWritable(); await w.write(ex.blob); await w.close(); ok++
+          } catch { /* sigue */ }
+        }
+        setMsgRev(`Se guardaron ${ok}/${total} archivos (documentos + informes) en la carpeta elegida.`)
         return
       }
     }
@@ -490,6 +523,13 @@ export default function RecoleccionKYC() {
       const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600, { download: doc.nombre_archivo || true })
       if (data?.signedUrl) { window.open(data.signedUrl, '_blank'); await new Promise(r => setTimeout(r, 400)) }
     }
+    for (const ex of extras) {
+      const url = URL.createObjectURL(ex.blob)
+      const a = document.createElement('a'); a.href = url; a.download = ex.nombre; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+      await new Promise(r => setTimeout(r, 400))
+    }
+    setMsgRev(extras.length ? `Se descargaron los documentos y ${extras.length} informes.` : '')
   }
 
   if (loading) return <div className="p-6 text-gray-500">Cargando…</div>
@@ -766,7 +806,7 @@ export default function RecoleccionKYC() {
                 </button>
                 {docsRev.length > 0 && (
                   <button onClick={descargarTodosDocs} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
-                    ⬇ Guardar documentos
+                    ⬇ Guardar documentos{revisar.cliente_id ? ' + informes' : ''}
                   </button>
                 )}
               </div>
