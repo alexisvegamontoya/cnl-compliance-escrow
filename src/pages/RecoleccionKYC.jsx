@@ -9,6 +9,7 @@ import { useAuth } from '../lib/AuthContext'
 import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { generarExpedienteKycHTML } from '../utils/kycExpediente'
 import { docsKyc } from '../lib/kycChecklist'
+import { tamizarPersona, ETIQUETA_LISTAS } from '../lib/tamizaje'
 
 const slug = (s) => 'x_' + String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
@@ -21,7 +22,7 @@ const CLIENTE_COLS = [
   'pais_nacimiento', 'pais_residencia', 'provincia', 'canton', 'distrito', 'direccion_exacta', 'nombre_contacto',
   'telefono', 'correo_electronico', 'proposito_relacion', 'origen_fondos', 'ingreso_mensual_est',
   'nombre_empresa', 'cedula_juridica', 'pais_constitucion', 'fecha_constitucion',
-  'pagina_web', 'distrito', 'paises_ingresos',
+  'pagina_web', 'distrito', 'paises_ingresos', 'ccss_estado', 'sugef_estado',
 ]
 const DOC_NO_CHECKLIST = (id) => id === 'kyc_firmado' || String(id).startsWith('machote_')
 
@@ -127,6 +128,7 @@ export default function RecoleccionKYC() {
   const [docsRev, setDocsRev]         = useState([])
   const [accion, setAccion]           = useState('')     // '' | 'aprobando' | 'rechazando'
   const [msgRev, setMsgRev]           = useState('')
+  const [alertaListas, setAlertaListas] = useState(null) // { cliente, estado, n } tras tamizaje al aprobar
 
   const cargar = useCallback(async () => {
     if (!soActivo) { setLoading(false); return }
@@ -366,8 +368,28 @@ export default function RecoleccionKYC() {
           if (error) throw error
         }
       }
+      // Tamizaje automático de listas internacionales al aprobar (no bloquea si falla).
+      let alerta = null
+      try {
+        const nombreCli = esJ
+          ? (d.nombre_empresa || '')
+          : `${d.nombre_cliente || ''} ${d.primer_apellido || ''} ${d.segundo_apellido || ''}`.trim()
+        const identCli = esJ ? (d.cedula_juridica || d.numero_identificacion) : d.numero_identificacion
+        const t = await tamizarPersona(nombreCli, identCli)
+        await supabase.from('clientes').update({
+          estado_listas: t.estado_listas,
+          aparece_en_listas: t.hayAlerta,
+          pep: payload.pep || t.hayPEP,
+          fecha_consulta_listas: new Date().toISOString().slice(0, 10),
+        }).eq('id', clienteId)
+        if (t.estado_listas !== 'verificado') {
+          alerta = { cliente: revisar.nombre_cliente || nombreCli, estado: t.estado_listas, n: t.coincidencias.length }
+        }
+      } catch { /* el tamizaje no debe impedir la aprobación */ }
+
       await supabase.from('solicitudes_kyc').update({ estado: 'aprobada', cliente_id: clienteId }).eq('id', revisar.id)
       setSolicitudes(prev => prev.map(s => s.id === revisar.id ? { ...s, estado: 'aprobada', cliente_id: clienteId } : s))
+      setAlertaListas(alerta)
       setRevisar(null)
     } catch (err) { setMsgRev('No se pudo aprobar: ' + err.message) }
     setAccion('')
@@ -459,6 +481,15 @@ export default function RecoleccionKYC() {
       )}
 
       {error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
+
+      {alertaListas && (
+        <div className={`p-3 rounded-lg border text-sm flex items-start justify-between gap-3 ${alertaListas.estado === 'alerta' ? 'bg-red-50 border-red-300 text-red-800' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
+          <div>
+            <strong>⚠ {alertaListas.estado === 'alerta' ? 'Coincidencia en listas internacionales' : 'Posible coincidencia en listas'}</strong> — el tamizaje automático de <strong>{alertaListas.cliente}</strong> arrojó {alertaListas.n} resultado(s) ({ETIQUETA_LISTAS[alertaListas.estado]}). Revise la Consulta de Listas antes de operar con este cliente.
+          </div>
+          <button onClick={() => setAlertaListas(null)} className="text-lg leading-none opacity-60 hover:opacity-100">×</button>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={crear} className="card space-y-4">

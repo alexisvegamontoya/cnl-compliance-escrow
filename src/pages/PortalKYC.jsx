@@ -36,6 +36,8 @@ const CAMPOS_FISICA = [
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
   { k: 'origen_fondos', l: 'Origen / fuente de los fondos', type: 'select', opts: ORIGEN_FONDOS_OPTS, req: true, full: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
+  { k: 'ccss_estado', l: '¿Está inscrito ante la CCSS?', type: 'select', opts: [['al_dia', 'Sí, al día'], ['morosidad', 'Sí, en morosidad'], ['arreglo', 'Sí, con arreglo de pago'], ['no_inscrito', 'No inscrito']] },
+  { k: 'sugef_estado', l: '¿Es sujeto obligado ante la SUGEF (Ley 7786)?', type: 'select', opts: [['no', 'No'], ['15', 'Sí — Art. 15'], ['15bis', 'Sí — Art. 15 bis'], ['15ter', 'Sí — Art. 15 ter'], ['pendiente', 'En trámite']] },
   { k: 'actividad_descripcion', l: 'Describa ampliamente su actividad económica', type: 'textarea', full: true, req: true },
   { k: 'pep', l: '¿Es usted una persona expuesta políticamente (PEP)?', type: 'select', opts: [['no', 'No'], ['si', 'Sí']], req: true, full: true },
 ]
@@ -69,6 +71,8 @@ const CAMPOS_JURIDICA = [
   { k: 'proposito_relacion', l: 'Propósito de la relación comercial', full: true, req: true },
   { k: 'origen_fondos', l: 'Origen / fuente de los fondos', req: true, full: true },
   { k: 'ingreso_mensual_est', l: 'Ingreso mensual estimado (USD)', type: 'number' },
+  { k: 'ccss_estado', l: '¿La empresa está inscrita ante la CCSS?', type: 'select', opts: [['al_dia', 'Sí, al día'], ['morosidad', 'Sí, en morosidad'], ['arreglo', 'Sí, con arreglo de pago'], ['no_inscrito', 'No inscrita']] },
+  { k: 'sugef_estado', l: '¿Es sujeto obligado ante la SUGEF (Ley 7786)?', type: 'select', opts: [['no', 'No'], ['15', 'Sí — Art. 15'], ['15bis', 'Sí — Art. 15 bis'], ['15ter', 'Sí — Art. 15 ter'], ['pendiente', 'En trámite']] },
 ]
 
 const PLAN_OPCIONES = [
