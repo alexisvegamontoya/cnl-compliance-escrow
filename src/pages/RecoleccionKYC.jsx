@@ -299,6 +299,12 @@ export default function RecoleccionKYC() {
       if (notasPartes.length) payload.notas = notasPartes.join(' · ')
       // crear o actualizar cliente
       let clienteId = revisar.cliente_id
+      // Si no viene vinculado, buscar por cédula: el cliente puede ya existir en el gestor.
+      if (!clienteId && payload.numero_identificacion) {
+        const { data: existente } = await supabase.from('clientes')
+          .select('id').eq('tenant_id', tid).eq('numero_identificacion', payload.numero_identificacion).maybeSingle()
+        if (existente) clienteId = existente.id
+      }
       if (clienteId) {
         const { error } = await supabase.from('clientes').update(payload).eq('id', clienteId)
         if (error) throw error
@@ -342,6 +348,8 @@ export default function RecoleccionKYC() {
           notas: s.socios ? `Socios: ${s.socios}` : null, orden: i, activo: true,
         }))
         if (rel.length) {
+          // Reemplazar la estructura previa (evita duplicar si el cliente ya existía).
+          await supabase.from('clientes_personas_relacionadas').delete().eq('cliente_id', clienteId)
           const filas = rel.map(r => ({ ...r, tenant_id: tid, cliente_id: clienteId }))
           const { error } = await supabase.from('clientes_personas_relacionadas').insert(filas)
           if (error) throw error
