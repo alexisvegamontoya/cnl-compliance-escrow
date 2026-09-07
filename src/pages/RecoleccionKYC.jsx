@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { supabase, tenantsDeLaApp } from '../lib/supabase'
 import { generarExpedienteKycHTML } from '../utils/kycExpediente'
-import { docsKyc } from '../lib/kycChecklist'
+import { docsKyc, checklistGestorDesdeKyc } from '../lib/kycChecklist'
 import { tamizarPersona, ETIQUETA_LISTAS } from '../lib/tamizaje'
 import { calificarCliente, persistirCalificacion } from '../lib/calificacionAuto'
 import { ACTIVIDADES_PROFESIONES } from '../lib/metodologiaRiesgo'
@@ -339,10 +339,19 @@ export default function RecoleccionKYC() {
         }
         if (Object.values(emp).some(v => v)) payload.empleador = emp
       }
-      // checklist con lo recibido
-      const checklist = {}
-      docsRev.forEach(doc => { if (!DOC_NO_CHECKLIST(doc.doc_id)) checklist[doc.doc_id] = { estado: 'disponible', nota: 'Recibido por portal KYC' } })
+      // Checklist: se guarda con las claves del catálogo del gestor (para que la
+      // ficha lo refleje) y también con las del KYC (para el informe/expediente DD).
+      const checklistKyc = {}
+      docsRev.forEach(doc => { if (!DOC_NO_CHECKLIST(doc.doc_id)) checklistKyc[doc.doc_id] = { estado: 'disponible', nota: 'Recibido por portal KYC' } })
+      const checklistGestor = checklistGestorDesdeKyc({
+        tipoPersona: revisar.tipo_persona,
+        docIdsRecibidos: docsRev.map(x => x.doc_id),
+        datos: d,
+        consintio: !!revisar.consentimiento_datos,
+      })
+      const checklist = { ...checklistKyc, ...checklistGestor }
       payload.checklist_documental = checklist
+      payload.checklist_actualizado_en = new Date().toISOString().slice(0, 10)
       // Estructura jurídica recibida por el portal
       const reps = Array.isArray(d.representantes) ? d.representantes.filter(r => r && r.nombre) : []
       const junta = Array.isArray(d.junta) ? d.junta.filter(m => m && m.nombre) : []
@@ -390,6 +399,9 @@ export default function RecoleccionKYC() {
         if (existente) clienteId = existente.id
       }
       if (clienteId) {
+        // Fusionar con el checklist actual del cliente (no perder marcas previas).
+        const { data: actual } = await supabase.from('clientes').select('checklist_documental').eq('id', clienteId).maybeSingle()
+        payload.checklist_documental = { ...(actual?.checklist_documental || {}), ...checklist }
         const { error } = await supabase.from('clientes').update(payload).eq('id', clienteId)
         if (error) throw error
       } else {
