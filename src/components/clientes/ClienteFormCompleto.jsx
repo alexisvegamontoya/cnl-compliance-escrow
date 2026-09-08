@@ -270,7 +270,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       payload.nombre_empresa  = tipoPers === 'juridica' ? (form.nombre_empresa  || '') : ''
       payload.cedula_juridica = tipoPers === 'juridica' ? (form.cedula_juridica || form.numero_identificacion || '') : null
       payload.pais_residencia = form.pais_ubicacion || null   // alias para compatibilidad
-      payload.activo          = true
+      payload.activo          = form.activo !== false   // por defecto activo; el oficial puede desactivarlo
 
       // Convertir campos enteros/numéricos: vacío → null (evita "invalid input syntax for type integer")
       const CAMPOS_INT = ['profesion_valor','actividad_eco_valor','ingreso_mensual_est',
@@ -756,6 +756,22 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       {/* ── TAB: INFORMACIÓN ADICIONAL ── */}
       {tab === 'adicional' && (
         <div className="card space-y-4">
+          <div className="border-b pb-3">
+            <p className="text-sm font-bold text-gray-700">Estado del cliente</p>
+            <div className="mt-2 flex items-center gap-3">
+              <button type="button" onClick={() => set('activo', form.activo === false ? true : false)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.activo === false ? 'bg-gray-300' : 'bg-green-600'}`}
+                title={form.activo === false ? 'Inactivo' : 'Activo'}>
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${form.activo === false ? 'translate-x-1' : 'translate-x-5'}`} />
+              </button>
+              <span className={`text-sm font-medium ${form.activo === false ? 'text-gray-500' : 'text-green-700'}`}>
+                {form.activo === false ? 'Inactivo' : 'Activo'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Solo los clientes <strong>activos</strong> se consideran en el porcentaje de cumplimiento (individual y del total). Un cliente inactivo se conserva pero se excluye del cálculo.
+            </p>
+          </div>
           <p className="text-sm font-bold text-gray-700 border-b pb-2">Propósito y perfil financiero</p>
           <div className="space-y-3">
             <div>

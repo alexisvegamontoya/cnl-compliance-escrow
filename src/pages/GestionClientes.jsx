@@ -427,12 +427,15 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 const cal = calcularCumplimientoCliente(c, { catalogo: catalogoDoc })
                 return (
                 <tr key={c.id} onClick={() => onSelect(c)}
-                  className="hover:bg-brand-50 cursor-pointer transition-colors">
+                  className={`hover:bg-brand-50 cursor-pointer transition-colors ${c.activo === false ? 'opacity-55' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{c.tipo_persona === 'juridica' ? '🏢' : '👤'}</span>
                       <div>
-                        <p className="font-medium text-gray-900 leading-tight">{nombre_completo(c)}</p>
+                        <p className="font-medium text-gray-900 leading-tight flex items-center gap-2">
+                          {nombre_completo(c)}
+                          {c.activo === false && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 uppercase">Inactivo</span>}
+                        </p>
                         {c.correo_electronico && (
                           <p className="text-xs text-gray-400">{c.correo_electronico}</p>
                         )}
@@ -585,6 +588,14 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
     { id: 'historial', label: '📁 Historial' },
   ]
 
+  const activo = cliente.activo !== false
+  async function toggleActivo() {
+    const nuevo = !activo
+    const { error } = await supabase.from('clientes').update({ activo: nuevo }).eq('id', cliente.id)
+    if (error) return
+    onActualizado?.({ ...cliente, activo: nuevo })
+  }
+
   return (
     <div className="p-6 space-y-4 max-w-5xl mx-auto">
       {mostrarCopiar && (
@@ -629,6 +640,11 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <button onClick={toggleActivo}
+                className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${activo ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}
+                title={activo ? 'Cliente activo (cuenta en el cumplimiento). Clic para desactivar.' : 'Cliente inactivo (excluido del cumplimiento). Clic para activar.'}>
+                {activo ? '● Activo' : '○ Inactivo'}
+              </button>
               <NivelBadge nivel={cliente.nivel_riesgo_actual} />
               <button onClick={() => setMostrarInforme(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-700 text-white rounded-lg hover:bg-brand-800 transition-colors">
