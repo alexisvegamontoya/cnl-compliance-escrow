@@ -140,6 +140,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   const [filtroTipo, setFiltroTipo]   = useState('')
   const [filtroRiesgo, setFiltroRiesgo] = useState('')
   const [filtroDd, setFiltroDd]       = useState('')
+  const [filtroActivo, setFiltroActivo] = useState('todos') // todos | activos | inactivos
   const [filtroTenant, setFiltroTenant] = useState('')   // solo superadmin
   const [tenants, setTenants]         = useState([])     // solo superadmin
   const [error, setError]             = useState(null)
@@ -192,6 +193,8 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   }
 
   const filtrados = clientes.filter(c => {
+    if (filtroActivo === 'activos' && c.activo === false) return false
+    if (filtroActivo === 'inactivos' && c.activo !== false) return false
     if (!buscar) return true
     const t = buscar.toLowerCase()
     return (
@@ -382,6 +385,14 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
             <option value="pendiente">Pendiente</option>
             <option value="en_proceso">En proceso</option>
             <option value="completado">Completado</option>
+          </select>
+        </div>
+        <div>
+          <label className="label text-xs">Estado</label>
+          <select className="input text-sm" value={filtroActivo} onChange={e => setFiltroActivo(e.target.value)}>
+            <option value="todos">Todos</option>
+            <option value="activos">Solo activos</option>
+            <option value="inactivos">Solo inactivos</option>
           </select>
         </div>
       </div>
