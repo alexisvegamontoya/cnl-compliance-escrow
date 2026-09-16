@@ -65,6 +65,12 @@ export function generarXMLSICVECA(config, transacciones) {
     const segundoApellido = esFisica ? escapeXml(t.segundo_apellido || '') : ''
     const nombreEmpresa   = !esFisica ? escapeXml(t.nombre_empresa || '') : ''
 
+    // Solo aplica un código según el movimiento: en un ingreso (1) TipoSalida=0;
+    // en una salida (2) TipoIngreso=0. Evita que ambos campos lleven número.
+    const esIngreso = Number(t.tipo_movimiento) === 1
+    const tipoIngreso = esIngreso ? (t.tipo_ingreso ?? 0) : 0
+    const tipoSalida  = Number(t.tipo_movimiento) === 2 ? (t.tipo_salida ?? 0) : 0
+
     registros += `
         <Registro id="${registroId}" accion="${accion}">
             <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
@@ -76,8 +82,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <TipoReporte>${t.tipo_reporte}</TipoReporte>
             <TipoOperacion>${t.tipo_operacion}</TipoOperacion>
             <TipoMovimiento>${t.tipo_movimiento}</TipoMovimiento>
-            <TipoIngreso>${t.tipo_ingreso ?? 0}</TipoIngreso>
-            <TipoSalida>${t.tipo_salida ?? 0}</TipoSalida>
+            <TipoIngreso>${tipoIngreso}</TipoIngreso>
+            <TipoSalida>${tipoSalida}</TipoSalida>
             <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             ${t.fecha_transaccion ? `<FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>` : ''}

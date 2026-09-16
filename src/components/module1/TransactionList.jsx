@@ -20,6 +20,7 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
   const [rangoHasta, setRangoHasta] = useState('')
   const [deleting, setDeleting]   = useState(null)
   const [periodosDisponibles, setPeriodosDisponibles] = useState([])
+  const [busqueda, setBusqueda]   = useState('')
 
   const tenantId = tenant?.id
 
@@ -77,7 +78,15 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
     loadPeriodos()
   }
 
-  const totalMonto = rows.reduce((s, r) => s + Number(r.monto_movimiento), 0)
+  // Filtro por nombre / razón social o cédula (sobre los registros ya cargados)
+  const norm = (s) => String(s || '').toLowerCase().replace(/[-\s]/g, '')
+  const q = busqueda.trim().toLowerCase()
+  const filtradas = !q ? rows : rows.filter(r => {
+    const nombre = (r.nombre_empresa || `${r.nombre_cliente || ''} ${r.primer_apellido || ''} ${r.segundo_apellido || ''}`).toLowerCase()
+    return nombre.includes(q) || norm(r.numero_identificacion).includes(norm(busqueda))
+  })
+
+  const totalMonto = filtradas.reduce((s, r) => s + Number(r.monto_movimiento), 0)
 
   const modoBtn = (m, label) => (
     <button
@@ -103,10 +112,19 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
           <h3 className="font-semibold text-gray-900">Transacciones registradas</h3>
-          <p className="text-sm text-gray-500">{rows.length} registro{rows.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-gray-500">
+            {filtradas.length} registro{filtradas.length !== 1 ? 's' : ''}
+            {q && filtradas.length !== rows.length ? ` (de ${rows.length})` : ''}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o cédula…"
+            className="input-field text-sm w-56" />
           {modoBtn(MODO_MES,   'Por mes')}
           {modoBtn(MODO_RANGO, 'Rango fechas')}
           {modoBtn(MODO_TODOS, 'Todos')}
@@ -160,6 +178,10 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
         <div className="py-8 text-center text-gray-400">
           <p className="text-sm">No hay transacciones para el filtro seleccionado.</p>
         </div>
+      ) : filtradas.length === 0 ? (
+        <div className="py-8 text-center text-gray-400 text-sm">
+          Sin coincidencias para “{busqueda}”. <button onClick={() => setBusqueda('')} className="text-brand-600 hover:underline">Limpiar búsqueda</button>
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -178,7 +200,7 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((row, idx) => {
+                {filtradas.map((row, idx) => {
                   const nombre = row.nombre_empresa || `${row.nombre_cliente || ''} ${row.primer_apellido || ''}`.trim()
                   return (
                     <tr key={row.id} className="hover:bg-gray-50">

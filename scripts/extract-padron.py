@@ -43,11 +43,11 @@ class PadronHandler(xml.sax.ContentHandler):
             self.current = {}
 
     def characters(self, content):
-        c = content.strip()
-        if not c:
-            return
-        # Acumular contenido (puede llegar en partes)
-        self.current[self.current_tag] = self.current.get(self.current_tag, '') + c
+        # Acumular el contenido TAL CUAL (el parser lo entrega en partes y, con
+        # entidades como &amp;, separa el texto: no se debe recortar cada trozo,
+        # o se pierden espacios y lo anterior al '&'). Se hace strip() al usarlo.
+        if content:
+            self.current[self.current_tag] = self.current.get(self.current_tag, '') + content
 
     def endElement(self, name):
         if name != 'Registro':
