@@ -85,6 +85,7 @@ export function aplicarReglasSICVECA(transacciones, claseDato, tipoCambioUSD) {
     umbralUSD,
     stats: {
       total     : transacciones.length,
+      incluidas : unicas.length + multiples.length,
       unicas    : unicas.length,
       multiples : multiples.length,
       excluidas : excluidas.length,

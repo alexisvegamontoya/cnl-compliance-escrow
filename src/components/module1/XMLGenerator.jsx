@@ -192,7 +192,9 @@ export default function XMLGenerator() {
         erroresPadron,
         nombresCorregidos,
         erroresCodigos,
-        hayBloqueo  : erroresPadron.length > 0 || erroresCodigos.length > 0,
+        // El padrón solo advierte (nuestra copia puede estar desactualizada); solo
+        // los códigos inválidos bloquean la generación.
+        hayBloqueo  : erroresCodigos.length > 0,
       })
 
     } catch (err) {
@@ -344,12 +346,12 @@ export default function XMLGenerator() {
                   : `${resultados.erroresPadron.length} cédula(s) no encontradas`} />
             </div>
             {resultados.erroresPadron.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
-                <p className="text-xs font-semibold text-red-700 mb-1">
-                  ❌ Los siguientes clientes no están en el padrón SUGEF. Corrija los números de identificación antes de generar el XML:
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                <p className="text-xs font-semibold text-amber-800 mb-1">
+                  ⚠ Las siguientes cédulas no están en nuestra copia del padrón (puede estar desactualizada). Verifique que el número sea correcto; en el XML se usará el <strong>nombre registrado del cliente</strong>, que debe coincidir exactamente con el padrón oficial de SUGEF:
                 </p>
                 {resultados.erroresPadron.map((e, i) => (
-                  <p key={i} className="text-xs text-red-600 font-mono">· {e.cedula}</p>
+                  <p key={i} className="text-xs text-amber-700 font-mono">· {e.cedula}</p>
                 ))}
               </div>
             )}

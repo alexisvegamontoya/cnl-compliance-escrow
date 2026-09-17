@@ -24,23 +24,6 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
 
   const tenantId = tenant?.id
 
-  const loadPeriodos = useCallback(async () => {
-    if (!tenantId) return
-    const { data } = await supabase
-      .from('transacciones')
-      .select('periodo')
-      .eq('tenant_id', tenantId)
-      .order('periodo', { ascending: false })
-    if (data) {
-      const unicos = [...new Set(data.map(r => r.periodo ? String(r.periodo).substring(0, 7) : null).filter(Boolean))]
-      setPeriodosDisponibles(unicos)
-      // Auto-navegar al período más reciente si el actual no tiene datos
-      if (unicos.length > 0 && !unicos.includes(periodo)) {
-        setPeriodo(unicos[0])
-      }
-    }
-  }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const load = useCallback(async () => {
     if (!tenantId) return
     setLoading(true)
@@ -66,8 +49,25 @@ export default function TransactionList({ refreshTrigger, onEdit, soloLectura = 
     setLoading(false)
   }, [tenantId, modo, periodo, rangoDesde, rangoHasta])
 
-  useEffect(() => { load(); loadPeriodos() }, [load, loadPeriodos, refreshTrigger])
-  useEffect(() => { setRows([]); load(); loadPeriodos() }, [tenantId])
+  // Carga las transacciones cuando cambian los filtros (mes / rango / tenant).
+  useEffect(() => { load() }, [load, refreshTrigger])
+
+  // Períodos con datos + salto automático al más reciente SOLO cuando el mes
+  // actual no tiene datos (al entrar o cambiar de tenant), no en cada selección,
+  // para poder navegar libremente a cualquier mes.
+  useEffect(() => {
+    if (!tenantId) { setPeriodosDisponibles([]); return }
+    let cancel = false
+    supabase.from('transacciones').select('periodo').eq('tenant_id', tenantId)
+      .order('periodo', { ascending: false })
+      .then(({ data }) => {
+        if (cancel || !data) return
+        const unicos = [...new Set(data.map(r => r.periodo ? String(r.periodo).substring(0, 7) : null).filter(Boolean))]
+        setPeriodosDisponibles(unicos)
+        setPeriodo(p => (unicos.length > 0 && !unicos.includes(p)) ? unicos[0] : p)
+      })
+    return () => { cancel = true }
+  }, [tenantId, refreshTrigger])
 
   async function eliminar(id) {
     if (!confirm('Eliminar esta transaccion?')) return
