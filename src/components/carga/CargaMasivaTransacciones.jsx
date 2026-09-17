@@ -9,6 +9,11 @@ function validarFila(row, idx) {
   if (!row.tipo_identificacion) errores.push('Falta tipo de identificación')
   if (!row.monto_movimiento || isNaN(Number(row.monto_movimiento))) errores.push('Monto inválido')
   if (!row.tipo_movimiento) errores.push('Falta tipo de movimiento')
+  // Si trae fecha pero no se reconoce, avisar (antes caía silenciosamente al
+  // "período de respaldo" y cambiaba el mes, ej. julio → agosto).
+  if (row.fecha_transaccion && !normalizarFecha(row.fecha_transaccion)) {
+    errores.push('Fecha no reconocida — use AAAA-MM-DD o DD/MM/AAAA')
+  }
   return errores
 }
 
