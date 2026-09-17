@@ -75,7 +75,7 @@ export function calcularPenalizacion(estados) {
   }, 0)
 }
 
-export default function PanelPeriodicidad({ tenantId, onPenalizacion }) {
+export default function PanelPeriodicidad({ tenantId, onPenalizacion, refreshTrigger = 0 }) {
   const { isSuperAdmin } = useAuth()
   const [estados, setEstados] = useState({})
   const [loading, setLoading]  = useState(true)
@@ -112,7 +112,7 @@ export default function PanelPeriodicidad({ tenantId, onPenalizacion }) {
     }
   }, [tenantId, onPenalizacion])
 
-  useEffect(() => { cargar() }, [cargar])
+  useEffect(() => { cargar() }, [cargar, refreshTrigger])
 
   if (loading) return null
 

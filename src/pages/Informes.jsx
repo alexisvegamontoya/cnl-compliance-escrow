@@ -40,6 +40,7 @@ export default function Informes() {
   const [guardado, setGuardado] = useState(false)
   const [error, setError]       = useState(null)
   const [penalizacion, setPenalizacion] = useState(0)
+  const [panelTick, setPanelTick] = useState(0)
   const informeRef = useRef(null)
   const tenantEfectivo = tenant
 
@@ -50,17 +51,17 @@ export default function Informes() {
   // ── Guardar informe en base de datos ───────────────────────────────────────
   async function guardarInformeTransaccional(resumen) {
     if (!tenantEfectivo?.id) return
-    try {
-      await supabase.from('informes_generados').insert({
-        tenant_id:           tenantEfectivo.id,
-        tipo_informe:        'transaccional',
-        periodo:             fechaDesde.substring(0, 7),
-        generado_por:        profile?.id,
-        generado_por_nombre: profile?.nombre,
-        resumen_json:        resumen,
-      })
-      setGuardado(true)
-    } catch { /* Tabla puede no existir aún en dev */ }
+    const { error } = await supabase.from('informes_generados').insert({
+      tenant_id:           tenantEfectivo.id,
+      tipo_informe:        'transaccional',
+      periodo:             fechaDesde.substring(0, 7),
+      generado_por:        profile?.id,
+      generado_por_nombre: profile?.nombre,
+      resumen_json:        resumen,
+    })
+    if (error) { setError(clasificarError(error)); return }
+    setGuardado(true)
+    setPanelTick(x => x + 1)   // refresca el panel de periodicidad
   }
 
   const cargar = useCallback(async () => {
@@ -99,9 +100,10 @@ export default function Informes() {
     }
   }, [tenantEfectivo, fechaDesde, fechaHasta])
 
-  // Guardar automáticamente cuando se generan datos
+  // Registrar la generación del informe (aunque el período no tenga transacciones:
+  // un mes sin movimientos es igualmente un informe válido y debe quedar registrado).
   useEffect(() => {
-    if (!generado || txns.length === 0) return
+    if (!generado) return
     guardarInformeTransaccional({
       total_txns:    txns.length,
       total_monto:   txns.reduce((s, t) => s + Number(t.monto_movimiento), 0),
@@ -224,6 +226,7 @@ export default function Informes() {
         <PanelPeriodicidad
           tenantId={tenantEfectivo.id}
           onPenalizacion={setPenalizacion}
+          refreshTrigger={panelTick}
         />
       )}
       {penalizacion > 0 && (
