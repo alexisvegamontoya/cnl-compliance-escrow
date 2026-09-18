@@ -53,9 +53,23 @@ export function generarXMLSICVECA(config, transacciones) {
   const [yr, mo] = periodoStr.split('-')
   const periodoFmt = `01/${mo}/${yr}`
 
-  // Clase 42 = Organizaciones Sin Fines de Lucro → esquema SinFindeLucro.xsd
-  // (estructura distinta: Donador + Beneficiario + ubicación y países de recursos).
-  const esOSFL = Number(clase_dato) === 42
+  // Cada actividad APNFD tiene su propio esquema (XSD) y estructura de Registro.
+  const clase = Number(clase_dato)
+  const esOSFL = clase === 42   // Organizaciones Sin Fines de Lucro (Donador/Beneficiario)
+  const SCHEMAS = {
+    40: 'MetalesPiedrasPreciosas.xsd', 41: 'CasasEmpeno.xsd', 42: 'SinFindeLucro.xsd',
+    43: 'Casinos.xsd', 44: 'AdministracionDinero.xsd', 45: 'RemesasTransferencias.xsd',
+    46: 'EmisionOperacionTarjetas.xsd', 47: 'FacilidadesCrediticias.xsd',
+    48: 'ServiciosFiduciarios.xsd', 49: 'BienesInmuebles.xsd',
+  }
+  const schema = SCHEMAS[clase] || 'FacilidadesCrediticias.xsd'
+  // Actividades base + campo de ubicación + países de recursos. El elemento de
+  // ubicación difiere: unas usan UbicacionCliente y otras UbicacionCompradorVendedor.
+  const UBIC_EL = {
+    40: 'UbicacionCompradorVendedor', 41: 'UbicacionCompradorVendedor', 49: 'UbicacionCompradorVendedor',
+    44: 'UbicacionCliente', 46: 'UbicacionCliente', 48: 'UbicacionCliente',
+  }
+  const ubicEl = UBIC_EL[clase]
 
   let registros = ''
   transacciones.forEach((t, idx) => {
@@ -106,6 +120,34 @@ export function generarXMLSICVECA(config, transacciones) {
             <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
             <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</PaisDestinoRecursos>
         </Registro>`
+    } else if (ubicEl) {
+      // Actividades: Admin. de Dinero (44), Serv. Fiduciarios (48), Bienes Inmuebles (49),
+      // Metales (40), Casas de Empeño (41), Tarjetas (46) → base + <Ubicacion…> + países.
+      const ubicVal = escapeXml(
+        (clase === 44 || clase === 46 || clase === 48) ? (t.ubicacion_cliente || '') : (t.ubicacion_comprador_vendedor || '')
+      )
+      registros += `
+        <Registro id="${registroId}" accion="${accion}">
+            <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
+            <TipoIdentificacion>${t.tipo_identificacion}</TipoIdentificacion>
+            <NombreCliente>${nombreCliente}</NombreCliente>
+            <PrimerApellidoCliente>${primerApellido}</PrimerApellidoCliente>
+            <SegundoApellidoCliente>${segundoApellido}</SegundoApellidoCliente>
+            <NombreEmpresa>${nombreEmpresa}</NombreEmpresa>
+            <TipoReporte>${t.tipo_reporte}</TipoReporte>
+            <TipoOperacion>${t.tipo_operacion}</TipoOperacion>
+            <TipoMovimiento>${t.tipo_movimiento}</TipoMovimiento>
+            <TipoIngreso>${tipoIngreso}</TipoIngreso>
+            <TipoSalida>${tipoSalida}</TipoSalida>
+            <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
+            <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
+            <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
+            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
+            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <${ubicEl}>${ubicVal}</${ubicEl}>
+            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
+            <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</PaisDestinoRecursos>
+        </Registro>`
     } else {
       registros += `
         <Registro id="${registroId}" accion="${accion}">
@@ -131,7 +173,7 @@ export function generarXMLSICVECA(config, transacciones) {
   })
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ArchivoSICVECA NS0:noNamespaceSchemaLocation="${esOSFL ? 'SinFindeLucro.xsd' : 'FacilidadesCrediticias.xsd'}" xmlns:NS0="http://www.w3.org/2001/XMLSchema-instance">
+<ArchivoSICVECA NS0:noNamespaceSchemaLocation="${schema}" xmlns:NS0="http://www.w3.org/2001/XMLSchema-instance">
     <Encabezado>
         <ClaseDato>${clase_dato}</ClaseDato>
         <VersionClaseDato>${version_clase}</VersionClaseDato>
