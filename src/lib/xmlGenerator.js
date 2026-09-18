@@ -53,6 +53,10 @@ export function generarXMLSICVECA(config, transacciones) {
   const [yr, mo] = periodoStr.split('-')
   const periodoFmt = `01/${mo}/${yr}`
 
+  // Clase 42 = Organizaciones Sin Fines de Lucro → esquema SinFindeLucro.xsd
+  // (estructura distinta: Donador + Beneficiario + ubicación y países de recursos).
+  const esOSFL = Number(clase_dato) === 42
+
   let registros = ''
   transacciones.forEach((t, idx) => {
     const registroId = idx + 1
@@ -71,7 +75,39 @@ export function generarXMLSICVECA(config, transacciones) {
     const tipoIngreso = esIngreso ? (t.tipo_ingreso ?? 0) : 0
     const tipoSalida  = Number(t.tipo_movimiento) === 2 ? (t.tipo_salida ?? 0) : 0
 
-    registros += `
+    if (esOSFL) {
+      // La contraparte de la ONG (cliente) se reporta como Donador; el bloque
+      // Beneficiario queda vacío. Ubicación y países de recursos son requeridos.
+      registros += `
+        <Registro id="${registroId}" accion="${accion}">
+            <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
+            <TipoIdentificacion>${t.tipo_identificacion}</TipoIdentificacion>
+            <NombreDonador>${nombreCliente}</NombreDonador>
+            <PrimerApellidoDonador>${primerApellido}</PrimerApellidoDonador>
+            <SegundoApellidoDonador>${segundoApellido}</SegundoApellidoDonador>
+            <NombreEmpresaDonador>${nombreEmpresa}</NombreEmpresaDonador>
+            <NumeroIdentificacionBeneficiario></NumeroIdentificacionBeneficiario>
+            <TipoIdentificacionBeneficiario></TipoIdentificacionBeneficiario>
+            <NombreBeneficiario></NombreBeneficiario>
+            <PrimerApellidoBeneficiario></PrimerApellidoBeneficiario>
+            <SegundoApellidoBeneficiario></SegundoApellidoBeneficiario>
+            <NombreEmpresaBeneficiario></NombreEmpresaBeneficiario>
+            <TipoReporte>${t.tipo_reporte}</TipoReporte>
+            <TipoOperacion>${t.tipo_operacion}</TipoOperacion>
+            <TipoMovimiento>${t.tipo_movimiento}</TipoMovimiento>
+            <TipoIngreso>${tipoIngreso}</TipoIngreso>
+            <TipoSalida>${tipoSalida}</TipoSalida>
+            <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
+            <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
+            <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
+            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
+            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <UbicacionDonador>${escapeXml(t.ubicacion_cliente || '')}</UbicacionDonador>
+            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
+            <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</PaisDestinoRecursos>
+        </Registro>`
+    } else {
+      registros += `
         <Registro id="${registroId}" accion="${accion}">
             <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
             <TipoIdentificacion>${t.tipo_identificacion}</TipoIdentificacion>
@@ -91,10 +127,11 @@ export function generarXMLSICVECA(config, transacciones) {
             <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
             ${t.motivo_credito ? `<MotivoCredito>${t.motivo_credito}</MotivoCredito>` : ''}
         </Registro>`
+    }
   })
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ArchivoSICVECA NS0:noNamespaceSchemaLocation="FacilidadesCrediticias.xsd" xmlns:NS0="http://www.w3.org/2001/XMLSchema-instance">
+<ArchivoSICVECA NS0:noNamespaceSchemaLocation="${esOSFL ? 'SinFindeLucro.xsd' : 'FacilidadesCrediticias.xsd'}" xmlns:NS0="http://www.w3.org/2001/XMLSchema-instance">
     <Encabezado>
         <ClaseDato>${clase_dato}</ClaseDato>
         <VersionClaseDato>${version_clase}</VersionClaseDato>
