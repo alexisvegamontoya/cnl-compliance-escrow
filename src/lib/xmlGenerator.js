@@ -120,6 +120,64 @@ export function generarXMLSICVECA(config, transacciones) {
             <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
             <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</PaisDestinoRecursos>
         </Registro>`
+    } else if (clase === 43) {
+      // Casinos: ingreso y salida por separado + movimiento neto (ganancia/pérdida).
+      const monto = Number(t.monto_movimiento).toFixed(2)
+      const mon = t.tipo_moneda_movimiento
+      registros += `
+        <Registro id="${registroId}" accion="${accion}">
+            <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
+            <TipoIdentificacion>${t.tipo_identificacion}</TipoIdentificacion>
+            <NombreCliente>${nombreCliente}</NombreCliente>
+            <PrimerApellidoCliente>${primerApellido}</PrimerApellidoCliente>
+            <SegundoApellidoCliente>${segundoApellido}</SegundoApellidoCliente>
+            <NombreEmpresa>${nombreEmpresa}</NombreEmpresa>
+            <TipoReporte>${t.tipo_reporte}</TipoReporte>
+            <TipoOperacion>${t.tipo_operacion}</TipoOperacion>
+            <TipoIngreso>${esIngreso ? (t.tipo_ingreso ?? 0) : 0}</TipoIngreso>
+            <TipoMonedaMovimientoIngreso>${esIngreso ? mon : ''}</TipoMonedaMovimientoIngreso>
+            <MontoMovimientoIngreso>${esIngreso ? monto : '0.00'}</MontoMovimientoIngreso>
+            <TipoSalida>${!esIngreso ? (t.tipo_salida ?? 0) : 0}</TipoSalida>
+            <TipoMonedaMovimientoSalida>${!esIngreso ? mon : ''}</TipoMonedaMovimientoSalida>
+            <MontoMovimientoSalida>${!esIngreso ? monto : '0.00'}</MontoMovimientoSalida>
+            <TipoMovimientoNeto>${esIngreso ? 1 : 2}</TipoMovimientoNeto>
+            <MontoMovimientoNeto>${monto}</MontoMovimientoNeto>
+            <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
+            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
+            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
+        </Registro>`
+    } else if (clase === 45) {
+      // Remesas/Transferencias: incluye bloque del receptor/remitente (contraparte).
+      registros += `
+        <Registro id="${registroId}" accion="${accion}">
+            <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
+            <TipoIdentificacion>${t.tipo_identificacion}</TipoIdentificacion>
+            <NombreCliente>${nombreCliente}</NombreCliente>
+            <PrimerApellidoCliente>${primerApellido}</PrimerApellidoCliente>
+            <SegundoApellidoCliente>${segundoApellido}</SegundoApellidoCliente>
+            <NombreEmpresa>${nombreEmpresa}</NombreEmpresa>
+            <TipoPersonaReceptorRemitente></TipoPersonaReceptorRemitente>
+            <NumeroIdentificacionReceptorRemitente></NumeroIdentificacionReceptorRemitente>
+            <TipoIdentificacionReceptorRemitente></TipoIdentificacionReceptorRemitente>
+            <NombreClienteReceptorRemitente></NombreClienteReceptorRemitente>
+            <PrimerApellidoReceptorRemitente></PrimerApellidoReceptorRemitente>
+            <SegundoApellidoReceptorRemitente></SegundoApellidoReceptorRemitente>
+            <NombreEmpresaClienteReceptorRemitente></NombreEmpresaClienteReceptorRemitente>
+            <TipoReporte>${t.tipo_reporte}</TipoReporte>
+            <TipoOperacion>${t.tipo_operacion}</TipoOperacion>
+            <TipoMovimiento>${t.tipo_movimiento}</TipoMovimiento>
+            <TipoIngreso>${tipoIngreso}</TipoIngreso>
+            <TipoSalida>${tipoSalida}</TipoSalida>
+            <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
+            <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
+            <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
+            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
+            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <PaisOrigenDestino>${escapeXml(t.pais_origen_recursos || t.pais_destino_recursos || '')}</PaisOrigenDestino>
+            <EntidadExteriorTramitaRemesa></EntidadExteriorTramitaRemesa>
+            <DestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</DestinoRecursos>
+        </Registro>`
     } else if (ubicEl) {
       // Actividades: Admin. de Dinero (44), Serv. Fiduciarios (48), Bienes Inmuebles (49),
       // Metales (40), Casas de Empeño (41), Tarjetas (46) → base + <Ubicacion…> + países.
