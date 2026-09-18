@@ -81,6 +81,11 @@ export const TIPOS_INGRESO = [
   { codigo: 14, descripcion: 'Deportes',                           clases: [3] },
   { codigo: 15, descripcion: 'Desarrollo urbano',                  clases: [3] },
   { codigo: 16, descripcion: 'Alimentación',                       clases: [3] },
+  { codigo: 17, descripcion: 'Ambiental',                          clases: [3] },
+  { codigo: 18, descripcion: 'Vida silvestre',                     clases: [3] },
+  { codigo: 19, descripcion: 'Niñez y adolescencia',               clases: [3] },
+  { codigo: 20, descripcion: 'Farmacodependencias',                clases: [3] },
+  { codigo: 21, descripcion: 'Adulto mayor',                       clases: [3] },
   { codigo: 22, descripcion: 'Venta de fichas',                    clases: [4] },
   { codigo: 23, descripcion: 'Ingreso en máquinas (efectivo)',     clases: [4] },
   { codigo: 24, descripcion: 'Monto administrado',                 clases: [5] },
@@ -112,6 +117,9 @@ export const TIPOS_INGRESO = [
   { codigo: 50, descripcion: 'Pago de prima',                      clases: [10] },
   { codigo: 51, descripcion: 'Pago parcial',                       clases: [10] },
   { codigo: 52, descripcion: 'Pago total',                         clases: [10] },
+  { codigo: 53, descripcion: 'Colocación de fichas',               clases: [4] },
+  { codigo: 54, descripcion: 'Colocación de tiquetes',             clases: [4] },
+  { codigo: 55, descripcion: 'Ingreso en máquina (efectivo)',      clases: [4] },
   { codigo: 56, descripcion: 'Prima',                              clases: [8] },
 ]
 
