@@ -93,6 +93,9 @@ export default function XMLGenerator() {
   const [stats, setStats]             = useState(null)
   const [error, setError]             = useState(null)
   const [marcado, setMarcado]         = useState(false)
+  // Cédulas (normalizadas) que el usuario decide excluir del XML por no estar en
+  // el padrón. Quedan en la base de datos; solo se omiten al generar el archivo.
+  const [cedulasExcluidas, setCedulasExcluidas] = useState([])
 
   // ── Tenants para superadmin ──
   useEffect(() => {
@@ -114,6 +117,15 @@ export default function XMLGenerator() {
 
   function resetResultados() {
     setResultados(null); setStats(null); setPreview(''); setMarcado(false); setError(null)
+    setCedulasExcluidas([])
+  }
+
+  // Alternar exclusión de una cédula no encontrada en el padrón
+  function toggleExcluirCedula(cedula) {
+    setCedulasExcluidas(prev =>
+      prev.includes(cedula) ? prev.filter(c => c !== cedula) : [...prev, cedula]
+    )
+    setStats(null); setPreview('')  // invalidar XML previo si ya se había generado
   }
 
   // ── Obtener tipo de cambio ──
@@ -215,8 +227,19 @@ export default function XMLGenerator() {
     setError(null)
     setLoading(true)
     try {
+      // Excluir del XML las cédulas que el usuario marcó (siguen en la BD)
+      const excSet = new Set(cedulasExcluidas)
+      const incluidasFiltradas = resultados.incluidas.filter(
+        t => !excSet.has(String(t.numero_identificacion).replace(/[-\s]/g, ''))
+      )
+
+      if (incluidasFiltradas.length === 0) {
+        setError({ tipo: 'operativo', mensaje: 'No quedan transacciones para el XML: excluyó todas. Desmarque alguna cédula o corrija los datos.' })
+        setLoading(false); return
+      }
+
       // Aplicar nombres corregidos del padrón
-      const txsCorregidas = aplicarNombresPadron(resultados.incluidas, resultados.nombresCorregidos)
+      const txsCorregidas = aplicarNombresPadron(incluidasFiltradas, resultados.nombresCorregidos)
 
       const xml = generarXMLSICVECA({
         clase_dato    : tenantActivo.clase_dato,
@@ -350,16 +373,42 @@ export default function XMLGenerator() {
                   ? `${Object.keys(resultados.nombresCorregidos).length} clientes verificados`
                   : `${resultados.erroresPadron.length} cédula(s) no encontradas`} />
             </div>
-            {resultados.erroresPadron.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
-                <p className="text-xs font-semibold text-amber-800 mb-1">
-                  ⚠ Las siguientes cédulas no están en nuestra copia del padrón (puede estar desactualizada). Verifique que el número sea correcto; en el XML se usará el <strong>nombre registrado del cliente</strong>, que debe coincidir exactamente con el padrón oficial de SUGEF:
-                </p>
-                {resultados.erroresPadron.map((e, i) => (
-                  <p key={i} className="text-xs text-amber-700 font-mono">· {e.cedula}</p>
-                ))}
-              </div>
-            )}
+            {resultados.erroresPadron.length > 0 && (() => {
+              const norm = v => String(v).replace(/[-\s]/g, '')
+              const txsExcluidas = resultados.incluidas.filter(t => cedulasExcluidas.includes(norm(t.numero_identificacion))).length
+              const todasExcluidas = resultados.erroresPadron.every(e => cedulasExcluidas.includes(e.cedula))
+              return (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-800">
+                    ⚠ Las siguientes cédulas no están en nuestra copia del padrón (puede estar desactualizada). Verifique que el número sea correcto; en el XML se usará el <strong>nombre registrado del cliente</strong>, que debe coincidir exactamente con el padrón oficial de SUGEF.
+                  </p>
+                  <p className="text-xs text-amber-800">
+                    Marque las que desea <strong>excluir del XML</strong>. Las excluidas <strong>permanecen en la base de datos</strong> (queda el registro de la transacción); solo se omiten en este archivo.
+                  </p>
+                  <button type="button"
+                    onClick={() => setCedulasExcluidas(todasExcluidas ? [] : resultados.erroresPadron.map(e => e.cedula))}
+                    className="text-xs font-medium text-amber-700 underline">
+                    {todasExcluidas ? 'Desmarcar todas' : 'Excluir todas'}
+                  </button>
+                  <div className="space-y-1 pt-1">
+                    {resultados.erroresPadron.map((e, i) => (
+                      <label key={i} className="flex items-center gap-2 text-xs text-amber-700 cursor-pointer">
+                        <input type="checkbox"
+                          checked={cedulasExcluidas.includes(e.cedula)}
+                          onChange={() => toggleExcluirCedula(e.cedula)} />
+                        <span className="font-mono">{e.cedula}</span>
+                        <span className="text-amber-500">— excluir del XML</span>
+                      </label>
+                    ))}
+                  </div>
+                  {cedulasExcluidas.length > 0 && (
+                    <p className="text-xs font-medium text-amber-900 bg-amber-100 rounded px-2 py-1">
+                      Se excluirán {txsExcluidas} transacción{txsExcluidas !== 1 ? 'es' : ''} de {cedulasExcluidas.length} cédula{cedulasExcluidas.length !== 1 ? 's' : ''} del XML (permanecen en la base de datos).
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
             {resultados.erroresPadron.length === 0 && (
               <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
                 ✓ Todos los clientes encontrados en el padrón. Los nombres en el XML se ajustarán al registro oficial.
@@ -488,14 +537,23 @@ export default function XMLGenerator() {
               <p className="text-sm font-semibold text-green-800 mb-3">
                 ✅ Validación superada — listo para generar
               </p>
-              <p className="text-xs text-green-700 mb-4">
-                Se generará un XML con <strong>{resultados.statsReglas.incluidas} transacciones</strong>
-                {' '}({resultados.statsReglas.unicas} operación única, {resultados.statsReglas.multiples} operación múltiple).
-                {resultados.statsReglas.excluidas > 0 && (
-                  <> Las {resultados.statsReglas.excluidas} transacciones excluidas quedan en la base de datos para análisis.</>
-                )}
-                {' '}Los nombres de clientes se ajustarán al padrón SUGEF.
-              </p>
+              {(() => {
+                const norm = v => String(v).replace(/[-\s]/g, '')
+                const excPadron = resultados.incluidas.filter(t => cedulasExcluidas.includes(norm(t.numero_identificacion))).length
+                const totalXML = resultados.statsReglas.incluidas - excPadron
+                return (
+                  <p className="text-xs text-green-700 mb-4">
+                    Se generará un XML con <strong>{totalXML} transacción{totalXML !== 1 ? 'es' : ''}</strong>.
+                    {resultados.statsReglas.excluidas > 0 && (
+                      <> Las {resultados.statsReglas.excluidas} transacciones bajo el umbral quedan en la base de datos.</>
+                    )}
+                    {excPadron > 0 && (
+                      <> Además, {excPadron} transacción{excPadron !== 1 ? 'es' : ''} de cédulas no encontradas en el padrón se excluye{excPadron !== 1 ? 'n' : ''} por su indicación (permanece{excPadron !== 1 ? 'n' : ''} en la base de datos).</>
+                    )}
+                    {' '}Los nombres de clientes se ajustarán al padrón SUGEF.
+                  </p>
+                )
+              })()}
               <button className="btn-primary" onClick={generarXML} disabled={loading}>
                 {loading ? 'Generando…' : '⚙️ Generar XML SICVECA'}
               </button>
