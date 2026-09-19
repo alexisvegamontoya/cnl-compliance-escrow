@@ -3,8 +3,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/AuthContext'
 import {
   TIPO_IDENTIFICACION, TIPO_REPORTE, TIPO_OPERACION,
-  TIPO_MOVIMIENTO, TIPO_MONEDA, MOTIVO_CREDITO,
-  getTiposIngreso, getTiposSalida,
+  TIPO_MOVIMIENTO, TIPO_MONEDA, MOTIVO_CREDITO, PAISES,
+  getTiposIngreso, getTiposSalida, getCamposGeograficos,
 } from '../../lib/catalogos'
 
 const EMPTY_FORM = {
@@ -24,17 +24,27 @@ const EMPTY_FORM = {
   fecha_transaccion: '',
   motivo_transaccion: '',
   origen_recursos: '',
-  ubicacion_cliente: '',
+  ubicacion_cliente: 'CR',
   motivo_credito: 0,
-  ubicacion_comprador_vendedor: '',
-  pais_origen_recursos: '',
-  pais_destino_recursos: '',
+  ubicacion_comprador_vendedor: 'CR',
+  pais_origen_recursos: 'CR',
+  pais_destino_recursos: 'CR',
   periodo: new Date().toISOString().substring(0, 7) + '-01',
 }
 
 export default function TransactionForm({ onSaved, editData, onCancel }) {
   const { tenant } = useAuth()
-  const [form, setForm]           = useState(editData || EMPTY_FORM)
+  // Al editar, normaliza los campos de país que estén vacíos (transacciones
+  // antiguas los tienen en null) para que el selector muestre y persista un
+  // código válido (CR por defecto) en vez de guardar null.
+  const normalizarGeo = (row) => !row ? EMPTY_FORM : ({
+    ...row,
+    ubicacion_cliente:            row.ubicacion_cliente            || 'CR',
+    ubicacion_comprador_vendedor: row.ubicacion_comprador_vendedor || 'CR',
+    pais_origen_recursos:         row.pais_origen_recursos         || 'CR',
+    pais_destino_recursos:        row.pais_destino_recursos        || 'CR',
+  })
+  const [form, setForm]           = useState(normalizarGeo(editData))
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [clienteEncontrado, setClienteEncontrado] = useState(null)
@@ -45,9 +55,10 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
   const esFacilidadCrediticia = claseDato === 47
   const tiposIngreso = getTiposIngreso(claseDato)
   const tiposSalida  = getTiposSalida(claseDato)
+  const camposGeo    = getCamposGeograficos(claseDato)
 
   useEffect(() => {
-    if (editData) setForm(editData)
+    if (editData) setForm(normalizarGeo(editData))
   }, [editData])
 
   // Autollenado al ingresar número de identificación
@@ -144,11 +155,11 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
         fecha_transaccion: form.fecha_transaccion || null,
         motivo_transaccion: form.motivo_transaccion || null,
         origen_recursos: form.origen_recursos || null,
-        ubicacion_cliente: form.ubicacion_cliente || null,
+        ubicacion_cliente: form.ubicacion_cliente || 'CR',
         motivo_credito: esFacilidadCrediticia ? Number(form.motivo_credito) : 0,
-        ubicacion_comprador_vendedor: form.ubicacion_comprador_vendedor || null,
-        pais_origen_recursos: form.pais_origen_recursos || null,
-        pais_destino_recursos: form.pais_destino_recursos || null,
+        ubicacion_comprador_vendedor: form.ubicacion_comprador_vendedor || 'CR',
+        pais_origen_recursos: form.pais_origen_recursos || 'CR',
+        pais_destino_recursos: form.pais_destino_recursos || 'CR',
         periodo: form.periodo,
         accion: editData ? 'modificar' : 'insertar',
       }
@@ -410,6 +421,31 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
           <p className="text-xs text-gray-400 mt-1">Campo requerido por SUGEF/SICVECA. Describa el origen de los fondos de la transacción.</p>
         </div>
       </div>
+
+      {/* 5. Ubicación geográfica — requerida por SICVECA (todas las actividades salvo Facilidades Crediticias) */}
+      {camposGeo.length > 0 && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 mb-1">5. Ubicación geográfica</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            SICVECA exige el país en estos campos para la actividad del sujeto obligado.
+            Por defecto es Costa Rica (CR); cámbielo si los recursos provienen o se destinan a otro país.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            {camposGeo.map(campo => (
+              <div key={campo.key}>
+                <label className="label">{campo.label} <span className="text-red-500">*</span></label>
+                <select className="input-field" required
+                  value={form[campo.key] || 'CR'}
+                  onChange={e => set(campo.key, e.target.value)}>
+                  {PAISES.map(p => (
+                    <option key={p.codigo} value={p.codigo}>{p.nombre} ({p.codigo})</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Botones */}
       <div className="flex justify-end gap-3">

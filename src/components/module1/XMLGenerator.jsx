@@ -8,6 +8,7 @@ import { clasificarError } from '../../lib/errorHandler'
 import {
   aplicarReglasSICVECA,
   validarCodigosActividad,
+  validarReglasNegocio,
   aplicarNombresPadron,
   fetchTipoCambio,
   getUmbralUSD,
@@ -183,6 +184,9 @@ export default function XMLGenerator() {
       // 4. Validar códigos de ingreso/salida por actividad
       const erroresCodigos = validarCodigosActividad(incluidas, tenantActivo.clase_dato)
 
+      // 5. Validar reglas de negocio SICVECA (completitud de datos)
+      const erroresNegocio = validarReglasNegocio(incluidas, tenantActivo.clase_dato)
+
       setResultados({
         txsTotal    : txs,
         incluidas,
@@ -192,9 +196,10 @@ export default function XMLGenerator() {
         erroresPadron,
         nombresCorregidos,
         erroresCodigos,
-        // El padrón solo advierte (nuestra copia puede estar desactualizada); solo
-        // los códigos inválidos bloquean la generación.
-        hayBloqueo  : erroresCodigos.length > 0,
+        erroresNegocio,
+        // El padrón solo advierte (nuestra copia puede estar desactualizada); los
+        // códigos inválidos y las reglas de negocio incumplidas bloquean la generación.
+        hayBloqueo  : erroresCodigos.length > 0 || erroresNegocio.length > 0,
       })
 
     } catch (err) {
@@ -441,6 +446,34 @@ export default function XMLGenerator() {
             {resultados.erroresCodigos.length === 0 && (
               <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
                 ✓ Todos los códigos de ingreso y salida corresponden a la actividad.
+              </p>
+            )}
+          </section>
+
+          {/* ── 4. Reglas de negocio (completitud) ── */}
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium text-gray-700">4. Datos obligatorios SICVECA</span>
+              <Badge ok={resultados.erroresNegocio.length === 0}
+                label={resultados.erroresNegocio.length === 0
+                  ? 'Todos los datos requeridos están completos'
+                  : `${resultados.erroresNegocio.length} error(es) de datos`} />
+            </div>
+            {resultados.erroresNegocio.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
+                <p className="text-xs font-semibold text-red-700 mb-1">
+                  ❌ Corrija estas transacciones antes de generar el XML (edítelas en la pestaña Transacciones):
+                </p>
+                {resultados.erroresNegocio.map((e, i) => (
+                  <p key={i} className="text-xs text-red-600">
+                    · Registro {e.registro} — cédula <span className="font-mono">{e.cedula || '—'}</span>: {e.descripcion} <span className="text-red-400">({e.campo})</span>
+                  </p>
+                ))}
+              </div>
+            )}
+            {resultados.erroresNegocio.length === 0 && (
+              <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+                ✓ Identificación, nombre, tipo de movimiento y fechas están completos y válidos.
               </p>
             )}
           </section>

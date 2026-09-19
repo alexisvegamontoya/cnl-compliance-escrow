@@ -107,6 +107,13 @@ export default function CargaMasivaTransacciones({ onImportado }) {
         motivo_transaccion: String(r.motivo_transaccion || '').trim() || null,
         origen_recursos: String(r.origen_recursos || '').trim() || null,
         motivo_credito: Number(r.motivo_credito) || 0,
+        // Ubicación / país (código ISO de 2 letras, tabla PAIS SUGEF). SICVECA lo
+        // exige en todas las actividades salvo Facilidades Crediticias; si la fila
+        // no lo trae se asume Costa Rica (CR).
+        ubicacion_cliente: String(r.ubicacion_cliente || '').trim().toUpperCase() || 'CR',
+        ubicacion_comprador_vendedor: String(r.ubicacion_comprador_vendedor || '').trim().toUpperCase() || 'CR',
+        pais_origen_recursos: String(r.pais_origen_recursos || '').trim().toUpperCase() || 'CR',
+        pais_destino_recursos: String(r.pais_destino_recursos || '').trim().toUpperCase() || 'CR',
         periodo: derivarPeriodo(r.fecha_transaccion),
         accion: 'insertar',
       }

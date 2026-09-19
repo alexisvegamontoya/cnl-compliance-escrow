@@ -1,9 +1,14 @@
 import * as XLSX from 'xlsx'
-import { ACTIVIDADES_APNFD, TIPOS_INGRESO, TIPOS_SALIDA, MOTIVO_CREDITO } from './catalogos'
+import { ACTIVIDADES_APNFD, TIPOS_INGRESO, TIPOS_SALIDA, MOTIVO_CREDITO, PAISES, getCamposGeograficos } from './catalogos'
 
 // ─── Plantilla de Transacciones ──────────────────────────────────────────────
 // claseDato: número de clase SUGEF (ej: 47). Si se omite, muestra todos los códigos.
 export function descargarPlantillaTransacciones(claseDato) {
+  const clase = Number(claseDato) || 47
+  const geoCampos = getCamposGeograficos(clase)          // [{key,label}] según actividad
+  const geoKeys   = geoCampos.map(c => c.key)
+  const incluyeMotivoCredito = clase === 47               // motivo_credito solo Facilidades
+
   const headers = [
     'numero_identificacion',
     'tipo_identificacion',
@@ -21,34 +26,67 @@ export function descargarPlantillaTransacciones(claseDato) {
     'fecha_transaccion',
     'motivo_transaccion',
     'origen_recursos',
-    'motivo_credito',
+    ...(incluyeMotivoCredito ? ['motivo_credito'] : []),
+    ...geoKeys,
   ]
 
+  const actInfo = ACTIVIDADES_APNFD.find(a => a.clase_dato === clase)
+  const nombreActividad = actInfo ? `Clase ${clase} ${actInfo.nombre}` : `Clase ${clase}`
+  const esOSFL = clase === 42
+
+  // Códigos de ingreso/salida válidos para ESTA actividad (para ejemplos correctos)
+  const idxAct = clase - 39
+  const primerIngreso = TIPOS_INGRESO.find(t => t.codigo !== 0 && (t.clases.includes(0) || t.clases.includes(idxAct)))?.codigo || 0
+  const primerSalida  = TIPOS_SALIDA.find(t => t.codigo !== 0 && (t.clases.includes(0) || t.clases.includes(idxAct)))?.codigo || 0
+
   const instrucciones = [
-    ['PLANTILLA DE CARGA MASIVA DE TRANSACCIONES — CNL Compliance App (Clase 47 Facilidades Crediticias)'],
+    [`PLANTILLA DE CARGA MASIVA DE TRANSACCIONES — CNL Compliance App (${nombreActividad})`],
     [''],
     ['INSTRUCCIONES:'],
-    ['• No modifique los nombres de las columnas (fila 7)'],
-    ['• Complete desde la fila 8 en adelante'],
+    ['• No modifique los nombres de las columnas (fila de encabezados)'],
+    ['• Complete en las filas siguientes a los encabezados'],
     ['• tipo_identificacion: 1=Física CR, 2=Jurídica CR, 3=DIMEX, 4=Ent.Financiera Ext., 5=Pasaporte, 6=Empresa Ext., 13=Fideicomiso'],
     ['• tipo_reporte: 1=Efectivo, 2=APNFD, 3=Ambos'],
     ['• tipo_operacion: 1=Única, 2=Múltiple'],
-    ['• tipo_movimiento: 1=Ingreso, 2=Salida'],
-    ['• tipo_ingreso: use 0 si no aplica. Ver catálogo hoja "Catálogos". Ej: 37=Pago intereses, 38=Pago cuota, 39=Pago principal'],
-    ['• tipo_salida: use 0 si no aplica. Ej: 33=Desembolso crédito, 34=Reintegro saldo a favor'],
+    [esOSFL
+      ? '• tipo_movimiento: 1=Ingreso (donación recibida), 2=Salida (fondos entregados), 3=Ingreso/Salida'
+      : '• tipo_movimiento: 1=Ingreso, 2=Salida'],
+    ['• tipo_ingreso: en un Ingreso use un código válido (hoja "Catálogos"); en una Salida use 0'],
+    ['• tipo_salida: en una Salida use un código válido (hoja "Catálogos"); en un Ingreso use 0'],
     ['• tipo_moneda_movimiento: 1=CRC, 2=USD, 3=EUR, 4=Otra'],
-    ['• fecha_transaccion: formato YYYY-MM-DD (ej: 2024-03-15)'],
-    ['• origen_recursos: descripción del origen de los fondos (REQUERIDO por SUGEF). Ej: Flujo de caja de la empresa para atender la deuda'],
-    ['• motivo_credito: 7=Inversión (más común). Ver catálogo completo en hoja "Catálogos"'],
+    ['• fecha_transaccion: formato YYYY-MM-DD (ej: 2024-03-15) — el año debe ser real (no 0026)'],
+    ['• origen_recursos: descripción del origen de los fondos (REQUERIDO por SUGEF)'],
+    ...(incluyeMotivoCredito ? [['• motivo_credito: 7=Empresarial (común). Ver catálogo completo en hoja "Catálogos"']] : []),
+    ...(geoKeys.length ? [
+      ['• CAMPOS DE PAÍS (obligatorios para esta actividad en SICVECA): use el CÓDIGO ISO de 2 letras. Ver hoja "Países".'],
+      ['   Ejemplos: CR=Costa Rica, GT=Guatemala, US=Estados Unidos, NI=Nicaragua, PA=Panamá. Si no se indica, se asume CR.'],
+      ...geoCampos.map(c => [`   - ${c.key}: ${c.label}`]),
+    ] : []),
     ['• Si el cliente es persona física use: nombre_cliente, primer_apellido, segundo_apellido'],
     ['• Si es persona jurídica use: nombre_empresa'],
+    ...(esOSFL ? [
+      [''],
+      ['NOTA OSFL (Organizaciones Sin Fines de Lucro):'],
+      ['• Registre la contraparte una sola vez (número, tipo e identidad). El sistema la coloca automáticamente'],
+      ['  como DONADOR en un Ingreso, o como BENEFICIARIO en una Salida, según el tipo_movimiento.'],
+      ['• En una Salida, tipo_ingreso debe ir en 0; en un Ingreso, tipo_salida debe ir en 0.'],
+    ] : []),
     [''],
   ]
 
-  const ejemplos = [
-    ['101234567', 1, 'Juan', 'Pérez', 'Mora', '', 2, 1, 1, 38, 0, 2, 15000, '2024-03-10', 'Pago cuota mensual', 'Flujo de caja personal para atender el crédito', 7],
-    ['3101234567', 2, '', '', '', 'Empresa XYZ S.A.', 2, 1, 2, 0, 33, 2, 25000, '2024-03-15', 'Desembolso de crédito', 'Flujo necesario según plan de inversión del crédito', 7],
+  // Ejemplos como objetos → se mapean al orden real de columnas (por actividad),
+  // usando códigos de ingreso/salida válidos para la actividad seleccionada.
+  const ejBase = {
+    tipo_reporte: 2, tipo_operacion: 1, tipo_moneda_movimiento: 2,
+    motivo_credito: incluyeMotivoCredito ? 7 : '',
+    ubicacion_cliente: 'CR', ubicacion_comprador_vendedor: 'CR',
+    pais_origen_recursos: 'CR', pais_destino_recursos: 'CR',
+  }
+  const ejemplosObj = [
+    { ...ejBase, numero_identificacion: '101234567', tipo_identificacion: 1, nombre_cliente: 'Juan', primer_apellido: 'Pérez', segundo_apellido: 'Mora', nombre_empresa: '', tipo_movimiento: 1, tipo_ingreso: primerIngreso, tipo_salida: 0, monto_movimiento: 15000, fecha_transaccion: '2024-03-10', motivo_transaccion: 'Descripción de la transacción', origen_recursos: 'Detalle del origen de los fondos del cliente' },
+    { ...ejBase, numero_identificacion: '3101234567', tipo_identificacion: 2, nombre_cliente: '', primer_apellido: '', segundo_apellido: '', nombre_empresa: 'Empresa XYZ S.A.', tipo_movimiento: 2, tipo_ingreso: 0, tipo_salida: primerSalida, monto_movimiento: 25000, fecha_transaccion: '2024-03-15', motivo_transaccion: 'Descripción de la transacción', origen_recursos: 'Detalle del origen de los fondos del cliente' },
   ]
+  const ejemplos = ejemplosObj.map(e => headers.map(h => (e[h] ?? '')))
 
   const wb = XLSX.utils.book_new()
 
@@ -60,8 +98,9 @@ export function descargarPlantillaTransacciones(claseDato) {
   ]
   const ws = XLSX.utils.aoa_to_sheet(wsData)
 
-  // Anchos de columna
-  ws['!cols'] = headers.map((h, i) => ({ wch: i === 5 || i === 14 ? 30 : 22 }))
+  // Anchos de columna (más anchas para nombre_empresa/motivo/origen)
+  const anchas = new Set(['nombre_empresa', 'motivo_transaccion', 'origen_recursos'])
+  ws['!cols'] = headers.map(h => ({ wch: anchas.has(h) ? 30 : 22 }))
 
   // Estilo de fila de encabezados (fila 17 = índice 16)
   const headerRow = instrucciones.length
@@ -144,7 +183,20 @@ export function descargarPlantillaTransacciones(claseDato) {
   wsCat['!cols'] = [{ wch: 10 }, { wch: 40 }, { wch: 35 }]
   XLSX.utils.book_append_sheet(wb, wsCat, 'Catálogos')
 
-  XLSX.writeFile(wb, 'Plantilla_Transacciones_CNL.xlsx')
+  // Hoja de países (solo si la actividad usa campos de país)
+  if (geoKeys.length) {
+    const paisData = [
+      ['CATÁLOGO DE PAÍS (tabla PAIS SUGEF) — use el código de 2 letras'],
+      ['Código', 'País'],
+      ...PAISES.map(p => [p.codigo, p.nombre]),
+    ]
+    const wsPais = XLSX.utils.aoa_to_sheet(paisData)
+    wsPais['!cols'] = [{ wch: 10 }, { wch: 45 }]
+    XLSX.utils.book_append_sheet(wb, wsPais, 'Países')
+  }
+
+  const sufijo = actInfo ? `_${clase}` : ''
+  XLSX.writeFile(wb, `Plantilla_Transacciones_CNL${sufijo}.xlsx`)
 }
 
 // ─── Plantilla de Clientes ────────────────────────────────────────────────────

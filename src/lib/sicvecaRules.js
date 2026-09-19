@@ -162,6 +162,52 @@ export function validarCodigosActividad(transacciones, claseDato) {
   return errores
 }
 
+// ─── Validación de reglas de negocio SICVECA (completitud) ──────────────────
+// Verifica ANTES de generar el XML que cada transacción tenga los datos que
+// SICVECA exige, para no producir un archivo que el sistema de SUGEF rechazaría.
+// Devuelve errores con el/los registro(s) afectado(s).
+export function validarReglasNegocio(transacciones, claseDato) {
+  const clase   = Number(claseDato)
+  const esOSFL  = clase === 42
+  const errores = []
+
+  transacciones.forEach((t, i) => {
+    const registro = i + 1
+    const esFisica = [1, 3, 5].includes(Number(t.tipo_identificacion))
+    const tieneNombre = esFisica
+      ? (t.nombre_cliente && t.primer_apellido)
+      : !!t.nombre_empresa
+    const movi = Number(t.tipo_movimiento)
+    const push = (campo, descripcion) =>
+      errores.push({ id: t.id, registro, cedula: t.numero_identificacion, campo, descripcion })
+
+    // Identificación y nombre de la contraparte (donador/beneficiario o cliente)
+    if (!t.numero_identificacion) push('NumeroIdentificacion', 'Falta el número de identificación')
+    if (!t.tipo_identificacion)   push('TipoIdentificacion', 'Falta el tipo de identificación')
+    if (!tieneNombre) push('Nombre', esFisica
+      ? 'Falta el nombre y primer apellido de la persona física'
+      : 'Falta el nombre de la empresa')
+
+    // Tipo de movimiento válido: OSFL admite 1, 2 y 3; el resto solo 1 y 2
+    const movimientosValidos = esOSFL ? [1, 2, 3] : [1, 2]
+    if (!movimientosValidos.includes(movi)) {
+      push('TipoMovimiento', esOSFL
+        ? 'Tipo de movimiento inválido (debe ser 1 Ingreso, 2 Salida o 3 Ingreso/Salida)'
+        : 'Tipo de movimiento inválido (debe ser 1 Ingreso o 2 Salida)')
+    }
+
+    // Fecha de transacción con año plausible (evita años como 0026)
+    if (t.fecha_transaccion) {
+      const anio = Number(String(t.fecha_transaccion).substring(0, 4))
+      if (!anio || anio < 2000 || anio > 2100) {
+        push('FechaTransaccion', `Fecha con año inválido: ${t.fecha_transaccion}`)
+      }
+    }
+  })
+
+  return errores
+}
+
 // ─── Aplicar nombres corregidos del padrón a las transacciones ───────────────
 // nombresCorregidos: { [numero_identificacion]: { tipo, nombre_completo } }
 export function aplicarNombresPadron(transacciones, nombresCorregidos) {

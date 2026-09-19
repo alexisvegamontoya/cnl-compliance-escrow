@@ -90,35 +90,45 @@ export function generarXMLSICVECA(config, transacciones) {
     const tipoSalida  = Number(t.tipo_movimiento) === 2 ? (t.tipo_salida ?? 0) : 0
 
     if (esOSFL) {
-      // La contraparte de la ONG (cliente) se reporta como Donador; el bloque
-      // Beneficiario queda vacío. Ubicación y países de recursos son requeridos.
+      // Reglas SICVECA para OSFL según el Tipo de Movimiento:
+      //  • Ingreso (1): la contraparte se reporta como DONADOR; Beneficiario vacío; TipoSalida=0.
+      //  • Salida  (2): la contraparte se reporta como BENEFICIARIO; Donador vacío (incluida
+      //    la identificación de cabecera); TipoIngreso=0.
+      //  • Ingreso/Salida (3): se llenan ambos bloques.
+      const movi   = Number(t.tipo_movimiento)
+      const donFill = (movi === 1 || movi === 3)   // llenar bloque Donador
+      const benFill = (movi === 2 || movi === 3)   // llenar bloque Beneficiario
+      const numId  = escapeXml(t.numero_identificacion || '')
+      const tId    = t.tipo_identificacion
+      const tIngresoOSFL = donFill ? (t.tipo_ingreso ?? 0) : 0
+      const tSalidaOSFL  = benFill ? (t.tipo_salida ?? 0) : 0
       registros += `
         <Registro id="${registroId}" accion="${accion}">
-            <NumeroIdentificacion>${escapeXml(t.numero_identificacion)}</NumeroIdentificacion>
-            <TipoIdentificacion>${t.tipo_identificacion}</TipoIdentificacion>
-            <NombreDonador>${nombreCliente}</NombreDonador>
-            <PrimerApellidoDonador>${primerApellido}</PrimerApellidoDonador>
-            <SegundoApellidoDonador>${segundoApellido}</SegundoApellidoDonador>
-            <NombreEmpresaDonador>${nombreEmpresa}</NombreEmpresaDonador>
-            <NumeroIdentificacionBeneficiario></NumeroIdentificacionBeneficiario>
-            <TipoIdentificacionBeneficiario></TipoIdentificacionBeneficiario>
-            <NombreBeneficiario></NombreBeneficiario>
-            <PrimerApellidoBeneficiario></PrimerApellidoBeneficiario>
-            <SegundoApellidoBeneficiario></SegundoApellidoBeneficiario>
-            <NombreEmpresaBeneficiario></NombreEmpresaBeneficiario>
+            <NumeroIdentificacion>${donFill ? numId : ''}</NumeroIdentificacion>
+            <TipoIdentificacion>${donFill ? tId : ''}</TipoIdentificacion>
+            <NombreDonador>${donFill ? nombreCliente : ''}</NombreDonador>
+            <PrimerApellidoDonador>${donFill ? primerApellido : ''}</PrimerApellidoDonador>
+            <SegundoApellidoDonador>${donFill ? segundoApellido : ''}</SegundoApellidoDonador>
+            <NombreEmpresaDonador>${donFill ? nombreEmpresa : ''}</NombreEmpresaDonador>
+            <NumeroIdentificacionBeneficiario>${benFill ? numId : ''}</NumeroIdentificacionBeneficiario>
+            <TipoIdentificacionBeneficiario>${benFill ? tId : ''}</TipoIdentificacionBeneficiario>
+            <NombreBeneficiario>${benFill ? nombreCliente : ''}</NombreBeneficiario>
+            <PrimerApellidoBeneficiario>${benFill ? primerApellido : ''}</PrimerApellidoBeneficiario>
+            <SegundoApellidoBeneficiario>${benFill ? segundoApellido : ''}</SegundoApellidoBeneficiario>
+            <NombreEmpresaBeneficiario>${benFill ? nombreEmpresa : ''}</NombreEmpresaBeneficiario>
             <TipoReporte>${t.tipo_reporte}</TipoReporte>
             <TipoOperacion>${t.tipo_operacion}</TipoOperacion>
             <TipoMovimiento>${t.tipo_movimiento}</TipoMovimiento>
-            <TipoIngreso>${tipoIngreso}</TipoIngreso>
-            <TipoSalida>${tipoSalida}</TipoSalida>
+            <TipoIngreso>${tIngresoOSFL}</TipoIngreso>
+            <TipoSalida>${tSalidaOSFL}</TipoSalida>
             <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
             <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
             <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
-            <UbicacionDonador>${escapeXml(t.ubicacion_cliente || '')}</UbicacionDonador>
-            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
-            <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</PaisDestinoRecursos>
+            <UbicacionDonador>${escapeXml(t.ubicacion_cliente || 'CR')}</UbicacionDonador>
+            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || 'CR')}</PaisOrigenRecursos>
+            <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || 'CR')}</PaisDestinoRecursos>
         </Registro>`
     } else if (clase === 43) {
       // Casinos: ingreso y salida por separado + movimiento neto (ganancia/pérdida).
@@ -145,7 +155,7 @@ export function generarXMLSICVECA(config, transacciones) {
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
             <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
             <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
-            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
+            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || 'CR')}</PaisOrigenRecursos>
         </Registro>`
     } else if (clase === 45) {
       // Remesas/Transferencias: incluye bloque del receptor/remitente (contraparte).
@@ -174,7 +184,7 @@ export function generarXMLSICVECA(config, transacciones) {
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
             <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
             <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
-            <PaisOrigenDestino>${escapeXml(t.pais_origen_recursos || t.pais_destino_recursos || '')}</PaisOrigenDestino>
+            <PaisOrigenDestino>${escapeXml(t.pais_origen_recursos || t.pais_destino_recursos || 'CR')}</PaisOrigenDestino>
             <EntidadExteriorTramitaRemesa></EntidadExteriorTramitaRemesa>
             <DestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</DestinoRecursos>
         </Registro>`
@@ -182,7 +192,7 @@ export function generarXMLSICVECA(config, transacciones) {
       // Actividades: Admin. de Dinero (44), Serv. Fiduciarios (48), Bienes Inmuebles (49),
       // Metales (40), Casas de Empeño (41), Tarjetas (46) → base + <Ubicacion…> + países.
       const ubicVal = escapeXml(
-        (clase === 44 || clase === 46 || clase === 48) ? (t.ubicacion_cliente || '') : (t.ubicacion_comprador_vendedor || '')
+        (clase === 44 || clase === 46 || clase === 48) ? (t.ubicacion_cliente || 'CR') : (t.ubicacion_comprador_vendedor || 'CR')
       )
       registros += `
         <Registro id="${registroId}" accion="${accion}">
@@ -203,8 +213,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
             <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
             <${ubicEl}>${ubicVal}</${ubicEl}>
-            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || '')}</PaisOrigenRecursos>
-            <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</PaisDestinoRecursos>
+            <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || 'CR')}</PaisOrigenRecursos>
+            <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || 'CR')}</PaisDestinoRecursos>
         </Registro>`
     } else {
       registros += `
