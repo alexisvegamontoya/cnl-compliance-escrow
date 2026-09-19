@@ -388,10 +388,11 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
           </div>
           <div>
             <label className="label">Motivo de la transacción</label>
-            <input type="text" className="input-field"
-              placeholder="Descripción breve"
+            <input type="text" className="input-field" maxLength={250}
+              placeholder="Descripción (10 a 250 caracteres)"
               value={form.motivo_transaccion}
               onChange={e => set('motivo_transaccion', e.target.value)} />
+            <p className="text-xs text-gray-400 mt-1">SICVECA exige entre 10 y 250 caracteres (se recorta a 250).</p>
           </div>
 
           {/* Motivo crédito — solo Facilidades Crediticias */}
@@ -414,11 +415,11 @@ export default function TransactionForm({ onSaved, editData, onCancel }) {
         <h3 className="font-semibold text-gray-900 mb-4">4. Origen de recursos</h3>
         <div>
           <label className="label">Origen de recursos <span className="text-red-500">*</span></label>
-          <input type="text" className="input-field" required
+          <input type="text" className="input-field" required minLength={10} maxLength={250}
             placeholder="Ej: Flujo de caja de la empresa para atender la deuda"
             value={form.origen_recursos}
             onChange={e => set('origen_recursos', e.target.value)} />
-          <p className="text-xs text-gray-400 mt-1">Campo requerido por SUGEF/SICVECA. Describa el origen de los fondos de la transacción.</p>
+          <p className="text-xs text-gray-400 mt-1">Requerido por SUGEF/SICVECA — entre 10 y 250 caracteres. Describa el origen de los fondos (no basta el país, ej. "Alemania").</p>
         </div>
       </div>
 

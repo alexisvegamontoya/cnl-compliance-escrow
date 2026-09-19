@@ -203,6 +203,20 @@ export function validarReglasNegocio(transacciones, claseDato) {
         push('FechaTransaccion', `Fecha con año inválido: ${t.fecha_transaccion}`)
       }
     }
+
+    // OrigenRecursos: requerido, mínimo 10 caracteres (SICVECA minLength=10)
+    const origen = String(t.origen_recursos || '').trim()
+    if (origen.length < 10) {
+      push('OrigenRecursos', `El origen de recursos debe tener al menos 10 caracteres (actual: ${origen.length}). Ej: "${origen}"`)
+    }
+
+    // MotivoTransaccion: para OSFL y demás actividades (salvo Facilidades 47 que lo
+    // incluye solo si viene) SICVECA exige minLength=10 cuando el campo se envía.
+    const motivo = String(t.motivo_transaccion || '').trim()
+    const motivoSeEnvia = clase !== 47 || motivo.length > 0
+    if (motivoSeEnvia && motivo.length < 10) {
+      push('MotivoTransaccion', `El motivo de la transacción debe tener al menos 10 caracteres (actual: ${motivo.length})`)
+    }
   })
 
   return errores

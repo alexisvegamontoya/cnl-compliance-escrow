@@ -17,6 +17,15 @@ function escapeXml(val) {
 }
 
 /**
+ * Recorta un texto a la longitud máxima de SICVECA (por defecto 250) y lo escapa.
+ * Varios campos (MotivoTransaccion, OrigenRecursos) tienen maxLength=250 en el XSD;
+ * un texto más largo hace que SUGEF rechace el archivo.
+ */
+function cap(val, max = 250) {
+  return escapeXml(String(val ?? '').trim().slice(0, max))
+}
+
+/**
  * Convierte fecha de YYYY-MM-DD a dd/MM/YYYY (formato requerido por SICVECA)
  */
 function fmtFecha(fecha) {
@@ -124,8 +133,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
-            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
-            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <MotivoTransaccion>${cap(t.motivo_transaccion)}</MotivoTransaccion>
+            <OrigenRecursos>${cap(t.origen_recursos)}</OrigenRecursos>
             <UbicacionDonador>${escapeXml(t.ubicacion_cliente || 'CR')}</UbicacionDonador>
             <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || 'CR')}</PaisOrigenRecursos>
             <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || 'CR')}</PaisDestinoRecursos>
@@ -153,8 +162,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <TipoMovimientoNeto>${esIngreso ? 1 : 2}</TipoMovimientoNeto>
             <MontoMovimientoNeto>${monto}</MontoMovimientoNeto>
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
-            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
-            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <MotivoTransaccion>${cap(t.motivo_transaccion)}</MotivoTransaccion>
+            <OrigenRecursos>${cap(t.origen_recursos)}</OrigenRecursos>
             <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || 'CR')}</PaisOrigenRecursos>
         </Registro>`
     } else if (clase === 45) {
@@ -182,8 +191,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
-            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
-            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <MotivoTransaccion>${cap(t.motivo_transaccion)}</MotivoTransaccion>
+            <OrigenRecursos>${cap(t.origen_recursos)}</OrigenRecursos>
             <PaisOrigenDestino>${escapeXml(t.pais_origen_recursos || t.pais_destino_recursos || 'CR')}</PaisOrigenDestino>
             <EntidadExteriorTramitaRemesa></EntidadExteriorTramitaRemesa>
             <DestinoRecursos>${escapeXml(t.pais_destino_recursos || '')}</DestinoRecursos>
@@ -210,8 +219,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             <FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>
-            <MotivoTransaccion>${escapeXml(t.motivo_transaccion || '')}</MotivoTransaccion>
-            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            <MotivoTransaccion>${cap(t.motivo_transaccion)}</MotivoTransaccion>
+            <OrigenRecursos>${cap(t.origen_recursos)}</OrigenRecursos>
             <${ubicEl}>${ubicVal}</${ubicEl}>
             <PaisOrigenRecursos>${escapeXml(t.pais_origen_recursos || 'CR')}</PaisOrigenRecursos>
             <PaisDestinoRecursos>${escapeXml(t.pais_destino_recursos || 'CR')}</PaisDestinoRecursos>
@@ -233,8 +242,8 @@ export function generarXMLSICVECA(config, transacciones) {
             <TipoMonedaMovimiento>${t.tipo_moneda_movimiento}</TipoMonedaMovimiento>
             <MontoMovimiento>${Number(t.monto_movimiento).toFixed(2)}</MontoMovimiento>
             ${t.fecha_transaccion ? `<FechaTransaccion>${fmtFecha(t.fecha_transaccion)}</FechaTransaccion>` : ''}
-            ${t.motivo_transaccion ? `<MotivoTransaccion>${escapeXml(t.motivo_transaccion)}</MotivoTransaccion>` : ''}
-            <OrigenRecursos>${escapeXml(t.origen_recursos || '')}</OrigenRecursos>
+            ${t.motivo_transaccion ? `<MotivoTransaccion>${cap(t.motivo_transaccion)}</MotivoTransaccion>` : ''}
+            <OrigenRecursos>${cap(t.origen_recursos)}</OrigenRecursos>
             ${t.motivo_credito ? `<MotivoCredito>${t.motivo_credito}</MotivoCredito>` : ''}
         </Registro>`
     }
