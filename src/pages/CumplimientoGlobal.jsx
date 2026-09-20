@@ -46,19 +46,21 @@ export default function CumplimientoGlobal() {
       const ids = (tenants || []).map(t => t.id)
       if (!ids.length) { if (vivo) { setFilas([]); setLoading(false) } return }
 
-      const [cls, norm, txns, infs, segs] = await Promise.all([
+      const [cls, norm, txns, pdec, infs, segs] = await Promise.all([
         supabase.from('clientes').select(CLIENTE_FIELDS).in('tenant_id', ids),
         supabase.from('normativa').select('id,fecha_aprobacion_jd,fecha_vigencia,tipo,nombre,tenant_id').in('tenant_id', ids).eq('activo', true),
         supabase.from('transacciones').select('tenant_id,periodo').in('tenant_id', ids).order('periodo', { ascending: false }),
+        supabase.from('periodos_declarados').select('tenant_id,periodo').in('tenant_id', ids).order('periodo', { ascending: false }),
         supabase.from('informes_generados').select('tenant_id,fecha_generacion').in('tenant_id', ids).order('fecha_generacion', { ascending: false }),
         supabase.from('compliance_seguimiento').select('*').in('tenant_id', ids),
       ])
-      const primerFallo = [cls, norm, txns, infs, segs].find(r => r.error && r.error.code !== 'PGRST116')
+      const primerFallo = [cls, norm, txns, pdec, infs, segs].find(r => r.error && r.error.code !== 'PGRST116')
       if (primerFallo) { if (vivo) { setError(primerFallo.error.message); setLoading(false) } return }
 
       const gCls = agrupar(cls.data, 'tenant_id')
       const gNorm = agrupar(norm.data, 'tenant_id')
       const gTxn = agrupar(txns.data, 'tenant_id')
+      const gPdec = agrupar(pdec.data, 'tenant_id')
       const gInf = agrupar(infs.data, 'tenant_id')
       const segMap = new Map((segs.data || []).map(s => [s.tenant_id, s]))
 
@@ -68,6 +70,7 @@ export default function CumplimientoGlobal() {
           clientes: gCls.get(t.id) || [],
           normativa: gNorm.get(t.id) || [],
           transacciones: gTxn.get(t.id) || [],
+          periodosDeclarados: gPdec.get(t.id) || [],
           informes: gInf.get(t.id) || [],
           seguimiento: segMap.get(t.id) || null,
           catalogoDoc: catalogoDeTenant(t.id),

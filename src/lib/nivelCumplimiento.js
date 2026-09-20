@@ -51,6 +51,7 @@ export const ITEMS_LABELS = [
 // Cálculo principal. Recibe el tenant y sus datos ya cargados.
 export function calcularNivelCumplimiento({
   tenant, clientes = [], normativa = [], transacciones = [], informes = [],
+  periodosDeclarados = [],
   seguimiento = null, seguimientoDerivado = null, catalogoDoc = undefined,
 }) {
   const tipoSujeto = Number(tenant?.tipo_sujeto) || 1
@@ -94,19 +95,29 @@ export function calcularNivelCumplimiento({
   const scoreI3 = normativa.length === 0 ? 0 : (normVigentes / normativa.length) * 100
 
   // Ítem 4: reporte SICVECA.
+  // Un período está "reportado" si tiene transacciones O si se declaró "sin
+  // movimiento": ambos cumplen ante SUGEF. Se toma el período más reciente entre
+  // las transacciones y los períodos declarados (periodos_declarados).
   const mesesFrecSicveca = tipoSujeto === 1 ? 2 : tipoSujeto === 2 ? 3 : 4
   const pendientesI4 = []
   let scoreI4 = 0
-  if (transacciones.length > 0 && transacciones[0].periodo) {
-    const meses = mesesDesde(transacciones[0].periodo)
+  const periodosReportados = [
+    ...transacciones.map(t => t.periodo),
+    ...periodosDeclarados.map(p => p.periodo),
+  ].filter(Boolean)
+  const ultimoPeriodoSicveca = periodosReportados.length
+    ? periodosReportados.slice().sort().pop()   // 'YYYY-MM-DD' → orden lexicográfico = cronológico
+    : null
+  if (ultimoPeriodoSicveca) {
+    const meses = mesesDesde(ultimoPeriodoSicveca)
     if (meses <= mesesFrecSicveca) {
       scoreI4 = 100
     } else {
       scoreI4 = Math.max(0, 100 - ((meses - mesesFrecSicveca) / mesesFrecSicveca) * 100)
-      pendientesI4.push(`Último período: ${transacciones[0].periodo} (hace ${meses} meses; tipo ${tipoSujeto} debe reportar cada ${mesesFrecSicveca} meses)`)
+      pendientesI4.push(`Último período reportado: ${ultimoPeriodoSicveca} (hace ${meses} meses; tipo ${tipoSujeto} debe reportar cada ${mesesFrecSicveca} meses)`)
     }
   } else {
-    pendientesI4.push('No hay transacciones SICVECA registradas.')
+    pendientesI4.push('No hay períodos SICVECA reportados (ni transacciones ni declaración de "sin movimiento").')
   }
 
   // Ítem 5: sistemas SUGEF/UIF.
@@ -185,5 +196,6 @@ export function calcularNivelCumplimiento({
     fCapacitacion, fSistemas, fEvalRiesgo, fInformes,
     // Valores derivados que usa el detalle del dashboard por-sujeto.
     mesesValidezNorm, normVigentes, mesesFrecSicveca, mesesVigenciaEval, informesVigentes,
+    ultimoPeriodoSicveca,
   }
 }

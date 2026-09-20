@@ -165,6 +165,7 @@ export default function ComplianceDashboard() {
   const [clientes, setClientes]         = useState([])
   const [normativa, setNormativa]       = useState([])
   const [transacciones, setTransacciones] = useState([])
+  const [periodosDeclarados, setPeriodosDeclarados] = useState([])
   const [informes, setInformes]         = useState([])
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
@@ -186,6 +187,7 @@ export default function ComplianceDashboard() {
       { data: cls, error: eCls },
       { data: norm, error: eNorm },
       { data: txns, error: eTxns },
+      { data: pdec, error: ePdec },
       { data: inf, error: eInf },
       { data: seg, error: eSeg },
     ] = await Promise.all([
@@ -198,6 +200,9 @@ export default function ComplianceDashboard() {
       supabase.from('transacciones')
         .select('periodo').eq('tenant_id', tid)
         .order('periodo', { ascending: false }).limit(1),
+      supabase.from('periodos_declarados')
+        .select('periodo').eq('tenant_id', tid)
+        .order('periodo', { ascending: false }).limit(1),
       supabase.from('informes_generados')
         .select('fecha_generacion').eq('tenant_id', tid)
         .order('fecha_generacion', { ascending: false }).limit(1),
@@ -207,12 +212,13 @@ export default function ComplianceDashboard() {
 
     // Si una consulta falla, el ítem que alimenta quedaría en cero sin explicación.
     // Se reporta en pantalla en vez de calcular sobre datos incompletos.
-    const fallo = [eCls, eNorm, eTxns, eInf, eSeg].find(e => e && e.code !== 'PGRST116')
+    const fallo = [eCls, eNorm, eTxns, ePdec, eInf, eSeg].find(e => e && e.code !== 'PGRST116')
     if (fallo) setError(fallo)
 
     setClientes(cls || [])
     setNormativa(norm || [])
     setTransacciones(txns || [])
+    setPeriodosDeclarados(pdec || [])
     setInformes(inf || [])
 
     if (seg) {
@@ -265,8 +271,9 @@ export default function ComplianceDashboard() {
   const {
     items, scoreGlobal, etiqueta: etiquetaGlobal, globalClientes, tipoSujeto,
     mesesValidezNorm, normVigentes, mesesFrecSicveca, mesesVigenciaEval, informesVigentes,
+    ultimoPeriodoSicveca,
   } = calcularNivelCumplimiento({
-      tenant, clientes, normativa, transacciones, informes,
+      tenant, clientes, normativa, transacciones, periodosDeclarados, informes,
       seguimientoDerivado: { fCapacitacion, fSistemas, fEvalRiesgo, fInformes },
       catalogoDoc,
     })
@@ -451,7 +458,9 @@ export default function ComplianceDashboard() {
             <ItemCard {...items[3]}>
               <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 space-y-1">
                 <p>Tipo {tipoSujeto} · Frecuencia SICVECA: <strong>cada {mesesFrecSicveca} meses</strong></p>
-                {transacciones[0]?.periodo && <p>Último período: <strong>{transacciones[0].periodo}</strong></p>}
+                {ultimoPeriodoSicveca
+                  ? <p>Último período reportado: <strong>{ultimoPeriodoSicveca}</strong> (transacción o "sin movimiento")</p>
+                  : <p>Sin períodos reportados aún.</p>}
               </div>
             </ItemCard>
 
