@@ -33,10 +33,25 @@ export default function CambiarClaveObligatoria({ onCambiada }) {
       // 2. Notificar al padre para redirigir al dashboard
       onCambiada?.()
     } catch (err) {
-      setError(err.message || 'Error al cambiar la contraseña.')
+      setError(traducirError(err.message))
     } finally {
       setSaving(false)
     }
+  }
+
+  // Traduce los mensajes de Supabase Auth al español con una guía clara.
+  function traducirError(msg = '') {
+    const m = msg.toLowerCase()
+    if (m.includes('different from the old') || m.includes('should be different')) {
+      return 'La nueva contraseña debe ser DIFERENTE de la provisional. Si su navegador autocompletó el campo, bórrelo y escriba una contraseña nueva.'
+    }
+    if (m.includes('at least') || m.includes('should be at least') || m.includes('weak')) {
+      return 'La contraseña es demasiado corta o débil. Use al menos 8 caracteres con letras, números y símbolos.'
+    }
+    if (m.includes('same password')) {
+      return 'La nueva contraseña no puede ser igual a la actual. Escriba una diferente.'
+    }
+    return msg || 'Error al cambiar la contraseña.'
   }
 
   return (
@@ -69,6 +84,8 @@ export default function CambiarClaveObligatoria({ onCambiada }) {
                 onChange={e => setNueva(e.target.value)}
                 required
                 autoFocus
+                autoComplete="new-password"
+                name="nueva-clave-cnl"
               />
               <button type="button" tabIndex={-1}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
@@ -88,6 +105,8 @@ export default function CambiarClaveObligatoria({ onCambiada }) {
               value={confirmar}
               onChange={e => setConfirmar(e.target.value)}
               required
+              autoComplete="new-password"
+              name="confirmar-clave-cnl"
             />
           </div>
 
