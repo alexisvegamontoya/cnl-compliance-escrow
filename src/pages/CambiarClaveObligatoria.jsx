@@ -42,14 +42,17 @@ export default function CambiarClaveObligatoria({ onCambiada }) {
   // Traduce los mensajes de Supabase Auth al español con una guía clara.
   function traducirError(msg = '') {
     const m = msg.toLowerCase()
-    if (m.includes('different from the old') || m.includes('should be different')) {
+    if (m.includes('different from the old') || m.includes('should be different') || m.includes('same password')) {
       return 'La nueva contraseña debe ser DIFERENTE de la provisional. Si su navegador autocompletó el campo, bórrelo y escriba una contraseña nueva.'
     }
-    if (m.includes('at least') || m.includes('should be at least') || m.includes('weak')) {
-      return 'La contraseña es demasiado corta o débil. Use al menos 8 caracteres con letras, números y símbolos.'
+    // Contraseña filtrada o fácil de adivinar (protección de Supabase / HaveIBeenPwned).
+    if (m.includes('pwned') || m.includes('leaked') || m.includes('easy to guess') ||
+        m.includes('known to') || m.includes('weak')) {
+      return 'Esta contraseña es insegura: aparece en filtraciones conocidas o es fácil de adivinar (evite nombre + fecha, ej. "Toto271114"). Use otra menos predecible, por ejemplo mezcle palabras y símbolos: "Naranja-Vela-72!".'
     }
-    if (m.includes('same password')) {
-      return 'La nueva contraseña no puede ser igual a la actual. Escriba una diferente.'
+    // Longitud mínima.
+    if (m.includes('at least') || m.includes('minimum') || m.includes('too short') || m.includes('length')) {
+      return 'La contraseña es demasiado corta. Use al menos 8 caracteres con letras, números y símbolos.'
     }
     return msg || 'Error al cambiar la contraseña.'
   }
@@ -122,6 +125,14 @@ export default function CambiarClaveObligatoria({ onCambiada }) {
             className="btn-primary w-full"
           >
             {saving ? 'Guardando…' : '✅ Establecer nueva contraseña'}
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => { await supabase.auth.signOut(); window.location.reload() }}
+            className="w-full text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Cerrar sesión / entrar con otro usuario
           </button>
         </form>
       </div>
