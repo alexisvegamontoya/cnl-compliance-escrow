@@ -247,7 +247,7 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
         'fecha_constitucion','pagina_web','distrito','paises_ingresos',
         'venc_identificacion','empleador',
         'estado_dd','estado_listas','estado_calificacion',
-        'nivel_riesgo_actual','notas','activo',
+        'nivel_riesgo_actual','notas','activo','numero_cliente',
         // Fase 2 — datos para la calificación de riesgo (valor de riesgo 0.5–3)
         'manejo_efectivo','opera_transfronterizo',
         'situacion_laboral','cant_lugares',
@@ -276,7 +276,8 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
       const CAMPOS_INT = ['profesion_valor','actividad_eco_valor','ingreso_mensual_est',
         'manejo_efectivo','opera_transfronterizo','situacion_laboral','cant_lugares',
         'niveles_societarios','cant_personal','opera_internacional',
-        'posicion_mercado','estructura_ventas','cant_sucursales','tipo_vendedor']
+        'posicion_mercado','estructura_ventas','cant_sucursales','tipo_vendedor',
+        'numero_cliente']
       CAMPOS_INT.forEach(k => {
         const v = payload[k]
         payload[k] = (v === '' || v === undefined || v === null) ? null : Number(v) || null
@@ -425,6 +426,16 @@ export default function ClienteFormCompleto({ clienteInicial = null, onSave, onC
               {tipoPers === 'fisica' ? 'Identificación' : 'Datos de la empresa'}
             </p>
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="label text-xs">N° de cliente (por sujeto obligado)</label>
+                <input type="number" min="1" step="1" className="input text-sm w-40"
+                  value={form.numero_cliente ?? ''}
+                  onChange={e => set('numero_cliente', e.target.value)}
+                  placeholder={esEdicion ? '' : 'Automático'} />
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Déjelo vacío para asignarlo <strong>automáticamente</strong> (el siguiente número de este sujeto obligado), o escríbalo para ponerlo <strong>manual</strong>.
+                </p>
+              </div>
               <div>
                 <label className="label text-xs">Tipo identificación</label>
                 <select className="input text-sm" value={form.tipo_identificacion}

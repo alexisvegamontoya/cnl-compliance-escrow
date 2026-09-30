@@ -166,7 +166,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
   const cargar = useCallback(async () => {
     if (!tenant?.id && !isSuperAdmin) return
     setLoading(true)
-    let q = supabase.from('clientes').select('*').order('id', { ascending: false })
+    let q = supabase.from('clientes').select('*').order('numero_cliente', { ascending: true, nullsFirst: false })
     // Superadmin: filtra por tenant seleccionado o muestra todos
     if (isSuperAdmin) {
       if (filtroTenant) q = q.eq('tenant_id', filtroTenant)
@@ -261,6 +261,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 }
               }),
               columnas: [
+                'numero_cliente',
                 'numero_identificacion','cedula_juridica','tipo_identificacion',
                 'nombre_cliente','primer_apellido','segundo_apellido','nombre_empresa',
                 'nacionalidad','pais_ubicacion','pais_nacimiento',
@@ -278,6 +279,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 'activo','notas',
               ],
               headers: {
+                numero_cliente:        'N° Cliente',
                 numero_identificacion: 'N° Identificación',
                 cedula_juridica:       'Cédula Jurídica',
                 tipo_identificacion:   'Tipo ID',
@@ -423,6 +425,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
           <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide" title="Número de cliente por sujeto obligado">N°</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Cliente</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Identificación</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Actividad</th>
@@ -439,6 +442,7 @@ function TablaClientes({ onSelect, onNuevo, onCargaMasiva, buscarInicial = '' })
                 return (
                 <tr key={c.id} onClick={() => onSelect(c)}
                   className={`hover:bg-brand-50 cursor-pointer transition-colors ${c.activo === false ? 'opacity-55' : ''}`}>
+                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{c.numero_cliente ?? '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{c.tipo_persona === 'juridica' ? '🏢' : '👤'}</span>
