@@ -8,6 +8,11 @@ import InformePlanTrabajo from '../components/informes/InformePlanTrabajo'
 import InformePlanCapacitacion from '../components/informes/InformePlanCapacitacion'
 import PanelPeriodicidad from '../components/informes/PanelPeriodicidad'
 import { evaluarSeñalesAPNFD, etiquetaActividad } from '../lib/señalesAlertaAPNFD'
+import { toUSD, fetchTipoCambio } from '../lib/sicvecaRules'
+
+// Nombre corto de moneda por código (1=CRC, 2=USD, 3=EUR)
+const MONEDA_LABEL = { 1: 'colones (CRC)', 2: 'dólares (USD)', 3: 'euros (EUR)' }
+const MONEDA_SIMBOLO = { 1: '₡', 2: 'US$', 3: '€' }
 
 const TABS = [
   { id: 'transaccional', label: '📊 Análisis Transaccional' },
@@ -41,6 +46,8 @@ export default function Informes() {
   const [error, setError]       = useState(null)
   const [penalizacion, setPenalizacion] = useState(0)
   const [panelTick, setPanelTick] = useState(0)
+  const [tipoCambio, setTipoCambio] = useState(530)   // CRC por 1 USD (para normalizar montos)
+  const [fetchingTC, setFetchingTC] = useState(false)
   const informeRef = useRef(null)
   const tenantEfectivo = tenant
 
@@ -78,6 +85,10 @@ export default function Informes() {
     setError(null)
     setGuardado(false)
     try {
+      // Tipo de cambio para normalizar montos (colones/euros → USD). Si falla el
+      // servicio del BCCR se conserva el valor actual del campo.
+      const tc = await fetchTipoCambio()
+      if (tc) setTipoCambio(tc)
       const periodoDesde = fechaDesde.substring(0, 7) + '-01'
       const periodoHasta = fechaHasta.substring(0, 7) + '-01'
       const [{ data: t, error: e1 }, { data: c, error: e2 }] = await Promise.all([
@@ -100,13 +111,21 @@ export default function Informes() {
     }
   }, [tenantEfectivo, fechaDesde, fechaHasta])
 
+  async function obtenerTipoCambio() {
+    setFetchingTC(true)
+    const tc = await fetchTipoCambio()
+    setFetchingTC(false)
+    if (tc) setTipoCambio(tc)
+    else alert('No se pudo obtener el tipo de cambio del BCCR. Ajústelo manualmente.')
+  }
+
   // Registrar la generación del informe (aunque el período no tenga transacciones:
   // un mes sin movimientos es igualmente un informe válido y debe quedar registrado).
   useEffect(() => {
     if (!generado) return
     guardarInformeTransaccional({
       total_txns:    txns.length,
-      total_monto:   txns.reduce((s, t) => s + Number(t.monto_movimiento), 0),
+      total_monto:   txns.reduce((s, t) => s + toUSD(t.monto_movimiento, t.tipo_moneda_movimiento, tipoCambio), 0),
       fecha_desde:   fechaDesde,
       fecha_hasta:   fechaHasta,
       actividad:     tenantEfectivo?.actividad_apnfd,
@@ -116,26 +135,47 @@ export default function Informes() {
   // ─── Análisis ──────────────────────────────────────────────────────────────
   const umbral = Number(tenantEfectivo?.monto_minimo_usd) || 10000
 
-  const totalMonto    = txns.reduce((s, t) => s + Number(t.monto_movimiento), 0)
-  const totalIngresos = txns.filter(t => t.tipo_movimiento === 1).reduce((s, t) => s + Number(t.monto_movimiento), 0)
-  const totalSalidas  = txns.filter(t => t.tipo_movimiento === 2).reduce((s, t) => s + Number(t.monto_movimiento), 0)
+  // Todo el análisis se hace en USD equivalente: las transacciones pueden venir en
+  // colones, dólares o euros y sumarlas sin convertir distorsiona totales y alertas.
+  const aUSD = (t) => toUSD(t.monto_movimiento, t.tipo_moneda_movimiento, tipoCambio)
 
-  // Agrupar por cliente
+  const totalMonto    = txns.reduce((s, t) => s + aUSD(t), 0)
+  const totalIngresos = txns.filter(t => t.tipo_movimiento === 1).reduce((s, t) => s + aUSD(t), 0)
+  const totalSalidas  = txns.filter(t => t.tipo_movimiento === 2).reduce((s, t) => s + aUSD(t), 0)
+
+  // Composición por moneda (para explicar la variación de moneda en el informe)
+  const porMoneda = {}
+  txns.forEach(t => {
+    const m = Number(t.tipo_moneda_movimiento) || 2
+    if (!porMoneda[m]) porMoneda[m] = { moneda: m, cantidad: 0, montoOriginal: 0, montoUSD: 0 }
+    porMoneda[m].cantidad += 1
+    porMoneda[m].montoOriginal += Number(t.monto_movimiento) || 0
+    porMoneda[m].montoUSD += aUSD(t)
+  })
+  const monedasUsadas = Object.values(porMoneda).sort((a, b) => b.montoUSD - a.montoUSD)
+  const hayMultiMoneda = monedasUsadas.filter(m => m.cantidad > 0).length > 1
+  const hayNoDolar = monedasUsadas.some(m => m.moneda !== 2 && m.cantidad > 0)
+
+  // Agrupar por cliente (en USD equivalente)
   const porCliente = {}
   txns.forEach(t => {
     const k = t.numero_identificacion
-    if (!porCliente[k]) porCliente[k] = { nombre: getNombre(t), id: k, txns: [], ingresos: 0, salidas: 0 }
+    if (!porCliente[k]) porCliente[k] = { nombre: getNombre(t), id: k, txns: [], ingresos: 0, salidas: 0, monedas: new Set() }
     porCliente[k].txns.push(t)
-    if (t.tipo_movimiento === 1) porCliente[k].ingresos += Number(t.monto_movimiento)
-    if (t.tipo_movimiento === 2) porCliente[k].salidas  += Number(t.monto_movimiento)
+    porCliente[k].monedas.add(Number(t.tipo_moneda_movimiento) || 2)
+    if (t.tipo_movimiento === 1) porCliente[k].ingresos += aUSD(t)
+    if (t.tipo_movimiento === 2) porCliente[k].salidas  += aUSD(t)
   })
   const clientesAnalisis = Object.values(porCliente)
     .sort((a, b) => (b.ingresos + b.salidas) - (a.ingresos + a.salidas))
 
   // ── Alertas generales (reglas base) ───────────────────────────────────────
   const alertasBase = []
-  txns.filter(t => Number(t.monto_movimiento) >= umbral).forEach(t => {
-    alertasBase.push({ nivel: 'alto', desc: `${getNombre(t)} — USD ${Number(t.monto_movimiento).toLocaleString()} ≥ umbral SUGEF`, detalle: 'Transacción que supera el monto mínimo de reporte obligatorio. Evalúe si corresponde presentar reporte SICVECA.' })
+  txns.filter(t => aUSD(t) >= umbral).forEach(t => {
+    const orig = Number(t.tipo_moneda_movimiento) !== 2
+      ? ` (${MONEDA_SIMBOLO[t.tipo_moneda_movimiento] || ''}${Number(t.monto_movimiento).toLocaleString('es-CR')} original)`
+      : ''
+    alertasBase.push({ nivel: 'alto', desc: `${getNombre(t)} — US$ ${Number(aUSD(t)).toLocaleString('es-CR', { maximumFractionDigits: 0 })} ≥ umbral SUGEF${orig}`, detalle: 'Transacción que supera el monto mínimo de reporte obligatorio (valor convertido a USD). Evalúe si corresponde presentar reporte SICVECA.' })
   })
   txns.forEach(t => {
     const o = (t.pais_origen_recursos || '').toUpperCase()
@@ -270,6 +310,17 @@ export default function Informes() {
           <input type="date" className="input-field w-44" value={fechaHasta} min={fechaDesde}
             onChange={e => { setFechaHasta(e.target.value); setGenerado(false) }} />
         </div>
+        <div>
+          <label className="label">Tipo de cambio ₡/US$</label>
+          <div className="flex gap-1">
+            <input type="number" className="input-field w-28" value={tipoCambio} min={1} step={0.01}
+              onChange={e => setTipoCambio(Number(e.target.value))} title="Colones por 1 USD — normaliza los montos a dólares" />
+            <button type="button" onClick={obtenerTipoCambio} disabled={fetchingTC}
+              className="btn-secondary text-xs px-2 flex-shrink-0" title="Obtener del BCCR">
+              {fetchingTC ? '…' : '🔄'}
+            </button>
+          </div>
+        </div>
         <button onClick={cargar} disabled={loading || !fechaDesde || !fechaHasta || !tenantEfectivo} className="btn-primary">
           {loading ? 'Generando…' : '▶ Generar informe'}
         </button>
@@ -367,10 +418,60 @@ export default function Informes() {
                   ? `El período presenta un flujo neto negativo de USD ${fmtUSD(totalSalidas - totalIngresos)}, situación que debe justificarse en el contexto del giro de negocio.`
                   : 'Los flujos de ingresos y salidas están balanceados en el período.'
               }
-              {txns.some(t => Number(t.monto_movimiento) >= umbral) &&
+              {txns.some(t => aUSD(t) >= umbral) &&
                 ` Se identificaron transacciones que superan el umbral de reporte de USD ${umbral.toLocaleString()}, detalladas en la sección de hallazgos.`
               }
             </p>
+
+            {/* Composición por moneda — normalización a USD */}
+            {txns.length > 0 && (
+              <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4">
+                <p className="text-sm font-semibold text-brand-900 mb-1">Composición por moneda</p>
+                <p className="text-xs text-gray-600 mb-3">
+                  {hayNoDolar
+                    ? <>Las operaciones se registraron en <strong>más de una moneda</strong>. Para poder compararlas y sumarlas, todos los montos de este informe se expresan en <strong>dólares (US$) equivalentes</strong>, convertidos al tipo de cambio de <strong>₡{Number(tipoCambio).toLocaleString('es-CR')} por US$1</strong> (euros a US$1,09). Los montos originales por moneda se muestran abajo.</>
+                    : <>Todas las operaciones del período se registraron en <strong>dólares (US$)</strong>; no hubo variación de moneda.</>}
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-gray-500 border-b border-brand-100">
+                        <th className="text-left py-2 px-2">Moneda</th>
+                        <th className="text-right py-2 px-2">Transacciones</th>
+                        <th className="text-right py-2 px-2">Monto original</th>
+                        <th className="text-right py-2 px-2">Equivalente US$</th>
+                        <th className="text-right py-2 px-2">% del total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monedasUsadas.map(m => (
+                        <tr key={m.moneda} className="border-b border-brand-50">
+                          <td className="py-2 px-2">{MONEDA_LABEL[m.moneda] || `Moneda ${m.moneda}`}</td>
+                          <td className="py-2 px-2 text-right font-mono">{m.cantidad}</td>
+                          <td className="py-2 px-2 text-right font-mono">{MONEDA_SIMBOLO[m.moneda] || ''}{m.montoOriginal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-2 text-right font-mono">US$ {fmtUSD(m.montoUSD)}</td>
+                          <td className="py-2 px-2 text-right font-mono">{totalMonto > 0 ? Math.round(m.montoUSD / totalMonto * 100) : 0}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-brand-200 font-semibold">
+                        <td className="py-2 px-2">Total (US$ equivalente)</td>
+                        <td className="py-2 px-2 text-right font-mono">{txns.length}</td>
+                        <td className="py-2 px-2 text-right text-gray-400">—</td>
+                        <td className="py-2 px-2 text-right font-mono">US$ {fmtUSD(totalMonto)}</td>
+                        <td className="py-2 px-2 text-right font-mono">100%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                {hayMultiMoneda && (
+                  <p className="mt-2 text-xs text-amber-700">
+                    ⚠ El cliente/entidad operó en varias monedas en el período. Verifique que la conversión y el propósito de las operaciones en moneda extranjera sean consistentes con el perfil económico declarado.
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* III. HALLAZGOS Y SEÑALES DE ALERTA */}
@@ -473,6 +574,7 @@ export default function Informes() {
               <p className="text-sm text-gray-700 leading-relaxed">
                 A continuación se detalla el comportamiento transaccional por cliente durante el período, ordenados por
                 volumen de operaciones. Los clientes con observaciones de cumplimiento se destacan en color.
+                {hayNoDolar && ' Los montos se expresan en US$ equivalentes (ver composición por moneda en la sección II).'}
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -496,8 +598,9 @@ export default function Informes() {
                       const obs = []
                       if (c.txns.length > 2) obs.push('Operación frecuente')
                       if (superaLimite) obs.push('Supera límite mensual')
-                      if (c.txns.some(t => Number(t.monto_movimiento) >= umbral)) obs.push('Monto sobre umbral SUGEF')
+                      if (c.txns.some(t => aUSD(t) >= umbral)) obs.push('Monto sobre umbral SUGEF')
                       if (Math.abs(neto) > (c.ingresos + c.salidas) * 0.3) obs.push('Desequilibrio I/S')
+                      if (c.monedas && c.monedas.size > 1) obs.push('Opera en varias monedas')
                       return (
                         <tr key={c.id} className={`hover:bg-gray-50 ${obs.length ? 'bg-red-50/30' : ''}`}>
                           <td className="py-3 px-3 font-medium text-gray-900">{c.nombre}</td>
