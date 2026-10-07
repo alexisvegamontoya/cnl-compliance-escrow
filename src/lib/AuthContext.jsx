@@ -68,33 +68,29 @@ export function AuthProvider({ children }) {
         setMustChangePassword(false)
       }
 
-      // ── MFA enforcement para roles admin ──────────────────────────────
+      // ── MFA ────────────────────────────────────────────────────────────
+      // El RETO (elevar AAL1→AAL2) aplica a CUALQUIER usuario que ya tenga un
+      // factor verificado: cambiar contraseña o correo en Supabase exige AAL2,
+      // así que sin esto un usuario con MFA no puede ni cambiar su clave
+      // provisional ("AAL2 session is required..."). La INSCRIPCIÓN obligatoria
+      // de MFA aplica solo a los roles administrativos.
       const rolEsAdmin = ROLES_MFA_OBLIGATORIO.includes(prof?.rol)
-      if (rolEsAdmin) {
-        try {
-          const { data: factors } = await supabase.auth.mfa.listFactors()
-          const tieneTotp = factors?.totp?.some(f => f.status === 'verified')
+      try {
+        const { data: factors } = await supabase.auth.mfa.listFactors()
+        const tieneTotp = factors?.totp?.some(f => f.status === 'verified')
 
-          if (!tieneTotp) {
-            // Admin sin MFA → forzar inscripción
-            setNeedsMFAEnroll(true)
-            setNeedsMFAChallenge(false)
-          } else {
-            // Tiene MFA pero puede estar en sesión AAL1 (sólo contraseña)
-            const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-            if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
-              setNeedsMFAChallenge(true)
-              setNeedsMFAEnroll(false)
-            } else {
-              // AAL2 OK → limpiar flags
-              setNeedsMFAEnroll(false)
-              setNeedsMFAChallenge(false)
-            }
-          }
-        } catch {
-          // Si falla la consulta MFA no bloqueamos al usuario
+        if (tieneTotp) {
+          const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          const necesitaReto = aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2'
+          setNeedsMFAChallenge(necesitaReto)
+          setNeedsMFAEnroll(false)
+        } else {
+          // Sin factor verificado: solo los admin están obligados a inscribir MFA
+          setNeedsMFAEnroll(rolEsAdmin)
+          setNeedsMFAChallenge(false)
         }
-      } else {
+      } catch {
+        // Si falla la consulta MFA no bloqueamos al usuario
         setNeedsMFAEnroll(false)
         setNeedsMFAChallenge(false)
       }

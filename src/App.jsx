@@ -139,14 +139,17 @@ function AppRoutes() {
     return <SetPassword />
   }
 
-  // Usuario con contraseña provisional — forzar cambio antes de continuar
-  if (mustChangePassword && session) {
-    return <CambiarClaveObligatoria onCambiada={() => setMustChangePassword(false)} />
-  }
-
-  // MFA enforcement: admin sin MFA inscrito o sin AAL2 en sesión
+  // MFA enforcement PRIMERO: cambiar la contraseña con Supabase requiere una
+  // sesión AAL2 cuando el usuario tiene MFA. Si se mostrara el cambio de clave
+  // antes del reto MFA, updateUser fallaría con "AAL2 session is required".
   if (session && (needsMFAEnroll || needsMFAChallenge)) {
     return <MFAGate />
+  }
+
+  // Usuario con contraseña provisional — forzar cambio antes de continuar
+  // (ya en AAL2 si tenía MFA, por lo que updateUser funciona).
+  if (mustChangePassword && session) {
+    return <CambiarClaveObligatoria onCambiada={() => setMustChangePassword(false)} />
   }
 
   // Cuenta válida pero sin habilitación para esta aplicación. La base es
