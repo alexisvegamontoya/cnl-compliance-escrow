@@ -62,6 +62,19 @@ export default function Ros() {
 
   useEffect(() => { load() }, [load])
 
+  // Registrar el INGRESO al módulo de Operaciones Sospechosas en el Historial de
+  // Auditoría (evidencia de control de acceso solicitada por auditoría: "quién ha
+  // ingresado"). Se registra una vez por apertura del módulo para cada sujeto obligado.
+  useEffect(() => {
+    if (!tenant?.id) return
+    logAudit({
+      accion: 'acceso',
+      tabla: 'reportes_ros',
+      descripcion: 'Ingreso al módulo de Operaciones Sospechosas (ROS)',
+      tenant_id: tenant.id,
+    })
+  }, [tenant?.id])
+
   function set(f, v) { setForm(p => ({ ...p, [f]: v })) }
 
   function cancelar() { setForm(EMPTY); setEditId(null); setShowForm(false); setError('') }
