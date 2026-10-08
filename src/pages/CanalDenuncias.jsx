@@ -394,6 +394,133 @@ function VistaSuperAdmin() {
   )
 }
 
+// ─── Bitácora imprimible de señales de alerta por sujeto obligado ──────────────
+function BitacoraSenales({ opciones, tenant }) {
+  const [tenantId, setTenantId] = useState(tenant?.id || '')
+  const [desde, setDesde]       = useState('')
+  const [hasta, setHasta]       = useState('')
+  const [rows, setRows]         = useState([])
+  const [loading, setLoading]   = useState(false)
+
+  const tenantObj = opciones.find(t => t.id === tenantId) || null
+
+  const cargar = useCallback(async () => {
+    if (!tenantId) { setRows([]); return }
+    setLoading(true)
+    let q = supabase.from('denuncias').select('*')
+      .eq('tenant_id', tenantId).eq('tipo', 'senal_alerta')
+      .order('created_at', { ascending: true })
+    if (desde) q = q.gte('created_at', desde)
+    if (hasta) q = q.lte('created_at', hasta + 'T23:59:59')
+    const { data } = await q
+    setRows(data || [])
+    setLoading(false)
+  }, [tenantId, desde, hasta])
+  useEffect(() => { cargar() }, [cargar])
+
+  const fmt = iso => iso ? new Date(iso).toLocaleDateString('es-CR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+  const periodoTxt = desde || hasta
+    ? `${desde ? fmt(desde) : '—'} al ${hasta ? fmt(hasta) : '—'}`
+    : 'Histórico completo'
+
+  return (
+    <div className="space-y-4">
+      {/* Controles — no se imprimen */}
+      <div className="card print:hidden flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-56">
+          <label className="label">Sujeto obligado *</label>
+          <select className="input-field" value={tenantId} onChange={e => setTenantId(e.target.value)}>
+            <option value="">— Seleccione el sujeto obligado —</option>
+            {opciones.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Desde</label>
+          <input type="date" className="input-field w-40" value={desde} onChange={e => setDesde(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Hasta</label>
+          <input type="date" className="input-field w-40" value={hasta} min={desde} onChange={e => setHasta(e.target.value)} />
+        </div>
+        <button className="btn-primary" disabled={!tenantId} onClick={() => window.print()}>🖨 Imprimir / PDF</button>
+      </div>
+
+      {!tenantId ? (
+        <div className="card py-10 text-center text-gray-400 print:hidden">
+          Seleccione un sujeto obligado para generar su bitácora de señales de alerta.
+        </div>
+      ) : (
+        /* Documento imprimible */
+        <div className="card print:shadow-none print:border-0" id="bitacora-senales">
+          <div className="text-center border-b border-gray-200 pb-4 mb-4">
+            <p className="text-xs uppercase tracking-widest text-brand-500">CNL Craniley Compliance Services</p>
+            <h2 className="text-xl font-bold text-gray-900 mt-1">Bitácora de Señales de Alerta</h2>
+            <p className="text-sm text-gray-500">Canal de Denuncias — Ley 7786 · Acuerdo SUGEF 13-19</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm mb-4">
+            <p><span className="text-gray-500">Sujeto obligado:</span> <strong>{tenantObj?.nombre || '—'}</strong></p>
+            <p><span className="text-gray-500">Cédula jurídica:</span> <strong>{tenantObj?.cedula_juridica || '—'}</strong></p>
+            <p><span className="text-gray-500">Período:</span> <strong>{periodoTxt}</strong></p>
+            <p><span className="text-gray-500">Oficial de cumplimiento:</span> <strong>{tenantObj?.email_oficial_cumplimiento || '—'}</strong></p>
+            <p><span className="text-gray-500">Fecha de emisión:</span> <strong>{new Date().toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong></p>
+            <p><span className="text-gray-500">Total de señales:</span> <strong>{rows.length}</strong></p>
+          </div>
+
+          {loading ? (
+            <div className="py-8 text-center text-gray-400 print:hidden">Cargando…</div>
+          ) : (
+            <table className="w-full text-xs border border-gray-300">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-300 text-gray-600">
+                  <th className="border-r border-gray-300 px-2 py-2 text-left w-8">#</th>
+                  <th className="border-r border-gray-300 px-2 py-2 text-left w-24">Fecha registro</th>
+                  <th className="border-r border-gray-300 px-2 py-2 text-left w-24">Fecha del hecho</th>
+                  <th className="border-r border-gray-300 px-2 py-2 text-left w-28">Área</th>
+                  <th className="border-r border-gray-300 px-2 py-2 text-left">Descripción de la señal</th>
+                  <th className="border-r border-gray-300 px-2 py-2 text-left w-24">Estado</th>
+                  <th className="px-2 py-2 text-left">Acciones / notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-2 py-6 text-center text-gray-500 italic">
+                      No se registraron señales de alerta para este sujeto obligado en el período indicado.
+                    </td>
+                  </tr>
+                ) : rows.map((d, i) => (
+                  <tr key={d.id} className="border-b border-gray-200 align-top">
+                    <td className="border-r border-gray-200 px-2 py-2">{i + 1}</td>
+                    <td className="border-r border-gray-200 px-2 py-2">{fmt(d.created_at)}</td>
+                    <td className="border-r border-gray-200 px-2 py-2">{d.fecha_hecho ? fmt(d.fecha_hecho) : '—'}</td>
+                    <td className="border-r border-gray-200 px-2 py-2">{d.area_relacionada || '—'}</td>
+                    <td className="border-r border-gray-200 px-2 py-2">{d.descripcion}</td>
+                    <td className="border-r border-gray-200 px-2 py-2">{ESTADO_CONFIG[d.estado]?.label || d.estado}</td>
+                    <td className="px-2 py-2">{d.notas_internas || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <div className="mt-10 grid grid-cols-2 gap-10 text-sm">
+            <div className="text-center">
+              <div className="border-t border-gray-400 pt-1">Oficial de Cumplimiento</div>
+            </div>
+            <div className="text-center">
+              <div className="border-t border-gray-400 pt-1">Firma y sello</div>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-4">
+            Documento generado por CNL Craniley Compliance Services. Las señales de alerta provienen del Canal de Denuncias del sujeto obligado.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function CanalDenuncias() {
   const { tenant, tenantsDisponibles, profile, isSuperAdmin } = useAuth()
@@ -405,7 +532,7 @@ export default function CanalDenuncias() {
   // el resto, solo a los suyos.
   useEffect(() => {
     if (isSuperAdmin) {
-      tenantsDeLaApp('id, nombre, email_oficial_cumplimiento')
+      tenantsDeLaApp('id, nombre, email_oficial_cumplimiento, cedula_juridica')
         .then(({ data }) => setTodosTenants(data || []))
     }
   }, [isSuperAdmin])
@@ -415,7 +542,7 @@ export default function CanalDenuncias() {
   return (
     <div className="p-6 max-w-4xl space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
+      <div className="flex items-start justify-between flex-wrap gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Canal de Denuncias</h1>
           <p className="text-gray-500 text-sm mt-1">
@@ -429,20 +556,19 @@ export default function CanalDenuncias() {
         </div>
       </div>
 
-      {/* Tabs (superadmin ve bandeja + nuevo) */}
-      {isSuperAdmin && (
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-          {[
-            { id: 'bandeja', label: '📥 Bandeja de reportes' },
-            { id: 'nuevo',   label: '✏️ Nuevo reporte' },
-          ].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${tab === t.id ? 'bg-white shadow text-brand-700' : 'text-gray-500 hover:text-gray-700'}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit print:hidden">
+        {[
+          ...(isSuperAdmin ? [{ id: 'bandeja', label: '📥 Bandeja de reportes' }] : []),
+          { id: 'nuevo',    label: '✏️ Nuevo reporte' },
+          { id: 'bitacora', label: '📑 Bitácora de señales' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${tab === t.id ? 'bg-white shadow text-brand-700' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       {/* Contenido */}
       {tab === 'nuevo' && (
@@ -456,6 +582,10 @@ export default function CanalDenuncias() {
 
       {tab === 'bandeja' && isSuperAdmin && (
         <VistaSuperAdmin key={refresh} />
+      )}
+
+      {tab === 'bitacora' && (
+        <BitacoraSenales opciones={opciones} tenant={tenant} />
       )}
     </div>
   )
