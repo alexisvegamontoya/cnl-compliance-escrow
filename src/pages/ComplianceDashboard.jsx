@@ -8,6 +8,7 @@ import {
 import { calcularNivelCumplimiento } from '../lib/nivelCumplimiento'
 import { useCatalogoDeTenant } from '../lib/CatalogoDocumentalContext'
 import ErrorBanner from '../components/ui/ErrorBanner'
+import CalificacionRegulatoria from '../components/ui/CalificacionRegulatoria'
 
 // ─── Pesos de cada ítem ───────────────────────────────────────────────────────
 // ─── Colores por score ────────────────────────────────────────────────────────
@@ -381,6 +382,9 @@ export default function ComplianceDashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Calificación regulatoria calculada en CNL Gestión Regulatoria */}
+          <CalificacionRegulatoria tenantId={tenant.id} />
 
           {/* Ítems detallados */}
           <div className="space-y-3">

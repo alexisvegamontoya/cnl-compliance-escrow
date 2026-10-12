@@ -10,6 +10,10 @@
     {
       "path": "/api/kyc-recordatorios",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/regulatorio-sync",
+      "schedule": "30 12 * * *"
     }
   ],
   "headers": [
