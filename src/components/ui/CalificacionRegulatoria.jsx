@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../lib/AuthContext'
 
 const NIVEL = {
   alto:      { texto: 'Alto',      color: '#15803d', fondo: '#dcfce7' },
@@ -24,6 +25,27 @@ export default function CalificacionRegulatoria({ tenantId }) {
   const [dato, setDato] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [verTodos, setVerTodos] = useState(false)
+  const [sincronizando, setSincronizando] = useState(false)
+  const [recarga, setRecarga] = useState(0)
+  const { isSuperAdmin } = useAuth()
+
+  // Superadmin: trae ya mismo calificaciones y normativa aprobada (además del cron diario)
+  const sincronizar = async () => {
+    setSincronizando(true)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const r = await fetch('/api/regulatorio-sync', { method: 'POST', headers: { Authorization: 'Bearer ' + (data.session?.access_token ?? '') } })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'No se pudo sincronizar')
+      alert('Sincronizado: ' + j.calificaciones + ' calificaciones y ' + j.normativa + ' normativas.' + (j.errores?.length ? ' Avisos: ' + j.errores.join('; ') : ''))
+      setRecarga((x) => x + 1)
+    } catch (e) { alert(e.message) } finally { setSincronizando(false) }
+  }
+  const botonSync = isSuperAdmin && (
+    <button className="text-xs font-semibold text-blue-700 hover:underline disabled:opacity-50" disabled={sincronizando} onClick={sincronizar}>
+      {sincronizando ? 'Sincronizando…' : 'Sincronizar ahora'}
+    </button>
+  )
 
   useEffect(() => {
     if (!tenantId) return
@@ -31,7 +53,7 @@ export default function CalificacionRegulatoria({ tenantId }) {
     supabase.from('calificacion_regulatoria').select('*').eq('tenant_id', tenantId).maybeSingle()
       .then(({ data }) => setDato(data ?? null))
       .finally(() => setCargando(false))
-  }, [tenantId])
+  }, [tenantId, recarga])
 
   if (cargando) return null
   if (!dato) {
@@ -39,6 +61,7 @@ export default function CalificacionRegulatoria({ tenantId }) {
       <div className="card text-sm text-gray-500">
         <p className="font-semibold text-gray-700">Calificación regulatoria (Gestión Regulatoria)</p>
         <p className="mt-1">Aún no hay calificación sincronizada para esta empresa.</p>
+        <div className="mt-2">{botonSync}</div>
       </div>
     )
   }
@@ -52,7 +75,7 @@ export default function CalificacionRegulatoria({ tenantId }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-gray-700">Calificación regulatoria (Gestión Regulatoria)</p>
-          <p className="text-xs text-gray-400">Calculada por CNL · actualizada el {fechaCR(dato.calculado_en)}</p>
+          <p className="text-xs text-gray-400">Calculada por CNL · actualizada el {fechaCR(dato.calculado_en)} {botonSync}</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-3xl font-bold" style={{ color: n.color }}>{dato.indice != null ? `${Number(dato.indice).toFixed(1)}` : '—'}</span>
