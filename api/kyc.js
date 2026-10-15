@@ -37,6 +37,17 @@ export default async function handler(req, res) {
       admin.from('solicitudes_kyc_documentos').select('doc_id, nombre_archivo, subido_en').eq('solicitud_id', sol.id),
       admin.from('machotes').select('id, clave, nombre, archivo_url, sector, tipo_persona').eq('activo', true),
     ])
+    // Documentos internos que el sujeto obligado adjuntó a esta solicitud: el cliente
+    // los descarga, completa y devuelve. Se firman enlaces de descarga temporales.
+    const documentosSujeto = []
+    for (const d of (sol.documentos_sujeto || [])) {
+      let url = null
+      try {
+        const { data: signed } = await admin.storage.from('kyc').createSignedUrl(d.path, 1800)
+        url = signed?.signedUrl || null
+      } catch { /* enlace no disponible */ }
+      documentosSujeto.push({ id: d.id, etiqueta: d.etiqueta, nombre: d.nombre, url })
+    }
     return res.status(200).json({
       tenant:      sol.tenants?.nombre || '',
       logo:        sol.tenants?.logo_url || null,
@@ -51,6 +62,7 @@ export default async function handler(req, res) {
       preguntasExtra:     sol.preguntas_extra || [],
       documentosExtra:    sol.documentos_extra || [],
       documentosExcluidos: sol.documentos_excluidos || [],
+      documentosSujeto,
       venceEn:     sol.vence_en,
     })
   }

@@ -126,6 +126,10 @@ export default function RecoleccionKYC() {
   const [preguntasExtra, setPreguntasExtra]   = useState([])
   const [documentosExtra, setDocumentosExtra] = useState([])
   const [excluidos, setExcluidos]             = useState([]) // ids del checklist que el oficial quita
+  const [venceEn, setVenceEn]                 = useState(() => new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10))
+  const [mensajeCorreo, setMensajeCorreo]     = useState('')
+  const [documentosSujeto, setDocumentosSujeto] = useState([]) // docs del sujeto que el cliente descarga/completa/devuelve
+  const [subiendoDoc, setSubiendoDoc]         = useState(false)
   const [nuevaPregunta, setNuevaPregunta]     = useState('')
   const [nuevoDoc, setNuevoDoc]               = useState('')
   const [nuevoDocReq, setNuevoDocReq]         = useState(true)
@@ -181,6 +185,24 @@ export default function RecoleccionKYC() {
     }
   }
 
+  // vence_en a partir del selector de fecha (fin del día) o +3 días por defecto.
+  const venceISO = () => venceEn ? new Date(venceEn + 'T23:59:59').toISOString() : new Date(Date.now() + 3 * 864e5).toISOString()
+
+  // Sube un documento interno del sujeto obligado al bucket kyc (lo descarga el cliente).
+  async function subirDocSujeto(file) {
+    if (!file || !soActivo) { if (!soActivo) setError('Seleccione el sujeto obligado antes de adjuntar documentos.'); return }
+    setSubiendoDoc(true); setError('')
+    try {
+      const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const id = 'sujeto-' + crypto.randomUUID().slice(0, 8)
+      const path = `${soActivo}/_sujeto/${id}.${ext}`
+      const { error: e } = await supabase.storage.from('kyc').upload(path, file, { contentType: file.type || undefined })
+      if (e) throw e
+      setDocumentosSujeto(a => [...a, { id, etiqueta: file.name.replace(/\.[^.]+$/, ''), path, nombre: file.name }])
+    } catch (e) { setError('No se pudo subir el documento: ' + (e.message || e)) }
+    finally { setSubiendoDoc(false) }
+  }
+
   async function crear(e) {
     e.preventDefault()
     setError('')
@@ -208,13 +230,15 @@ export default function RecoleccionKYC() {
       creado_por:     session?.user?.id,
       correo_oficial: session?.user?.email || null,
       enviada_en:     new Date().toISOString(),
-      vence_en:       new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      vence_en:       venceISO(),
+      mensaje_correo: mensajeCorreo.trim() || null,
+      documentos_sujeto: documentosSujeto,
     }).select('*').single()
     setGuardando(false)
     if (error) { setError(error.message); return }
     // Reset y refrescar
     setShowForm(false); setTipoPersona('fisica'); setModo('nuevo'); setClienteId(''); setCorreo(''); setNombre('')
-    setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false)
+    setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false); setMensajeCorreo(''); setDocumentosSujeto([])
     setSolicitudes(prev => [data, ...prev])
     logAudit({ accion: 'crear', tabla: 'solicitudes_kyc', registro_id: data.id, descripcion: `Solicitud KYC creada: ${data.nombre_cliente || correo.trim()}`, tenant_id: soActivo })
     // Enviar el correo al cliente automáticamente (Resend)
@@ -245,7 +269,8 @@ export default function RecoleccionKYC() {
         correo_cliente: p.correo, nombre_cliente: p.nombre || null, sector,
         preguntas_extra: preguntasExtra, documentos_excluidos: excluidos, documentos_extra,
         estado: 'enviada', creado_por: session?.user?.id, correo_oficial: session?.user?.email || null,
-        enviada_en: new Date().toISOString(), vence_en: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        enviada_en: new Date().toISOString(), vence_en: venceISO(),
+        mensaje_correo: mensajeCorreo.trim() || null, documentos_sujeto: documentosSujeto,
       }).select('*').single()
       if (!error && data) {
         nuevas.push(data)
@@ -256,7 +281,7 @@ export default function RecoleccionKYC() {
     setGuardando(false)
     setSolicitudes(prev => [...nuevas, ...prev])
     setShowForm(false); setMasivo(false); setListaMasiva('')
-    setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false)
+    setPreguntasExtra([]); setDocumentosExtra([]); setExcluidos([]); setPedirAvaluo(false); setPedirFlujo(false); setMensajeCorreo(''); setDocumentosSujeto([])
     setMsgRev('')
     setError(nuevas.length < parsed.length ? `Se enviaron ${nuevas.length}/${parsed.length} solicitudes.` : '')
   }
@@ -718,6 +743,39 @@ export default function RecoleccionKYC() {
               <label className="label text-xs">Correo del cliente *</label>
               <input className="input text-sm" type="email" value={correo} onChange={e => setCorreo(e.target.value)} placeholder="correo@ejemplo.com" />
             </div>
+          </div>
+
+          {/* Fecha de vencimiento del enlace */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label text-xs">Fecha de vencimiento del enlace</label>
+              <input className="input text-sm" type="date" value={venceEn} onChange={e => setVenceEn(e.target.value)} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Después de esta fecha el enlace deja de funcionar.</p>
+            </div>
+          </div>
+
+          {/* Mensaje personalizado del correo */}
+          <div>
+            <label className="label text-xs">Mensaje del correo (opcional)</label>
+            <textarea className="input text-sm" rows={3} value={mensajeCorreo} onChange={e => setMensajeCorreo(e.target.value)}
+              placeholder="Si lo dejás vacío, se usa el mensaje estándar de debida diligencia." />
+          </div>
+
+          {/* Documentos internos del sujeto obligado que el cliente debe completar */}
+          <div className="rounded-lg border border-gray-200 px-3 py-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase">Documentos del sujeto obligado para que el cliente complete</p>
+            <p className="text-[11px] text-gray-400">El cliente podrá descargarlos, completarlos y devolverlos (quedan en su checklist de documentos a entregar).</p>
+            {documentosSujeto.map((d, i) => (
+              <div key={d.id} className="flex items-center justify-between text-sm border border-gray-100 rounded px-2 py-1">
+                <span className="truncate">📎 {d.nombre}</span>
+                <button type="button" onClick={() => setDocumentosSujeto(a => a.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 flex-shrink-0 ml-2">×</button>
+              </div>
+            ))}
+            <label className={`btn-secondary text-sm px-3 inline-block cursor-pointer ${subiendoDoc ? 'opacity-60 pointer-events-none' : ''}`}>
+              {subiendoDoc ? 'Subiendo…' : '+ Adjuntar documento'}
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                onChange={e => { const f = e.target.files?.[0]; if (f) subirDocSujeto(f); e.target.value = '' }} />
+            </label>
           </div>
 
           {/* Revisión del checklist + preguntas/documentos extra */}

@@ -18,15 +18,23 @@ function fechaCR(iso: string | null) {
   try { return new Date(iso).toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' }) } catch { return '' }
 }
 
-function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null, motivo?: string, tipo?: string) {
+// Convierte el mensaje libre (texto plano) en HTML seguro, respetando saltos de línea.
+function textoHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+}
+
+function correoHTML(tenant: string, nombre: string, link: string, vence: string, logo: string | null, motivo?: string, tipo?: string, mensaje?: string) {
   const esCorreccion = !!motivo
   const esRecordatorio = tipo === 'recordatorio'
+  const custom = mensaje && mensaje.trim()
   const titulo = esRecordatorio ? 'Recordatorio: información pendiente'
     : esCorreccion ? 'Su información requiere correcciones' : 'Formulario de Debida Diligencia (KYC)'
   const intro = esRecordatorio
     ? `Le recordamos que aún no hemos recibido su información de debida diligencia. Le agradecemos completar el formulario y adjuntar los documentos de respaldo a la brevedad para poder continuar con el proceso.`
     : esCorreccion
     ? `Revisamos su información y necesitamos que realice unas correcciones antes de continuar. Por favor ingrese nuevamente al formulario, ajuste lo indicado y vuelva a enviarlo.`
+    : custom
+    ? textoHtml(mensaje!.trim())
     : `Como parte de nuestro proceso de debida diligencia, le solicitamos completar su información y adjuntar los documentos de respaldo en el siguiente formulario seguro. Al finalizar podrá descargar el formulario KYC, firmarlo y subirlo para concluir.`
   const cta = esRecordatorio ? 'Completar ahora' : 'Completar mi información'
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -67,7 +75,7 @@ Deno.serve(async (req) => {
     const esAvisoOficial = tipo === 'aviso_oficial'
 
     // Buscar la solicitud (service role)
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,correo_oficial,nombre_cliente,vence_en,tenants(nombre,logo_url)`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_kyc?token=eq.${encodeURIComponent(token)}&select=correo_cliente,correo_oficial,nombre_cliente,vence_en,mensaje_correo,tenants(nombre,logo_url)`, {
       headers: { apikey: SERVICE_KEY!, Authorization: `Bearer ${SERVICE_KEY}` },
     })
     const rows = await r.json()
@@ -103,7 +111,7 @@ Deno.serve(async (req) => {
       if (!envioOf.ok) return json({ error: 'Resend: ' + (await envioOf.text()).slice(0, 300) }, 502)
       return json({ ok: true })
     }
-    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null, motivo, tipo)
+    const html = correoHTML(tenant, sol.nombre_cliente || '', link, fechaCR(sol.vence_en), sol.tenants?.logo_url || null, motivo, tipo, sol.mensaje_correo || '')
     const asunto = esRecordatorio
       ? `Recordatorio: información pendiente — ${tenant}`
       : motivo
@@ -116,6 +124,8 @@ Deno.serve(async (req) => {
         ? `Aún no hemos recibido su información de debida diligencia para ${tenant}. Le agradecemos completar el formulario a la brevedad:`
         : motivo
         ? `Su información requiere correcciones. Motivo: ${motivo}`
+        : (sol.mensaje_correo && sol.mensaje_correo.trim())
+        ? sol.mensaje_correo.trim()
         : `Como parte del proceso de debida diligencia de ${tenant}, complete su informacion y documentos en el siguiente formulario seguro:`,
       '',
       link,

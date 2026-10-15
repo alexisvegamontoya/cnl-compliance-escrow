@@ -148,6 +148,7 @@ export default function PortalKYC() {
     ? docsKyc(cfg.tipoPersona).filter(d => !excluidos.has(d.id) && !(esCredito && d.id === 'kyc_eeff_o_ingresos'))
     : []
   const docsExtra = cfg?.documentosExtra || []
+  const docsSujeto = cfg?.documentosSujeto || [] // documentos del sujeto: descargar, completar y devolver
   const machotesDocs = (cfg?.machotes || [])
     .filter(m => {
       const tp = m.tipo_persona || 'ambos'
@@ -216,6 +217,7 @@ export default function PortalKYC() {
   function faltantesPaso2() {
     return [...docsCredito, ...docsBase, ...docsExtra].filter(it => it.required && !docSubido(it.id)).map(it => it.label)
       .concat(machotesDocs.filter(m => !docSubido(m.id)).map(m => m.label))
+      .concat(docsSujeto.filter(d => !docSubido(d.id)).map(d => d.etiqueta || d.nombre))
   }
 
   function siguiente() {
@@ -465,6 +467,19 @@ export default function PortalKYC() {
                   <div key={m.id} className="flex items-center justify-between gap-3 flex-wrap text-sm">
                     <a href={m.machote.archivo_url} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">⬇ {m.label}</a>
                     <SubirDoc id={m.id} subiendo={subiendo} subido={docSubido(m.id)} onFile={f => subir(m.id, m.label, f)} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {docsSujeto.length > 0 && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-2">
+                <p className="text-sm font-semibold text-blue-800">Documentos de {cfg.tenant} — descárguelos, complételos y vuelva a subirlos:</p>
+                {docsSujeto.map(d => (
+                  <div key={d.id} className="flex items-center justify-between gap-3 flex-wrap text-sm">
+                    {d.url
+                      ? <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">⬇ {d.etiqueta || d.nombre}</a>
+                      : <span className="text-gray-700">{d.etiqueta || d.nombre}</span>}
+                    <SubirDoc id={d.id} subiendo={subiendo} subido={docSubido(d.id)} onFile={f => subir(d.id, d.etiqueta || d.nombre, f)} />
                   </div>
                 ))}
               </div>
