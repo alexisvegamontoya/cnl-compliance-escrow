@@ -17,6 +17,11 @@ import {
 // (catálogo estándar SUGEF 13-19 + sus ajustes), no una copia local del catálogo.
 import { gruposChecklist, itemsChecklist, ESTADOS_CHECKLIST } from '../../lib/checklistDocumental'
 import { useCatalogoDeTenant } from '../../lib/CatalogoDocumentalContext'
+// Campos del KYC (empleador, PEP ampliado, estructura) listos para imprimir
+import {
+  esc, texto, camposAdicionalesCliente, camposEmpleador, camposPep, hayDetallePep, datosKycDeCliente,
+  agruparPersonas, camposPersona, identificacionPersona, subPersonasTexto, porcentaje,
+} from '../../utils/datosClienteImpresion'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function nombreCompleto(c) {
@@ -120,7 +125,7 @@ async function buscarEnListas(nombre, identificacion) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PRINT: idéntico a ConsultaPEP + ReporteDD + Calificación
 // ─────────────────────────────────────────────────────────────────────────────
-function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, nivelFinal, checklist, hayPEP, tenant, profile, scoreTotal, nivelRiesgo, desglose, tipo, catalogo }) {
+function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, nivelFinal, checklist, hayPEP, tenant, profile, scoreTotal, nivelRiesgo, desglose, tipo, catalogo, kyc = {} }) {
   const nombre = nombreCompleto(cliente)
   const nivel  = NIVELES[nivelFinal] || NIVELES.medio
   const todosItems = itemsChecklist({ tipoPersona: tipo === 'J' ? 'juridica' : 'fisica', esPEP: hayPEP }, catalogo)
@@ -365,6 +370,69 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
       </div>
     </div>`
 
+  // ── Datos del KYC: campos adicionales, empresa donde labora, PEP y estructura ──
+  const lblTd = 'color:#9a9aa4; padding:2px 0; vertical-align:top;'
+  const filaDato = ([l, v], ancho) => `<tr><td style="${lblTd}${ancho ? ` width:${ancho};` : ''}">${esc(l)}:</td><td>${esc(v)}</td></tr>`
+  // El distrito ya va dentro de «Dirección»
+  const filasAdicionales = camposAdicionalesCliente(cliente).filter(([l]) => l !== 'Distrito').map(p => filaDato(p)).join('')
+  const cajaDatos = (titulo, pares) => pares.length ? `
+      <div style="border:1px solid #e4e4ea; border-radius:8px; padding:16px; margin-bottom:16px; page-break-inside:avoid;">
+        <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">${titulo}</p>
+        <table style="width:100%; font-size:11px;"><tbody>${pares.map(p => filaDato(p, '40%')).join('')}</tbody></table>
+      </div>` : ''
+  const bloqueEmpleador = tipo === 'F' ? cajaDatos('Empresa donde labora', camposEmpleador(cliente.empleador)) : ''
+  const paresPep = camposPep(cliente, kyc)
+  const bloquePep = hayDetallePep(paresPep) ? cajaDatos('Condición PEP y relación con PEP', paresPep) : ''
+
+  const est = agruparPersonas(participantes)
+  const badgePep = (p) => p.es_pep
+    ? ' <span style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:99px; background:#faefd3; color:#7f5a10; border:1px solid #e5c888;">🏛️ PEP</span>'
+    : ''
+  const tablaPersonas = (titulo, items, cols) => items.length ? `
+        <p style="font-size:11px; font-weight:700; color:#45454f; margin:10px 0 6px;">${titulo} (${items.length})</p>
+        <table style="width:100%; border-collapse:collapse;">
+          <thead><tr>${cols.map(c => `<th style="${headStyle}">${c.t}</th>`).join('')}</tr></thead>
+          <tbody>${items.map(p => `<tr>${cols.map(c => `<td style="${rowStyle}">${c.v(p) || '—'}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>` : ''
+  const fichaRep = (p) => {
+    const pares = camposPersona(p)
+    return `
+        <div style="border:1px solid #e4e4ea; border-radius:6px; padding:10px 12px; margin-bottom:8px; page-break-inside:avoid;">
+          <p style="font-size:11px; font-weight:700; margin:0 0 6px;">${esc(p.nombre)}${badgePep(p)}</p>
+          ${pares.length ? `<table style="width:100%; font-size:10px;"><tbody>${pares.map(([l, v]) =>
+            `<tr><td style="${lblTd} width:35%;">${esc(l)}:</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table>` : ''}
+        </div>`
+  }
+  const hayEstructura = est.representantes.length || est.junta.length || est.socios.length || est.sociosEmpresa.length || est.otros.length
+  const bloqueEstructura = hayEstructura ? `
+      <div style="border:1px solid #e4e4ea; border-radius:8px; padding:16px; margin-bottom:16px;">
+        <p style="font-size:10px; font-weight:700; color:#6b6b76; text-transform:uppercase; margin:0 0 8px;">Personas relacionadas</p>
+        ${est.representantes.length ? `<p style="font-size:11px; font-weight:700; color:#45454f; margin:0 0 6px;">⚖️ Representantes legales (${est.representantes.length})</p>
+        ${est.representantes.map(fichaRep).join('')}` : ''}
+        ${tablaPersonas('🏛 Junta directiva', est.junta, [
+          { t: 'Cargo', v: p => esc(texto(p.cargo)) },
+          { t: 'Nombre', v: p => esc(p.nombre) + badgePep(p) },
+          { t: 'Identificación', v: p => esc(identificacionPersona(p)) },
+        ])}
+        ${tablaPersonas('📊 Socios / accionistas (≥10%)', est.socios, [
+          { t: 'Nombre', v: p => esc(p.nombre) + badgePep(p) + (p.es_beneficiario_final ? ' <span style="font-size:9px; color:#293670;">(Beneficiario final)</span>' : '') },
+          { t: 'Identificación', v: p => esc(identificacionPersona(p)) },
+          { t: 'Nacionalidad', v: p => esc(texto(p.nacionalidad)) },
+          { t: '% Participación', v: p => esc(porcentaje(p.porcentaje_participacion)) },
+        ])}
+        ${tablaPersonas('🏢 Socios que son empresas', est.sociosEmpresa, [
+          { t: 'Empresa', v: p => esc(p.nombre) },
+          { t: 'Cédula jurídica', v: p => esc(texto(p.identificacion)) },
+          { t: '% Participación', v: p => esc(porcentaje(p.porcentaje_participacion)) },
+          { t: 'Representante / socios', v: p => esc([subPersonasTexto(p), texto(p.notas)].filter(Boolean).join(' · ')) },
+        ])}
+        ${tablaPersonas('Otras personas relacionadas', est.otros, [
+          { t: 'Relación', v: p => esc(texto(p.tipo_relacion).replace(/_/g, ' ')) },
+          { t: 'Nombre', v: p => esc(p.nombre) + badgePep(p) },
+          { t: 'Identificación', v: p => esc(identificacionPersona(p)) },
+        ])}
+      </div>` : ''
+
   const secDD = `
     <div>
       <div style="background: #0a1247; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 24px; border-radius: 8px 8px 0 0;">
@@ -392,10 +460,7 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
             <tr><td style="color:#9a9aa4; padding:2px 0;">Actividad:</td><td>${cliente.actividad_eco_nombre||cliente.profesion_nombre||cliente.actividad_economica||'—'}</td></tr>
             <tr><td style="color:#9a9aa4; padding:2px 0;">Dirección:</td><td>${[cliente.direccion_exacta, cliente.distrito, cliente.canton, cliente.provincia].filter(Boolean).join(', ')||'—'}</td></tr>
             ${cliente.telefono||cliente.correo_electronico?`<tr><td style="color:#9a9aa4; padding:2px 0;">Contacto:</td><td>${[cliente.telefono, cliente.correo_electronico].filter(Boolean).join(' · ')}</td></tr>`:''}
-            ${cliente.pagina_web?`<tr><td style="color:#9a9aa4; padding:2px 0;">Página web:</td><td>${cliente.pagina_web}</td></tr>`:''}
-            ${cliente.paises_ingresos?`<tr><td style="color:#9a9aa4; padding:2px 0;">País(es) de ingresos:</td><td>${cliente.paises_ingresos}</td></tr>`:''}
-            ${cliente.ccss_estado?`<tr><td style="color:#9a9aa4; padding:2px 0;">CCSS:</td><td>${({al_dia:'Inscrito — al día',morosidad:'Inscrito — morosidad',arreglo:'Inscrito — arreglo de pago',no_inscrito:'No inscrito'})[cliente.ccss_estado]||cliente.ccss_estado}</td></tr>`:''}
-            ${cliente.sugef_estado?`<tr><td style="color:#9a9aa4; padding:2px 0;">SUGEF (Ley 7786):</td><td>${({no:'No es sujeto obligado','15':'Art. 15','15bis':'Art. 15 bis','15ter':'Art. 15 ter',pendiente:'Inscripción pendiente'})[cliente.sugef_estado]||cliente.sugef_estado}</td></tr>`:''}
+            ${filasAdicionales}
             <tr><td style="color:#9a9aa4; padding:2px 0;">Propósito:</td><td>${cliente.proposito_relacion||'—'}</td></tr>
           </tbody></table>
         </div>
@@ -410,6 +475,9 @@ function generarHTMLReporte({ cliente, participantes, resultadosListas, perfil, 
           </tbody></table>
         </div>
       </div>
+      ${bloqueEmpleador}
+      ${bloquePep}
+      ${bloqueEstructura}
       ${perfil ? `
         <div style="border:1px solid #bcc8ee; border-radius:8px; margin-bottom:16px; overflow:hidden;">
           <div style="background:#293670; color:white; padding:10px 16px;">
@@ -1053,6 +1121,7 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
   const { tenant, profile } = useAuth()
   const [tab, setTab]       = useState('calificacion')
   const [personas, setPersonas] = useState([])
+  const [datosKyc, setDatosKyc] = useState({})
 
   // Estado compartido para el print
   const [scoreData, setScoreData]         = useState({ scoreTotal: 0, nivel: '', desglose: {} })
@@ -1071,6 +1140,8 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
     supabase.from('clientes_personas_relacionadas').select('*')
       .eq('cliente_id', cliente.id).eq('activo', true).order('orden')
       .then(({ data }) => setPersonas(data || []))
+    // Detalle PEP de la solicitud KYC aprobada (si la hay) para el expediente impreso
+    datosKycDeCliente(cliente.id).then(setDatosKyc)
   }, [cliente?.id])
 
   const imprimirTodo = () => {
@@ -1084,6 +1155,7 @@ export default function InformeClienteCompleto({ cliente, onClose }) {
         desglose: scoreData.desglose || {},
         tipo,
         catalogo: catalogoDoc,
+        kyc: datosKyc,
       })
       const w = window.open('', '_blank', 'width=900,height=700')
       if (!w) {

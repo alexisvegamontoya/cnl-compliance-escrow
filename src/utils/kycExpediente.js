@@ -50,7 +50,9 @@ const GEN = { M: 'Masculino', F: 'Femenino', otro: 'Otro' }
 const PLAN_L = { capital_trabajo: 'Capital de trabajo', compra_propiedades: 'Compra de propiedades', cancelacion_pasivos: 'Cancelación de pasivos', compra_vehiculos: 'Compra de vehículos', compra_edificio: 'Compra de edificio', construccion: 'Construcción de un proyecto', otros: 'Otros' }
 const GAR_L = { uso_empresa: 'Bienes en uso de la empresa cliente', tercero: 'Bienes de un tercero', rep_socios: 'Bienes del representante legal o socios (no a nombre de la empresa)' }
 
-export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo }) {
+// paraPdf: devuelve un fragmento con estilos aislados bajo .expk (sin <html> ni
+// botón de imprimir) para convertirlo a PDF con htmlAPdfBlob sin afectar la app.
+export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo, paraPdf = false }) {
   const d = solicitud?.datos || {}
   const esJ = solicitud?.tipo_persona === 'juridica'
   const fecha = new Date().toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -107,28 +109,32 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo 
     : `<table class="datos"><tbody>${anexos.map((a, i) =>
         `<tr><td class="l">Anexo ${i + 1}</td><td class="v">${a.etiqueta || a.doc_id} <span class="muted">— ${a.nombre_archivo || ''}</span></td></tr>`
       ).join('')}</tbody></table>
-      <p class="muted" style="margin-top:6px">Cada documento se descarga como archivo independiente desde la ficha de la solicitud.</p>`
+      <p class="muted" style="margin-top:6px">${paraPdf
+        ? 'Los documentos se anexan a continuación, en este mismo PDF, en el orden indicado.'
+        : 'Cada documento se descarga como archivo independiente desde la ficha de la solicitud.'}</p>`
 
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Expediente KYC — ${nombre}</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#14141a;padding:26px 34px}
-  .head{border-bottom:2px solid #34438c;padding-bottom:12px;margin-bottom:16px}
-  .head h1{font-size:17px;color:#1a2348}
-  .head p{font-size:11px;color:#6b6b76;margin-top:3px}
-  h2{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b6b76;border-bottom:1px solid #e4e4ea;padding-bottom:4px;margin:18px 0 8px}
-  table.datos{width:100%;border-collapse:collapse}
-  table.datos td{padding:4px 6px;vertical-align:top;border-bottom:1px solid #f0f0f4}
-  table.datos .l{width:40%;color:#6b6b76}
-  table.datos .v{font-weight:600}
-  .muted{color:#8a8a94;font-size:11px}
-  .anexo{margin:14px 0;page-break-inside:avoid}
-  .anexo-cab{font-weight:700;font-size:11px;color:#34438c;margin-bottom:6px;border-left:3px solid #34438c;padding-left:8px}
-  .anexo-img{max-width:100%;max-height:900px;border:1px solid #e4e4ea;border-radius:4px}
-  .foot{margin-top:26px;border-top:1px solid #e4e4ea;padding-top:8px;font-size:9px;color:#9a9aa4;text-align:center}
-  a{color:#34438c}
-  @media print{@page{margin:1.3cm} .noprint{display:none}}
-</style></head><body>
+  // En modo PDF todas las reglas quedan bajo .expk para no filtrarse a la app.
+  const S = paraPdf ? '.expk ' : ''
+  const estilos = `
+  ${paraPdf ? '.expk, .expk *' : '*'}{margin:0;padding:0;box-sizing:border-box}
+  ${paraPdf ? '.expk' : 'body'}{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#14141a;padding:${paraPdf ? '6px 10px' : '26px 34px'}}
+  ${S}.head{border-bottom:2px solid #34438c;padding-bottom:12px;margin-bottom:16px}
+  ${S}.head h1{font-size:17px;color:#1a2348}
+  ${S}.head p{font-size:11px;color:#6b6b76;margin-top:3px}
+  ${S}h2{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b6b76;border-bottom:1px solid #e4e4ea;padding-bottom:4px;margin:18px 0 8px}
+  ${S}table.datos{width:100%;border-collapse:collapse}
+  ${S}table.datos td{padding:4px 6px;vertical-align:top;border-bottom:1px solid #f0f0f4}
+  ${S}table.datos .l{width:40%;color:#6b6b76}
+  ${S}table.datos .v{font-weight:600}
+  ${S}.muted{color:#8a8a94;font-size:11px}
+  ${S}.anexo{margin:14px 0;page-break-inside:avoid}
+  ${S}.anexo-cab{font-weight:700;font-size:11px;color:#34438c;margin-bottom:6px;border-left:3px solid #34438c;padding-left:8px}
+  ${S}.anexo-img{max-width:100%;max-height:900px;border:1px solid #e4e4ea;border-radius:4px}
+  ${S}.foot{margin-top:26px;border-top:1px solid #e4e4ea;padding-top:8px;font-size:9px;color:#9a9aa4;text-align:center}
+  ${S}a{color:#34438c}
+  ${paraPdf ? '' : '@media print{@page{margin:1.3cm} .noprint{display:none}}'}`
+
+  const cuerpo = `
   <div class="head" style="display:flex;align-items:center;gap:14px">
     ${logo ? `<img src="${logo}" alt="" style="height:54px;width:auto;object-fit:contain">` : ''}
     <div>
@@ -144,7 +150,13 @@ export function generarExpedienteKycHTML({ tenant, solicitud, anexos = [], logo 
   <h2>Anexos — documentos de respaldo (${anexos.length})</h2>
   ${anexosHtml}
 
-  <div class="foot">Expediente generado por el sistema CNL Craniley Compliance · ${tenant || ''} · ${fecha}</div>
+  <div class="foot">Expediente generado por el sistema CNL Craniley Compliance · ${tenant || ''} · ${fecha}</div>`
+
+  if (paraPdf) return `<style>${estilos}</style><div class="expk">${cuerpo}</div>`
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Expediente KYC — ${nombre}</title>
+<style>${estilos}
+</style></head><body>${cuerpo}
   <button class="noprint" onclick="window.print()" style="position:fixed;top:12px;right:12px;padding:8px 14px;background:#34438c;color:#fff;border:0;border-radius:6px;cursor:pointer">Imprimir / Guardar PDF</button>
 </body></html>`
 }

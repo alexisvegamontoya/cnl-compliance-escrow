@@ -22,6 +22,7 @@ import {
 import { useCatalogoDeTenant, useCatalogoPorCliente } from '../lib/CatalogoDocumentalContext'
 import { exportarExcel } from '../lib/exportExcel'
 import { imprimirFichaCliente } from '../utils/imprimirFicha'
+import { datosKycDeCliente } from '../utils/datosClienteImpresion'
 import ErrorBanner from '../components/ui/ErrorBanner'
 
 const InformeClienteCompleto = lazy(() => import('../components/clientes/InformeClienteCompleto'))
@@ -522,6 +523,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
   const puedeConfigurarDocs = isAdmin && (!cliente.tenant_id || cliente.tenant_id === tenant?.id)
   const [tab, setTab] = useState('datos')
   const [personas, setPersonas] = useState([])
+  const [datosKyc, setDatosKyc] = useState({})  // detalle PEP de la solicitud KYC aprobada (ficha impresa)
   const [histDD, setHistDD]     = useState([])
   const [histListas, setHistListas] = useState([])
   const [histCal, setHistCal]   = useState([])
@@ -578,6 +580,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
       setHistCal(cal || [])
       setLoading(false)
     })
+    datosKycDeCliente(cliente.id).then(setDatosKyc)
   }, [cliente?.id])
 
   const irAListas = () => navigate('/listas', {
@@ -675,7 +678,7 @@ function PerfilCliente({ cliente, onEditar, onVolver, onActualizado }) {
                       ? (cliente.nombre_empresa || cliente.nombre_cliente || '')
                       : undefined,
                   }
-                  imprimirFichaCliente({ cliente: c, personas, tenant, profile, catalogo: catalogoDoc })
+                  imprimirFichaCliente({ cliente: c, personas, tenant, profile, catalogo: catalogoDoc, kyc: datosKyc })
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                 🖨️ Imprimir ficha

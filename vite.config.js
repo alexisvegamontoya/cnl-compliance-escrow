@@ -24,6 +24,10 @@ function manualChunks(id) {
     return 'vendor-react'
   }
 
+  // pdf-lib — solo para «Unir todo en un solo PDF» (Recolección KYC); se carga
+  // con import() diferido, así que no debe caer en el chunk vendor general
+  if (/[\\/]node_modules[\\/](pdf-lib|@pdf-lib)[\\/]/.test(id)) return 'vendor-pdflib'
+
   if (id.includes('@supabase')) return 'vendor-supabase'
   if (id.includes('lucide-react')) return 'vendor-icons'
   if (/[\\/]node_modules[\\/](date-fns|csv-parse|@emailjs)/.test(id)) return 'vendor-utils'

@@ -6,6 +6,11 @@
 import {
   gruposChecklist, contextoCliente, estadoItem, CATALOGO_ESTANDAR,
 } from '../lib/checklistDocumental'
+// Campos del KYC (empleador, PEP ampliado, estructura) listos para imprimir
+import {
+  esc, texto, camposEmpleador, camposPep, hayDetallePep, agruparPersonas, camposPersona,
+  identificacionPersona, subPersonasTexto, porcentaje, fechaCorta, CCSS_LABEL, SUGEF_LABEL,
+} from './datosClienteImpresion'
 
 const TIPO_ID_LABEL = {
   1: 'Cédula de identidad',
@@ -21,9 +26,9 @@ const RIESGO_COLOR = { alto: '#c31b26', medio: '#a87813', bajo: '#1f6d45' }
 
 const GENERO_LABEL = { M: 'Masculino', F: 'Femenino', otro: 'Otro / No indica' }
 
-// Une provincia, cantón y dirección exacta en una sola línea legible.
+// Une provincia, cantón, distrito y dirección exacta en una sola línea legible.
 function direccionCompleta(c) {
-  return [c.direccion_exacta, c.canton, c.provincia].filter(Boolean).join(', ')
+  return [c.direccion_exacta, c.distrito, c.canton, c.provincia].filter(Boolean).join(', ')
 }
 
 function fechaLarga(iso) {
@@ -48,42 +53,78 @@ function filaTabla(label, value) {
   </tr>`
 }
 
-function tablaPersonas(personas, tipoRelacion, titulo) {
-  const filtradas = (personas || []).filter(p => p.tipo_relacion === tipoRelacion)
-  if (!filtradas.length) return ''
-  const esRep = tipoRelacion === 'representante_legal'
-  const contacto = (p) => [
-    p.direccion ? `📍 ${p.direccion}` : '',
-    p.telefono ? `📞 ${p.telefono}` : '',
-    p.correo ? `✉️ ${p.correo}` : '',
-  ].filter(Boolean).join('<br>') || '—'
+const badgePep = (p) => p.es_pep ? ' <span class="badge badge-pep" style="padding:1px 6px;font-size:9px">PEP</span>' : ''
+
+// Tabla genérica de personas: columnas [{ t: título, v: p => html }]. Celdas vacías → «—».
+function tablaPersonas(items, titulo, cols) {
+  if (!items.length) return ''
   return `
     <div class="seccion">
       <h3>${titulo}</h3>
       <table class="tabla-personas">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Tipo</th>
-            <th>Identificación</th>
-            ${esRep ? '<th>Contacto</th>' : ''}
-            ${tipoRelacion === 'socio' ? '<th>Participación</th>' : ''}
-            ${tipoRelacion === 'junta_directiva' ? '<th>Cargo</th>' : ''}
-          </tr>
-        </thead>
+        <thead><tr>${cols.map(c => `<th>${c.t}</th>`).join('')}</tr></thead>
         <tbody>
-          ${filtradas.map(p => `
-            <tr>
-              <td>${p.nombre || '—'}</td>
-              <td>${p.tipo_entidad === 'persona_juridica' ? 'Persona jurídica' : 'Persona física'}</td>
-              <td>${p.identificacion ? `${p.tipo_identificacion || ''} ${p.identificacion}`.trim() : '—'}</td>
-              ${esRep ? `<td>${contacto(p)}</td>` : ''}
-              ${tipoRelacion === 'socio' ? `<td>${p.porcentaje_participacion != null ? p.porcentaje_participacion + '%' : '—'}</td>` : ''}
-              ${tipoRelacion === 'junta_directiva' ? `<td>${p.cargo || '—'}</td>` : ''}
-            </tr>
-          `).join('')}
+          ${items.map(p => `<tr>${cols.map(c => `<td>${c.v(p) || '—'}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
+    </div>`
+}
+
+// Representantes legales: una ficha por persona con los datos ampliados del KYC.
+function fichasRepresentantes(reps) {
+  if (!reps.length) return ''
+  return `
+    <div class="seccion">
+      <h3>Representantes legales</h3>
+      ${reps.map(p => `
+        <div class="persona-ficha">
+          <div class="persona-nombre">${esc(p.nombre)}${badgePep(p)}</div>
+          <table class="datos"><tbody>
+            ${camposPersona(p).map(([l, v]) => filaTabla(esc(l), esc(v))).join('')}
+          </tbody></table>
+        </div>`).join('')}
+    </div>`
+}
+
+// Estructura de la persona jurídica: representantes, junta, socios y socios-empresa.
+function seccionEstructura(personas) {
+  const est = agruparPersonas(personas)
+  return [
+    fichasRepresentantes(est.representantes),
+    tablaPersonas(est.junta, 'Junta directiva', [
+      { t: 'Cargo', v: p => esc(texto(p.cargo)) },
+      { t: 'Nombre', v: p => esc(p.nombre) + badgePep(p) },
+      { t: 'Identificación', v: p => esc(identificacionPersona(p)) },
+    ]),
+    tablaPersonas(est.socios, 'Socios / Accionistas (≥ 10%)', [
+      { t: 'Nombre', v: p => esc(p.nombre) + badgePep(p) + (p.es_beneficiario_final ? ' <em>(Beneficiario final)</em>' : '') },
+      { t: 'Identificación', v: p => esc(identificacionPersona(p)) },
+      { t: 'Nacionalidad', v: p => esc(texto(p.nacionalidad)) },
+      { t: 'Participación', v: p => esc(porcentaje(p.porcentaje_participacion)) },
+    ]),
+    tablaPersonas(est.sociosEmpresa, 'Socios que son empresas', [
+      { t: 'Empresa', v: p => esc(p.nombre) },
+      { t: 'Cédula jurídica', v: p => esc(texto(p.identificacion)) },
+      { t: 'Participación', v: p => esc(porcentaje(p.porcentaje_participacion)) },
+      { t: 'Representante / socios', v: p => esc([subPersonasTexto(p), texto(p.notas)].filter(Boolean).join(' · ')) },
+    ]),
+    tablaPersonas(est.otros, 'Otras personas relacionadas', [
+      { t: 'Relación', v: p => esc(texto(p.tipo_relacion).replace(/_/g, ' ')) },
+      { t: 'Nombre', v: p => esc(p.nombre) + badgePep(p) },
+      { t: 'Identificación', v: p => esc(identificacionPersona(p)) },
+    ]),
+  ].join('')
+}
+
+// Bloque de pares [etiqueta, valor] con título (no se imprime si está vacío).
+function seccionPares(titulo, pares) {
+  if (!pares.length) return ''
+  return `
+    <div class="seccion">
+      <h2>${titulo}</h2>
+      <table class="datos"><tbody>
+        ${pares.map(([l, v]) => filaTabla(esc(l), esc(v))).join('')}
+      </tbody></table>
     </div>`
 }
 
@@ -111,9 +152,11 @@ function seccionChecklist(cliente, catalogo) {
     </div>`
 }
 
-export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, catalogo = CATALOGO_ESTANDAR }) {
+export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, catalogo = CATALOGO_ESTANDAR, kyc = {} }) {
   const esJuridica = !!cliente.nombre_empresa ||
     [2, 4].includes(Number(cliente.tipo_identificacion))
+  // Detalle PEP: columnas del cliente o, si no, la solicitud KYC aprobada
+  const paresPep = camposPep(cliente, kyc)
 
   const fecha = new Date().toLocaleDateString('es-CR', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -199,6 +242,12 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, 
       border: 1px solid #e4e4ea; padding: 4px 8px; text-align: left;
     }
     table.tabla-personas th { background: #ededf1; font-weight: 600; }
+    /* ── Ficha de representante legal ── */
+    .persona-ficha {
+      border: 1px solid #e4e4ea; border-radius: 6px; padding: 6px 8px;
+      margin-bottom: 6px; page-break-inside: avoid;
+    }
+    .persona-nombre { font-weight: bold; font-size: 11px; margin-bottom: 4px; }
     /* ── Badges de estado ── */
     .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
     .badge {
@@ -304,6 +353,7 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, 
         }
         ${filaTabla('Tipo de identificación', TIPO_ID_LABEL[cliente.tipo_identificacion] || cliente.tipo_identificacion)}
         ${filaTabla('Número de identificación', cliente.numero_identificacion)}
+        ${!esJuridica ? filaTabla('Caducidad del documento', esc(fechaCorta(cliente.venc_identificacion))) : ''}
         ${esJuridica ? filaTabla('Cédula jurídica', cliente.cedula_juridica) : ''}
 
         ${esJuridica ? filaTabla('País de constitución', cliente.pais_constitucion) : ''}
@@ -325,8 +375,13 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, 
         ${filaTabla('Correo electrónico', cliente.correo_electronico)}
         ${filaTabla('Persona de contacto', cliente.nombre_contacto)}
 
+        ${filaTabla('Página web', esc(texto(cliente.pagina_web)))}
+        ${filaTabla('País(es) donde genera sus ingresos', esc(texto(cliente.paises_ingresos)))}
+
         ${filaTabla('Propósito de la relación', cliente.proposito_relacion)}
-        ${filaTabla('Origen de los fondos', cliente.origen_fondos)}
+        ${filaTabla('Origen de los fondos', esc(texto(cliente.origen_fondos)))}
+        ${filaTabla('Inscripción CCSS', esc(CCSS_LABEL[cliente.ccss_estado] || texto(cliente.ccss_estado)))}
+        ${filaTabla('Condición SUGEF (Ley 7786)', esc(SUGEF_LABEL[cliente.sugef_estado] || texto(cliente.sugef_estado)))}
         ${filaTabla('Fecha de vinculación', fechaLarga(cliente.fecha_vinculacion))}
         ${cliente.fecha_termino_relacion
           ? filaTabla('Término de relación', fechaLarga(cliente.fecha_termino_relacion))
@@ -335,9 +390,10 @@ export function imprimirFichaCliente({ cliente, personas = [], tenant, profile, 
     </table>
   </div>
 
-  ${esJuridica ? tablaPersonas(personas, 'representante_legal', 'Representantes legales') : ''}
-  ${esJuridica ? tablaPersonas(personas, 'junta_directiva',    'Junta directiva') : ''}
-  ${esJuridica ? tablaPersonas(personas, 'socio',              'Socios / Accionistas (≥ 15%)') : ''}
+  ${!esJuridica ? seccionPares('Empresa donde labora', camposEmpleador(cliente.empleador)) : ''}
+  ${hayDetallePep(paresPep) ? seccionPares('Condición PEP y relación con PEP', paresPep) : ''}
+
+  ${esJuridica ? seccionEstructura(personas) : ''}
 
   <!-- PEP Y LISTAS -->
   <div class="seccion">

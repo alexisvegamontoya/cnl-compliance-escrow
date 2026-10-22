@@ -146,6 +146,8 @@ export default function RecoleccionKYC() {
   const [filtro, setFiltro]           = useState('todas')
   const [editando, setEditando]       = useState(false)
   const [guardandoEd, setGuardandoEd] = useState(false)
+  const [unirPdf, setUnirPdf]         = useState(false)  // opción: todo en un solo PDF (por defecto, archivos separados)
+  const [uniendo, setUniendo]         = useState(false)
 
   const cargar = useCallback(async () => {
     if (!soActivo) { setLoading(false); return }
@@ -603,10 +605,78 @@ export default function RecoleccionKYC() {
     } catch { return [] }
   }
 
+  // OPCIÓN «Unir todo en un solo PDF»: expediente KYC + 3 informes + cada documento
+  // del cliente (PDF página por página; JPG/PNG una página cada uno). Lo que no se
+  // pueda unir se anota en una página final «Documentos no incluidos». Se arma en
+  // el navegador y se guarda en la carpeta del oficial: nada queda en el servidor.
+  async function descargarUnPdf() {
+    if (uniendo) return
+    setUniendo(true)
+    try {
+      // Elegir la carpeta primero (el navegador exige que sea justo tras el clic)
+      let dir = null
+      if (window.showDirectoryPicker) {
+        try { dir = await window.showDirectoryPicker() }
+        catch (e) { if (e.name === 'AbortError') { setMsgRev(''); return } dir = null }
+      }
+      setMsgRev('Preparando el expediente…')
+      const { htmlAPdfBlob } = await import('../lib/htmlPdf')
+      const { unirEnUnPdf } = await import('../lib/unirPdf')
+      const partes = []
+      const omitidosPrevios = []
+      // 1) Expediente / informe del KYC
+      try {
+        const logo = soList.find(t => t.id === revisar?.tenant_id)?.logo_url || tenant?.logo_url || null
+        const html = generarExpedienteKycHTML({ tenant: soNombre, solicitud: revisar, anexos: docsRev, logo, paraPdf: true })
+        partes.push({ nombre: 'Expediente KYC', blob: await htmlAPdfBlob(html, { filenameHint: 'Expediente-KYC' }) })
+      } catch { omitidosPrevios.push({ nombre: 'Expediente KYC (informe de la solicitud)', motivo: 'no se pudo generar' }) }
+      // 2) Los 3 informes (solo si el cliente ya está en el gestor)
+      if (revisar?.cliente_id) {
+        setMsgRev('Generando informes de listas, riesgo y debida diligencia…')
+        const extras = await armarInformesPdf()
+        if (extras.length) partes.push(...extras)
+        else omitidosPrevios.push({ nombre: 'Informes de listas, calificación de riesgo y debida diligencia', motivo: 'no se pudieron generar' })
+      }
+      // 3) Documentos del cliente, en el orden de la solicitud
+      let n = 0
+      for (const doc of docsRev) {
+        n++
+        setMsgRev(`Descargando documentos del cliente (${n}/${docsRev.length})…`)
+        const nombre = `${doc.etiqueta || doc.doc_id}${doc.nombre_archivo ? ` — ${doc.nombre_archivo}` : ''}`
+        try {
+          const { data } = await supabase.storage.from('kyc').createSignedUrl(doc.archivo_path, 600)
+          if (!data?.signedUrl) throw new Error('sin enlace')
+          const resp = await fetch(data.signedUrl)
+          if (!resp.ok) throw new Error('HTTP ' + resp.status)
+          partes.push({ nombre, blob: await resp.blob() })
+        } catch { omitidosPrevios.push({ nombre, motivo: 'no se pudo descargar del almacenamiento' }) }
+      }
+      setMsgRev('Uniendo todo en un solo PDF…')
+      const { blob, incluidos, omitidos } = await unirEnUnPdf(partes, { omitidosPrevios })
+      const base = (revisar?.nombre_cliente || 'cliente').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'cliente'
+      const archivo = `Expediente-KYC-${base}-${new Date().toISOString().slice(0, 10)}.pdf`
+      if (dir) {
+        const fh = await dir.getFileHandle(archivo, { create: true })
+        const w = await fh.createWritable(); await w.write(blob); await w.close()
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url; a.download = archivo; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 4000)
+      }
+      setMsgRev(`Se guardó «${archivo}» con ${incluidos.length} pieza(s)` +
+        (omitidos.length ? `; ${omitidos.length} documento(s) no incluido(s) (ver la última página del PDF).` : '.'))
+    } catch (e) {
+      setMsgRev('No se pudo armar el PDF único: ' + (e?.message || 'error desconocido') + '. Puede descargar los archivos por separado.')
+    } finally {
+      setUniendo(false)
+    }
+  }
+
   // Descarga los documentos + los 3 informes en PDF. Si el navegador lo permite,
   // deja ELEGIR la carpeta (File System Access API) y guarda todo ahí; si no,
   // descarga uno por uno. Nada se almacena en el servidor.
   async function descargarTodosDocs() {
+    if (unirPdf) return descargarUnPdf()
     setMsgRev('Preparando documentos e informes…')
     const extras = await armarInformesPdf()
     const total = docsRev.length + extras.length
@@ -1009,14 +1079,25 @@ export default function RecoleccionKYC() {
             </div>
 
             <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-5 py-3 flex-wrap">
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={descargarExpediente} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
                   📑 Informe (PDF)
                 </button>
                 {docsRev.length > 0 && (
-                  <button onClick={descargarTodosDocs} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
-                    ⬇ Guardar documentos{revisar.cliente_id ? ' + informes' : ''}
-                  </button>
+                  <>
+                    <button onClick={descargarTodosDocs} disabled={uniendo}
+                      className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                      {uniendo ? 'Armando PDF…'
+                        : unirPdf ? '⬇ Guardar todo en un solo PDF'
+                        : `⬇ Guardar documentos${revisar.cliente_id ? ' + informes' : ''}`}
+                    </button>
+                    <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none"
+                      title="Une el expediente, los informes y los documentos (PDF, JPG, PNG) en un único PDF. Por defecto se guardan como archivos separados.">
+                      <input type="checkbox" checked={unirPdf} disabled={uniendo}
+                        onChange={e => setUnirPdf(e.target.checked)} />
+                      Unir todo en un solo PDF
+                    </label>
+                  </>
                 )}
               </div>
               {revisar.estado === 'recibida' ? (
